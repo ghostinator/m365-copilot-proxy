@@ -35,11 +35,13 @@ const html = `<!doctype html>
 <section><h2>Recovery</h2><p>If sign-in is required, run <code>m365-proxy login</code>, then restart the proxy. Windows startup controls: <code>m365-proxy service status|start|stop</code>.</p><small>This first dashboard version is read-only. It cannot restart a stopped server or open sign-in remotely.</small></section>
 <script src="/dashboard-script"></script></html>`;
 
-const script = `const el=id=>document.getElementById(id);let key='',busy=false;
-async function refresh(){if(busy)return;busy=true;try{
-const r=await fetch('/v1/proxy/status',{headers:key?{Authorization:'Bearer '+key}:{},cache:'no-store',signal:AbortSignal.timeout(8000)});
+const script = `const el=id=>document.getElementById(id);let key='',busy=false,requestId=0,controller=null;
+function clearStatus(message){el('ready').textContent='Unavailable';el('requests').textContent='Unknown';el('expiry').textContent='';el('uptime').textContent='';el('models').textContent='';el('model-count').textContent='Models unavailable';el('budgets').replaceChildren();el('errors').replaceChildren();el('route').textContent='';el('message').textContent=message}
+async function refresh(){if(busy)return;busy=true;const id=++requestId;controller=new AbortController();try{
+const r=await fetch('/v1/proxy/status',{headers:key?{Authorization:'Bearer '+key}:{},cache:'no-store',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(8000)])});
 if(!r.ok)throw Error(r.status===401?'Enter your proxy API key to view status.':'Status unavailable (HTTP '+r.status+').');
 const s=await r.json();
+if(id!==requestId)return;
 el('ready').textContent=s.authentication.status.replaceAll('_',' ');
 el('expiry').textContent=s.authentication.expiresAt?'Token expires '+new Date(s.authentication.expiresAt).toLocaleString():'No authenticated token observed';
 el('requests').textContent=s.requests.pending+' admitted / active';
@@ -49,8 +51,9 @@ el('budgets').replaceChildren(...s.budgets.map(b=>{const li=document.createEleme
 el('route').textContent=s.lastRoute?'Last observed upstream route: '+s.lastRoute.requested+' → '+s.lastRoute.served+(s.lastRoute.fallbackUsed?' (fallback)':'')+' · '+new Date(s.lastRoute.at).toLocaleString():'No recent upstream route observed';
 el('errors').replaceChildren(...s.recentErrors.map(error=>{const li=document.createElement('li');li.textContent=new Date(error.at).toLocaleString()+' · '+error.component+': '+error.summary;return li}));if(!s.recentErrors.length){const li=document.createElement('li');li.textContent='No errors recorded in this process';el('errors').append(li)}
 el('message').textContent='Updated '+new Date().toLocaleTimeString()+' · refreshes every 15 seconds';
-}catch(e){el('ready').textContent='Unavailable';el('requests').textContent='Unknown';el('expiry').textContent='';el('uptime').textContent='';el('models').textContent='';el('model-count').textContent='Models unavailable';el('budgets').replaceChildren();el('errors').replaceChildren();el('route').textContent='';el('message').textContent=e.message;}finally{busy=false}}
-el('connect').addEventListener('submit',e=>{e.preventDefault();key=el('key').value;el('key').value='';refresh()});el('forget').addEventListener('click',()=>{key='';el('key').value='';refresh()});setInterval(()=>{if(!document.hidden)refresh()},15000);refresh();`;
+}catch(e){if(id===requestId)clearStatus(e.message)}finally{if(id===requestId){busy=false;controller=null}}}
+function changeKey(value){requestId++;controller?.abort();busy=false;key=value;el('key').value='';clearStatus('Connecting…');refresh()}
+el('connect').addEventListener('submit',e=>{e.preventDefault();changeKey(el('key').value)});el('forget').addEventListener('click',()=>changeKey(''));setInterval(()=>{if(!document.hidden)refresh()},15000);refresh();`;
 
 export function dashboardResponse(path: string): Response | null {
   if (!["/dashboard", "/dashboard-script"].includes(path)) return null;
