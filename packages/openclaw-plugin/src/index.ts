@@ -1,5 +1,6 @@
-import { getToken, getAvailableModels, createLogger } from "@m365-copilot/core";
-import { createApp } from "@m365-copilot/proxy-lib";
+import { getToken, getAvailableModels, createLogger, startAuthenticationMaintenance } from "@m365-copilot/core";
+import { createApp, modelCapabilities } from "@m365-copilot/proxy-lib";
+export { mergeOpenClawConfig, updateOpenClawConfig } from "./config.js";
 import { serve } from "srvx";
 
 const log = createLogger("openclaw-plugin");
@@ -84,11 +85,11 @@ export function generateOpenClawConfig(proxyPort: number = 4141): OpenClawConfig
   const modelConfigs: OpenClawModelConfig[] = models.map((id) => ({
     id,
     name: MODEL_DISPLAY_NAMES[id] || id,
-    reasoning: REASONING_MODELS.has(id),
-    input: ["text"],
+    reasoning: modelCapabilities(id).reasoning,
+    input: modelCapabilities(id).input,
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 128000,
-    maxTokens: 16384,
+    contextWindow: modelCapabilities(id).contextWindow,
+    maxTokens: modelCapabilities(id).maxTokens,
   }));
 
   const modelAllowlist: Record<string, { alias: string }> = {};
@@ -118,7 +119,7 @@ export function generateOpenClawConfig(proxyPort: number = 4141): OpenClawConfig
 
 export interface ProxyHandle {
   port: number;
-  close: () => void;
+  close: () => Promise<void>;
 }
 
 /**
@@ -143,7 +144,8 @@ export async function startForOpenClaw(options: { port?: number } = {}): Promise
   // Bind and resolve the *actual* port (port 0 picks a free one).
   const server = serve({ fetch: app.fetch, port, hostname: "localhost", silent: true });
   await server.ready();
-  const actualPort = server.url ? Number(new URL(server.url).port) : port;
+  const stopMaintenance = startAuthenticationMaintenance();
+  const actualPort = server.url ? Number(new URL(server.url).port || port) : port;
 
   const config = generateOpenClawConfig(actualPort);
   log.info(`Proxy started on port ${actualPort}`);
@@ -151,8 +153,10 @@ export async function startForOpenClaw(options: { port?: number } = {}): Promise
   return {
     proxy: {
       port: actualPort,
-      close: () => {
-        void server.close();
+      close: async () => {
+        stopMaintenance();
+        app.close();
+        await server.close();
       },
     },
     config,

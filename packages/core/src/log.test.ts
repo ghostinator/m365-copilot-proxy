@@ -27,8 +27,9 @@ describe("debug log and frame dump paths", () => {
   });
 
   it("take an absolute path as is, and an empty one as unset", async () => {
-    const m = await load({ M365_LOG_FILE: "/tmp/x/a.log", M365_FRAME_DIR: "" });
-    expect(m.LOG_PATH).toBe("/tmp/x/a.log");
+    const absolute = join(CONFIG_DIR, "test", "a.log");
+    const m = await load({ M365_LOG_FILE: absolute, M365_FRAME_DIR: "" });
+    expect(m.LOG_PATH).toBe(absolute);
     expect(m.FRAME_DIR).toBe(join(CONFIG_DIR, "frames"));
   });
 });

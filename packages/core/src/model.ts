@@ -2,9 +2,10 @@ import { getToken } from "./auth.js";
 import { getOrCreateAgent } from "./agent.js";
 import { CopilotSession } from "./session.js";
 import { uploadImage, type ImageAnnotation } from "./image-input.js";
-import { createLogger, trunc } from "./log.js";
+import { createLogger } from "./log.js";
 import { awaitTurnBudget } from "./turn-budget.js";
 import type { CopilotStream } from "./copilot.js";
+import { abortable } from "./limits.js";
 
 const log = createLogger("model");
 
@@ -103,14 +104,16 @@ export class ModelSession {
     images: string[] = [],
     waitForBudget: () => Promise<{ waitedMs: number }> = () => awaitTurnBudget({ signal }),
   ): Promise<CopilotStream> {
-    let token = await this.resolveToken();
+    signal?.throwIfAborted();
+    let token = await abortable(this.resolveToken(), signal);
     // Image input (#39): upload each image for this conversation; the message points at them.
     // A failed upload is said in the text, so the model doesn't answer about an image it never got.
     const annotations: ImageAnnotation[] = [];
     for (const url of images) {
       try {
-        annotations.push(await uploadImage(token, this.conversationId, url));
+        annotations.push(await uploadImage(token, this.conversationId, url, signal));
       } catch (err: any) {
+        signal?.throwIfAborted();
         log.info(`Image upload failed: ${err.message}`);
         text += `
 
@@ -122,10 +125,11 @@ export class ModelSession {
     // Resolve agent ID lazily (persists across resets), only when wanted.
     if (wantAgent && this.cachedAgentId === undefined) {
       try {
-        this.cachedAgentId = await getOrCreateAgent();
+        this.cachedAgentId = await abortable(getOrCreateAgent(), signal);
         if (this.cachedAgentId) log.info(`Using agent: ${this.cachedAgentId}`);
         else log.info("No agent available");
       } catch {
+        signal?.throwIfAborted();
         this.cachedAgentId = null;
       }
     }
@@ -139,7 +143,7 @@ export class ModelSession {
       this.currentAgentId = agentForTurn;
     }
 
-    log.info(`run: model=${model}, agent=${agentForTurn ?? "none"}, turn=${this.copilotSession.turnCount}, sid=${this.sessionId}, cid=${this.conversationId}, text=${JSON.stringify(trunc(text, 200))}`);
+    log.info(`run: model=${model}, agent=${agentForTurn ?? "none"}, turn=${this.copilotSession.turnCount}, sid=${this.sessionId}, cid=${this.conversationId}`);
 
     // Match the GUI: on the agent-less path, image gen is always available, so a
     // plain "draw me an image" produces one with no special mode (§14). Kept OFF on
@@ -151,6 +155,7 @@ export class ModelSession {
     try {
       return await this.copilotSession.chat(token, text, model, signal, turnOpts);
     } catch (err: any) {
+      signal?.throwIfAborted();
       // Session might be stale — reconnect with same IDs
       log.info("Session error, reconnecting:", err.message);
       // The reconnect is one more upstream turn, so it waits on the budget too:

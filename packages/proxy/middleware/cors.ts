@@ -1,11 +1,8 @@
-/**
- * Permissive CORS for every route, matching the old Hono `cors()` default.
- * `handleCors` returns true when it has fully handled a preflight (OPTIONS)
- * request, in which case we stop here; otherwise it appends the CORS headers
- * and the matched route runs as usual.
- */
+/** Share the exact origin and API-key policy used by the embeddable app. */
+import { corsHeaders, requestGate } from "@m365-copilot/proxy-lib";
+
 export default defineEventHandler((event) => {
-  if (handleCors(event, { origin: "*", methods: "*", allowHeaders: "*" })) {
-    return;
-  }
+  const request = new Request(getRequestURL(event), { method: event.method, headers: getRequestHeaders(event) as HeadersInit });
+  for (const [key, value] of Object.entries(corsHeaders(request))) setResponseHeader(event, key, value);
+  return requestGate(request) ?? undefined;
 });

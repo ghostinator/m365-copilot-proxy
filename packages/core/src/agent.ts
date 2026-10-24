@@ -1,13 +1,12 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import { createLogger } from "./log.js";
 import { getTokenForScope } from "./auth.js";
+import { CONFIG_DIR, atomicWritePrivate } from "./storage.js";
 
 const log = createLogger("agent");
 
-const CONFIG_DIR = join(homedir(), ".config", "opencode-m365");
 const AGENT_CACHE_FILE = join(CONFIG_DIR, "agent-id.json");
 
 const POWERPLATFORM_SCOPES = ["https://api.powerplatform.com/.default"];
@@ -21,7 +20,7 @@ const AGENT_DESCRIPTION = "Auto-created agent for tool calling";
 // updated in place (the Copilot Studio update API needs a changeToken that is
 // only returned by create). So we version the agent by NAME: the name carries a
 // short hash of the current instructions. Change the instructions -> new name ->
-// a fresh agent is created and stale versions are cleaned up. Hosts sharing a
+// a fresh agent is created and stale versions are preserved. Hosts sharing a
 // tenant independently compute the same name for the same instructions, so they
 // converge on one agent with no coordination. (Verified empirically: Copilot
 // Studio reflects displayName -> shortBotName byte-for-byte, hyphens intact.)
@@ -150,7 +149,7 @@ function loadCachedAgent(): CachedAgent | null {
 }
 
 function saveCachedAgent(data: CachedAgent): void {
-  writeFileSync(AGENT_CACHE_FILE, JSON.stringify(data, null, 2));
+  atomicWritePrivate(AGENT_CACHE_FILE, JSON.stringify(data, null, 2));
 }
 
 async function ppFetch(
@@ -366,26 +365,9 @@ export async function getOrCreateAgent(
     }
 
     // Publish to M365 Copilot and get the TitleId
-    let titleId: string;
-    try {
-      titleId = await publishBot(envUrl, ppToken, botId);
-    } catch (pubErr: any) {
-      // If publish fails (e.g. missing icon/instructions on legacy bot), delete and recreate
-      log.info(
-        `Publish failed (${pubErr.message.slice(0, 100)}), deleting and recreating bot...`,
-      );
-      await ppFetch(
-        `${envUrl}/copilotstudio/minimalBots/api/${botId}?api-version=2022-03-01-preview`,
-        ppToken,
-        {
-          method: "DELETE",
-        },
-      );
-      const created = await createBot(envUrl, ppToken);
-      botId = created.botId;
-      log.info(`Recreated agent: botId=${botId}`);
-      titleId = await publishBot(envUrl, ppToken, botId);
-    }
+    // A publish failure may be transient. The bot can be in use on another host;
+    // preserve it and surface the failure rather than deleting shared state.
+    const titleId = await publishBot(envUrl, ppToken, botId);
     const agentId = `${titleId}.${botId}.gpt.default`;
     log.info(`Full agent ID: ${agentId}`);
 

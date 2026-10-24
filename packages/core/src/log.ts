@@ -1,8 +1,7 @@
-import { appendFileSync, mkdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { homedir } from "node:os";
+import { appendFileSync, mkdirSync, renameSync, rmSync, statSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
-const CONFIG_DIR = join(homedir(), ".config", "opencode-m365");
+import { CONFIG_DIR } from "./storage.js";
 // M365_LOG_FILE and M365_FRAME_DIR are relative to CONFIG_DIR (an absolute path
 // is taken as is), so a bench sweep can point each proxy straight into its archive.
 const LOG_FILE = resolve(CONFIG_DIR, process.env.M365_LOG_FILE || "debug.log");
@@ -13,28 +12,35 @@ export const FRAME_DIR = resolve(CONFIG_DIR, process.env.M365_FRAME_DIR || "fram
 // M365_TRACE implies debug logging and disables all payload truncation, so
 // every WS frame, prompt, and response is recorded in full for reverse
 // engineering. M365_DEBUG keeps the lighter, truncated logging.
-const trace = !!process.env.M365_TRACE;
-const enabled = !!process.env.M365_DEBUG || trace;
+const flag = (value: string | undefined) => !!value && !/^(0|false|no|off)$/i.test(value);
+const trace = flag(process.env.M365_TRACE);
+const enabled = flag(process.env.M365_DEBUG) || trace;
 // Tailing ~/.config/opencode-m365/debug.log in a second terminal is the usual
 // way to watch a run; this mirrors the same lines to the proxy's own stdout so
 // one terminal is enough. Safe here because the proxy speaks HTTP — stdout is
 // not a protocol channel.
-const stdoutEnabled = !!process.env.M365_LOG_STDOUT;
+const stdoutEnabled = flag(process.env.M365_LOG_STDOUT);
 
 function timestamp(): string {
   return new Date().toISOString();
 }
 
 function write(level: string, component: string, ...args: unknown[]) {
-  if (!enabled) return;
+  if (level === "DEBUG" && !enabled) return;
+  if (!enabled && !stdoutEnabled && level !== "ERROR") return;
   const msg = args
     .map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 2)))
     .join(" ");
-  const line = `[${timestamp()}] [${level}] [${component}] ${msg}\n`;
-  if (stdoutEnabled) process.stdout.write(line);
+  const safe = msg.replace(/(Bearer\s+)[^\s"']+/gi, "$1[redacted]").replace(/((?:access_token|refresh_token|password|mfaSecret)["']?\s*[:=]\s*["']?)[^\s"'&,}]+/gi, "$1[redacted]");
+  const line = `[${timestamp()}] [${level}] [${component}] ${safe.slice(0, trace ? 1_000_000 : 16_000)}\n`;
+  if (stdoutEnabled || level === "ERROR") process.stderr.write(line);
   try {
-    mkdirSync(LOG_DIR, { recursive: true });
-    appendFileSync(LOG_FILE, line);
+    mkdirSync(LOG_DIR, { recursive: true, mode: 0o700 });
+    if (statSync(LOG_FILE, { throwIfNoEntry: false })?.size! > 10 * 1024 * 1024) {
+      rmSync(`${LOG_FILE}.1`, { force: true });
+      renameSync(LOG_FILE, `${LOG_FILE}.1`);
+    }
+    appendFileSync(LOG_FILE, line, { mode: 0o600 });
   } catch {
     // best effort
   }
@@ -61,5 +67,5 @@ export const LOG_PATH = LOG_FILE;
 
 /** Whether this process writes its debug log (M365_DEBUG / M365_TRACE). */
 export function fileLoggingEnabled(): boolean {
-  return enabled;
+  return enabled || stdoutEnabled;
 }

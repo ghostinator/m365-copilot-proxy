@@ -1,0 +1,21 @@
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { afterEach, expect, it, vi } from 'vitest';
+afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+it('logs operational errors without debug, redacts credentials, and rotates bounded logs', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'm365-logs-')), path = join(dir, 'debug.log');
+  vi.stubEnv('M365_LOG_FILE', path); vi.stubEnv('M365_DEBUG', '0'); vi.stubEnv('M365_TRACE', 'false'); vi.stubEnv('M365_LOG_STDOUT', '0');
+  vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+  vi.resetModules();
+  const { createLogger } = await import('./log.js');
+  const logger = createLogger('test');
+  logger.debug('private prompt should not be logged');
+  logger.error('Authorization: Bearer secret-token password=hidden-value');
+  const line = readFileSync(path, 'utf8');
+  expect(line).toContain('[ERROR]'); expect(line).not.toContain('secret-token'); expect(line).not.toContain('hidden-value'); expect(line).not.toContain('private prompt');
+  writeFileSync(path, Buffer.alloc(10 * 1024 * 1024 + 1, 32));
+  logger.error('rotated');
+  expect(statSync(path + '.1').size).toBeGreaterThan(10 * 1024 * 1024);
+  expect(statSync(path).size).toBeLessThan(1000);
+});

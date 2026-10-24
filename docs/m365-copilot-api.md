@@ -379,6 +379,18 @@ Two `Progress` shapes are worth reading rather than skipping, both first seen on
 ### End of turn
 A `type:2` (stream item), `type:3` (completion), or `type:7` (close) ends the turn; we close the socket. Reply to `type:6` pings in the meantime.
 
+**Local transport guardrails (Oct 24, 2026):** the proxy rejects a socket close
+before the handshake instead of leaving `chat()` pending, and rejects an
+unexpected close before an end-of-turn frame. The defaults are a 30-second
+connection/handshake deadline, 180 seconds without upstream frames, and 600
+seconds for a complete upstream turn. `M365_CONNECT_TIMEOUT_MS`,
+`M365_IDLE_TIMEOUT_MS` and `M365_TURN_TIMEOUT_MS` override them. These are local
+operational limits, not inferred M365 limits. Client cancellation still sends
+the captured Stop frame; if no acknowledgement arrives the socket is terminated
+after two seconds. Cancelling an SSE reader and service shutdown also propagate
+the abort. Deterministic fake-socket tests cover close and timeout paths; no new
+wire format, framing strategy or model-routing behavior was introduced.
+
 ### Cancelling a turn (the "Stop generating" button)
 Captured from the real `m365.cloud.microsoft` client (June 2026, `scripts/cancel-frame-capture.mjs`): clicking **Stop generating** sends a single frame **on the same socket**, then the client closes it:
 ```
@@ -449,6 +461,16 @@ conversation at `1/600`). Characterised behaviour:
 ---
 
 ## 8. Conversations & sessions
+
+**Local client isolation (Oct 24, 2026):** `SessionPool` reuses an M365 conversation
+only when the incoming history extends its exact acknowledged prefix and matches
+the assistant reply returned to the client. Histories are compared using SHA-256
+digests of complete messages (including image parts and tool calls). Caller
+identity, an optional `X-Conversation-Id`/`conversation_id`, tool parameters and
+tool-choice mode scope the lookup. Ambiguous histories start fresh. Complete
+upstream turns are serialized within the serving pool, and retained sessions
+and pending requests have configurable bounds. This corrects local session
+matching; it does not change how M365 stores a conversation.
 
 - A "conversation" = a stable `ConversationId` (+ `X-SessionId`). M365 keeps **server-side context** for it.
 - Each **turn opens a fresh WebSocket** (with `invocationId:"0"`), but reuses the same `ConversationId`/`sessionId`, so the server threads them together. `isStartOfSession:true` only on turn 0.

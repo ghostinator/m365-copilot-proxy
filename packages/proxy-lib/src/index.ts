@@ -1,6 +1,8 @@
 import { type ModelSessionOptions, getAvailableModels } from "@m365-copilot/core";
 import { ChatCompletionRequest } from "./schemas.js";
 import { SessionPool, handleChatCompletion } from "./handler.js";
+import { callerIdentity, corsHeaders, modelCapabilities, readJsonBody, readinessResponse, requestGate } from "./http-policy.js";
+export { callerIdentity, corsHeaders, modelCapabilities, readJsonBody, readinessResponse, requestGate, validateBind } from "./http-policy.js";
 
 export { SessionPool, handleChatCompletion } from "./handler.js";
 export { ChatCompletionRequest, ChatMessage, ToolCall, ToolDefinition } from "./schemas.js";
@@ -20,7 +22,7 @@ export {
 
 // --- Shared response payloads (reused by the Nitro routes in @m365-copilot/proxy) ---
 
-/** Static body for `GET /health`. */
+/** Static liveness body; readiness is based on authentication state. */
 export const HEALTH_PAYLOAD = { status: "ok" } as const;
 
 // Window/output hints surfaced to harnesses on /v1/models so they can size
@@ -31,9 +33,6 @@ export const HEALTH_PAYLOAD = { status: "ok" } as const;
 // cap generation far below what a coding turn needs. Advertise a roomy 1M window +
 // 1M output (in line with modern large-context models) so nothing client-side clips.
 // Override via env.
-const CONTEXT_WINDOW_TOKENS = Number(process.env.M365_CONTEXT_WINDOW) || 1_000_000;
-const MAX_OUTPUT_TOKENS = Number(process.env.M365_MAX_OUTPUT_TOKENS) || 1_000_000;
-
 /** Build the OpenAI-compatible `GET /v1/models` payload. */
 export function buildModelsPayload() {
   const created = Math.floor(Date.now() / 1000);
@@ -47,24 +46,16 @@ export function buildModelsPayload() {
       // Non-standard but widely-read by OpenAI-compatible harnesses. Several
       // aliases because clients disagree on the key name. Unknown keys are
       // ignored by strict clients.
-      context_window: CONTEXT_WINDOW_TOKENS,
-      max_context_length: CONTEXT_WINDOW_TOKENS,
-      max_input_tokens: CONTEXT_WINDOW_TOKENS,
-      max_output_tokens: MAX_OUTPUT_TOKENS,
+      context_window: modelCapabilities(id).contextWindow,
+      max_context_length: modelCapabilities(id).contextWindow,
+      max_input_tokens: modelCapabilities(id).contextWindow,
+      max_output_tokens: modelCapabilities(id).maxTokens,
     })),
   };
 }
 
-// --- CORS (permissive, matches the previous Hono `cors()` default) ---
-
-const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
-function withCors(res: Response): Response {
-  for (const [k, v] of Object.entries(CORS_HEADERS)) res.headers.set(k, v);
+function withCors(res: Response, req: Request): Response {
+  for (const [k, v] of Object.entries(corsHeaders(req))) res.headers.set(k, v);
   return res;
 }
 
@@ -78,6 +69,7 @@ function json(status: number, body: unknown): Response {
 /** A minimal Web fetch handler — the same shape Hono exposed via `app.fetch`. */
 export interface FetchApp {
   fetch(req: Request): Promise<Response>;
+  close(): void;
 }
 
 /**
@@ -96,35 +88,37 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
     const { pathname } = new URL(req.url);
     const method = req.method.toUpperCase();
 
-    if (method === "OPTIONS") {
-      return withCors(new Response(null, { status: 204 }));
-    }
+    const gate = requestGate(req);
+    if (gate) return gate;
 
-    if (method === "GET" && pathname === "/health") {
-      return withCors(json(200, HEALTH_PAYLOAD));
+    if (method === "GET" && ["/health", "/health/ready"].includes(pathname)) {
+      return withCors(readinessResponse(), req);
+    }
+    if (method === "GET" && pathname === "/health/live") {
+      return withCors(json(200, HEALTH_PAYLOAD), req);
     }
 
     if (method === "GET" && pathname === "/v1/models") {
-      return withCors(json(200, buildModelsPayload()));
+      return withCors(json(200, buildModelsPayload()), req);
     }
 
     if (method === "POST" && pathname === "/v1/chat/completions") {
       let body: ReturnType<typeof ChatCompletionRequest.parse>;
       try {
-        body = ChatCompletionRequest.parse(await req.json());
+        body = ChatCompletionRequest.parse(await readJsonBody(req.body, req.headers.get("content-length"), req.signal));
       } catch (err: any) {
         return withCors(
-          json(400, { error: { message: err.message, type: "invalid_request_error" } }),
+          json(/size limit/.test(err.message) ? 413 : 400, { error: { message: err.message, type: "invalid_request_error" } }), req,
         );
       }
       // req.signal aborts when the client disconnects → cancels the M365 turn.
-      return withCors(await handleChatCompletion(body, pool, { signal: req.signal }));
+      return withCors(await handleChatCompletion(body, pool, { signal: req.signal, conversationId: req.headers.get("x-conversation-id") ?? undefined, callerId: callerIdentity(req.headers) }), req);
     }
 
     return withCors(
-      json(404, { error: { message: "Not found", type: "invalid_request_error" } }),
+      json(404, { error: { message: "Not found", type: "invalid_request_error" } }), req,
     );
   }
 
-  return { fetch };
+  return { fetch, close: () => pool.close() };
 }

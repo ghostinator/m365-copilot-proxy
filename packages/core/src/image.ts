@@ -14,6 +14,7 @@ import { CopilotSession } from "./session.js";
 import { createLogger, trunc } from "./log.js";
 import { awaitTurnBudget } from "./turn-budget.js";
 import type { CapturedImage } from "./copilot.js";
+import { abortable, boundedBytes, positiveInt, requestSignal } from "./limits.js";
 
 const log = createLogger("image");
 
@@ -117,13 +118,16 @@ export function buildImagePrompt(prompt: string, opts: { orientation?: ImageOrie
 export async function fetchImageBytes(
   url: string,
   artifactToken: string,
+  signal?: AbortSignal,
 ): Promise<{ data: Buffer; contentType: string }> {
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${artifactToken}` } });
+  const parsed = new URL(url);
+  if (parsed.protocol !== "https:" || !(parsed.hostname === "designerapp.officeapps.live.com" || parsed.hostname.endsWith(".officeapps.live.com"))) throw new Error("Untrusted image artifact host");
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${artifactToken}` }, signal: requestSignal(signal), redirect: "error" });
   if (!res.ok) {
     throw new Error(`Image artifact fetch failed: ${res.status} ${res.statusText} for ${url.slice(0, 120)}`);
   }
   const contentType = res.headers.get("content-type") ?? "image/png";
-  const data = Buffer.from(await res.arrayBuffer());
+  const data = await boundedBytes(res, positiveInt(process.env.M365_MAX_IMAGE_BYTES, 20 * 1024 * 1024));
   return { data, contentType };
 }
 
@@ -137,7 +141,7 @@ export async function generateImage(
   prompt: string,
   opts: GenerateImageOptions = {},
 ): Promise<GeneratedImage[]> {
-  const token = opts.token ?? (await getToken());
+  const token = opts.token ?? (await abortable(getToken(), opts.signal));
   const model = opts.model ?? "m365-copilot";
   const effectivePrompt = buildImagePrompt(prompt, { orientation: opts.orientation, style: opts.style });
 
@@ -178,14 +182,14 @@ export async function generateImage(
     }));
   }
 
-  const artifactToken = opts.artifactToken ?? (await getImageArtifactToken());
+  const artifactToken = opts.artifactToken ?? (await abortable(getImageArtifactToken(), opts.signal));
   if (!artifactToken) {
     throw new Error("Could not acquire designerappservice token to fetch image bytes");
   }
 
   const out: GeneratedImage[] = [];
   for (const { url, meta } of urls) {
-    const { data, contentType } = await fetchImageBytes(url, artifactToken);
+    const { data, contentType } = await fetchImageBytes(url, artifactToken, opts.signal);
     out.push({ url, contentType, data, base64: data.toString("base64"), size: meta.size, orientation: meta.orientation });
   }
   return out;

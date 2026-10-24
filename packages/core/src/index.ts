@@ -6,7 +6,13 @@ export {
   loginAutomated,
   loadSecrets,
   forceReauth,
+  authenticationStatus,
+  refreshAuthenticationSilently,
+  startAuthenticationMaintenance,
 } from "./auth.js";
+
+export { CONFIG_DIR, atomicWritePrivate, statePaths } from "./storage.js";
+export { abortable, positiveInt, boundedBytes, requestSignal } from "./limits.js";
 
 export {
   generateImage,

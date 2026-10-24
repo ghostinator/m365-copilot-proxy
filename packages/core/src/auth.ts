@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
-import { homedir } from "node:os";
+import { CONFIG_DIR, atomicWritePrivate, withBrowserProfile } from "./storage.js";
 
 const CLIENT_ID = "c0ab8ce9-e9a0-42e7-b064-33d422df41f1";
 const AUTHORITY = "https://login.microsoftonline.com/common";
@@ -36,11 +36,9 @@ export function getImageArtifactToken(): Promise<string | null> {
 import { createLogger } from "./log.js";
 const log = createLogger("auth");
 
-const CONFIG_DIR = join(homedir(), ".config", "opencode-m365");
-
 function resolveFile(envVar: string, defaultName: string): string {
   if (process.env[envVar]) return process.env[envVar]!;
-  mkdirSync(CONFIG_DIR, { recursive: true });
+  mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
   return join(CONFIG_DIR, defaultName);
 }
 
@@ -80,9 +78,7 @@ function loadCache(app: msal.PublicClientApplication) {
 }
 
 function saveCache(app: msal.PublicClientApplication) {
-  try {
-    writeFileSync(CACHE_FILE, app.getTokenCache().serialize());
-  } catch {}
+  atomicWritePrivate(CACHE_FILE, app.getTokenCache().serialize());
 }
 
 let _app: msal.PublicClientApplication | null = null;
@@ -328,6 +324,15 @@ async function runBrowserLogin(
   creds: Credentials,
   attempts = 3,
 ): Promise<string | null> {
+  return withBrowserProfile(BROWSER_PROFILE_DIR, () => runBrowserLoginOwned(app, scopes, creds, attempts));
+}
+
+async function runBrowserLoginOwned(
+  app: msal.PublicClientApplication,
+  scopes: string[],
+  creds: Credentials,
+  attempts = 3,
+): Promise<string | null> {
   const { chromium } = await import("playwright");
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -424,6 +429,7 @@ async function runBrowserLogin(
 
 export async function getTokenSilent(): Promise<string | null> {
   const app = getApp();
+  loadCache(app); // pick up an explicit login completed by the operator's CLI
   const accounts = await app.getTokenCache().getAllAccounts();
   if (accounts.length === 0) return null;
 
@@ -434,7 +440,8 @@ export async function getTokenSilent(): Promise<string | null> {
     });
     saveCache(app);
     return result.accessToken;
-  } catch {
+  } catch (error: any) {
+    if (error.name === "StatePersistenceError") throw error;
     return null;
   }
 }
@@ -481,6 +488,10 @@ export async function loginAutomated(
  * `client_secret` we can never hold (H13.2, AADSTS7000218, live). Don't re-add it.
  */
 async function loginInteractiveForScopes(scopes: string[]): Promise<string> {
+  return withBrowserProfile(BROWSER_PROFILE_DIR, () => loginInteractiveOwned(scopes));
+}
+
+async function loginInteractiveOwned(scopes: string[]): Promise<string> {
   if (!interactiveAllowed()) {
     throw new Error("Interactive login is disabled (M365_NO_INTERACTIVE=1)");
   }
@@ -645,6 +656,7 @@ export async function getTokenForScope(scopes: string[]): Promise<string | null>
       saveCache(app);
       return result.accessToken;
     } catch (err: any) {
+      if (err.name === "StatePersistenceError") throw err;
       log.info(`getTokenForScope: silent failed (${err.message}), trying browser login`);
     }
   }
@@ -667,8 +679,43 @@ export async function getTokenForScope(scopes: string[]): Promise<string | null>
 // instead of racing several browser logins against the same account.
 let inflightToken: Promise<string> | null = null;
 
+let authenticatedUntil = 0;
+let authFailure = false;
+export function authenticationStatus() {
+  return { status: authenticatedUntil > Date.now() ? "ready" : authFailure || authenticatedUntil > 0 ? "auth_required" : "starting", expiresAt: authenticatedUntil > 0 ? new Date(authenticatedUntil).toISOString() : null } as const;
+}
+
+function rememberAuthentication(token: string): string {
+  try { authenticatedUntil = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()).exp * 1000; }
+  catch { authenticatedUntil = Date.now() + 60_000; }
+  if (!Number.isFinite(authenticatedUntil)) authenticatedUntil = Date.now() + 60_000;
+  authFailure = false;
+  return token;
+}
+
+/** Background maintenance never launches a browser or types stored credentials. */
+export async function refreshAuthenticationSilently(): Promise<boolean> {
+  const token = await getTokenSilent();
+  if (token) { rememberAuthentication(token); return true; }
+  if (authenticatedUntil <= Date.now()) authFailure = true;
+  return false;
+}
+
+/** Used by both standalone and embedded servers; never sends a chat turn. */
+export function startAuthenticationMaintenance(): () => void {
+  let refreshing = false;
+  const timer = setInterval(() => {
+    const state = authenticationStatus();
+    if (refreshing || (state.expiresAt && Date.parse(state.expiresAt) - Date.now() > 5 * 60_000)) return;
+    refreshing = true;
+    void refreshAuthenticationSilently().catch(error => log.error(error.message)).finally(() => { refreshing = false; });
+  }, 60_000);
+  timer.unref();
+  return () => clearInterval(timer);
+}
+
 export function getToken(): Promise<string> {
-  return (inflightToken ??= doGetToken().finally(() => {
+  return (inflightToken ??= doGetToken().then(rememberAuthentication, error => { authenticatedUntil = 0; authFailure = true; throw error; }).finally(() => {
     inflightToken = null;
   }));
 }

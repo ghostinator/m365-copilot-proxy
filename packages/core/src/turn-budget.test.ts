@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import {
   awaitTurnBudget,
   budgetConfig,
@@ -49,6 +49,11 @@ function clock(start = T0) {
 }
 
 afterEach(() => { vi.useRealTimers(); resetTurnBudget(); });
+
+it("preserves native absolute log paths, including Windows drive letters", () => {
+  const a = join(tmpdir(), "first log.log"), b = join(tmpdir(), "second.log");
+  expect(budgetConfig({ M365_BUDGET_LOGS: [a, b].join(delimiter) }).dirs).toEqual(expect.arrayContaining([a,b]));
+});
 
 describe("readLogEvents", () => {
   it("reads only what was appended since the last read", () => {

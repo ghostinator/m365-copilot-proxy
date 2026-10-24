@@ -1,14 +1,14 @@
-import { ChatCompletionRequest, handleChatCompletion } from "@m365-copilot/proxy-lib";
+import { callerIdentity, ChatCompletionRequest, handleChatCompletion, readJsonBody } from "@m365-copilot/proxy-lib";
 import { pool } from "../../../server-pool";
 
 export default defineEventHandler(async (event) => {
   let body: ReturnType<typeof ChatCompletionRequest.parse>;
   try {
-    body = ChatCompletionRequest.parse(await readBody(event));
+    body = ChatCompletionRequest.parse(await readJsonBody(getRequestWebStream(event), getHeader(event, "content-length")));
   } catch (err: any) {
     return new Response(
       JSON.stringify({ error: { message: err.message, type: "invalid_request_error" } }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+      { status: /size limit/.test(err.message) ? 413 : 400, headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -23,11 +23,11 @@ export default defineEventHandler(async (event) => {
     let finished = false;
     res.once("finish", () => { finished = true; });
     const maybeAbort = () => { if (!finished && !res.writableEnded) ac.abort(); };
-    req.once("close", maybeAbort);
+    req.once("aborted", maybeAbort);
     res.once("close", maybeAbort);
   }
 
   // handleChatCompletion returns a Web Response (JSON or an SSE ReadableStream
   // when stream:true). Returning it directly lets h3 forward it untouched.
-  return handleChatCompletion(body, pool, { signal: ac.signal });
+  return handleChatCompletion(body, pool, { signal: ac.signal, conversationId: getHeader(event, "x-conversation-id"), callerId: callerIdentity(new Headers(getRequestHeaders(event) as HeadersInit)) });
 });
