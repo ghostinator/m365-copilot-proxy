@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { createServer } from "node:net";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -62,3 +62,23 @@ async function start(authenticated, extra = {}) {
 await start(false);
 await start(true, { M365_API_KEY: "" });
 await start(true, { M365_API_KEY: "offline-test-key" });
+const clientDir = mkdtempSync(join(tmpdir(), "m365-clients-"));
+const clientEnv = { ...process.env, M365_DATA_DIR: clientDir, M365_API_KEY: "offline-client-secret", HOST: "127.0.0.1", NITRO_HOST: "127.0.0.1", PORT: "4141", NITRO_PORT: "4141" };
+delete clientEnv.NODE_OPTIONS;
+const launcher = process.argv[2] || join(root, "packages/proxy/bin/m365-proxy.mjs");
+for (const client of ["pi", "openclaw"]) {
+  const path = join(clientDir, client, "config.json");
+  const args = [launcher, "client", "setup", client, "--config", path];
+  const dry = execFileSync(process.execPath, [...args, "--dry-run"], { env: clientEnv, windowsHide: true, encoding: "utf8" });
+  assert(!existsSync(path));
+  assert(!dry.includes("offline-client-secret"));
+  execFileSync(process.execPath, args, { env: clientEnv, windowsHide: true });
+  const config = JSON.parse(readFileSync(path, "utf8"));
+  const provider = client === "pi" ? config.providers.m365 : config.models.providers.m365;
+  assert.equal(provider.apiKey, "offline-client-secret");
+  assert(provider.models.some(m => m.id === "claude-sonnet"));
+}
+const info = execFileSync(process.execPath, [launcher, "client", "info"], { env: clientEnv, windowsHide: true, encoding: "utf8" });
+assert(!info.includes("offline-client-secret"));
+assert.equal(JSON.parse(info).recommendedModel, "claude-sonnet");
+console.log("PASS: isolated pi/OpenClaw configuration, dry-run and credential-free client info");
