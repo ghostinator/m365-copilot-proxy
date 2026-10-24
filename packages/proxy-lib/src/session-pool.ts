@@ -70,4 +70,5 @@ export class SessionPool {
     state.lastAccessedAt = Date.now();
   }
   get size() { return this.conversations.size; }
+  get status() { return { sessions: this.conversations.size, pending: this.waiting }; }
 }

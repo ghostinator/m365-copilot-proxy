@@ -53,7 +53,7 @@ export async function main(args) {
   let command = args[0] || "serve";
   if (/^\d+$/.test(command)) { process.env.NITRO_PORT = process.env.PORT = command; command = "serve"; }
   if (["--help", "-h", "help"].includes(command)) {
-    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy service install|status|start|stop|uninstall\nm365-proxy diagnostics [output.json]\n\nConfiguration: " + configPath);
+    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy service install|status|start|stop|uninstall\nm365-proxy diagnostics [output.json]\nm365-proxy client setup pi [--config path] [--base-url URL] [--dry-run] [--replace]\nDashboard: http://127.0.0.1:<port>/dashboard\n\nConfiguration: " + configPath);
     return;
   }
   if (command === "service") {
@@ -75,11 +75,28 @@ export async function main(args) {
     }
     throw new Error("Proxy did not acknowledge shutdown; use service stop to verify and stop a supervised process");
   }
-  if (!["serve", "setup", "login", "doctor", "diagnostics"].includes(command)) throw new Error(`Unknown command: ${command}; use --help`);
+  if (!["serve", "setup", "login", "doctor", "diagnostics", "client"].includes(command)) throw new Error(`Unknown command: ${command}; use --help`);
   if (command === "serve" && args[1]) process.env.NITRO_PORT = process.env.PORT = args[1];
   const config = settings();
   const runtime = await import(runtimeUrl.href);
   runtime.validateBind(config.host);
+  if (command === "client") {
+    if (args[1] !== "setup" || args[2] !== "pi") throw new Error("Use client setup pi [--config path] [--base-url URL] [--dry-run] [--replace]");
+    const options = {};
+    for (let i = 3; i < args.length; i++) {
+      const flag = args[i];
+      if (["--dry-run", "--replace"].includes(flag)) options[flag] = true;
+      else if (["--config", "--base-url"].includes(flag) && args[i + 1] && !args[i + 1].startsWith("--")) options[flag] = args[++i];
+      else throw new Error(`Unknown or incomplete client option: ${flag}`);
+    }
+    const path = resolve(options["--config"] || join(process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent"), "models.json"));
+    const host = ["0.0.0.0", "::"].includes(config.host) ? "127.0.0.1" : config.host;
+    const url = options["--base-url"] || `http://${host.includes(":") ? `[${host}]` : host}:${config.port}/v1`;
+    const result = runtime.setupPiClient(path, url, process.env.M365_API_KEY || "", !!options["--dry-run"], !!options["--replace"]);
+    console.log(JSON.stringify(result, null, 2));
+    console.log("Connect with: pi --provider m365 --model claude-sonnet");
+    return;
+  }
   if (command === "setup") {
     protectDataDir();
     if (!existsSync(configPath)) runtime.atomicWritePrivate(configPath, JSON.stringify(config, null, 2) + "\n");

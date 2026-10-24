@@ -1,6 +1,9 @@
 import { type ModelSessionOptions, getAvailableModels } from "@m365-copilot/core";
 import { ChatCompletionRequest } from "./schemas.js";
 import { SessionPool, handleChatCompletion } from "./handler.js";
+import { dashboardResponse, operatorStatus } from "./dashboard.js";
+export { dashboardResponse, operatorStatus } from "./dashboard.js";
+export { setupPiClient, piProvider } from "./client-setup.js";
 import { callerIdentity, corsHeaders, modelCapabilities, readJsonBody, readinessResponse, requestGate } from "./http-policy.js";
 export { callerIdentity, corsHeaders, modelCapabilities, readJsonBody, readinessResponse, requestGate, validateBind } from "./http-policy.js";
 
@@ -90,6 +93,12 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
 
     const gate = requestGate(req);
     if (gate) return gate;
+
+    if (method === "GET") {
+      const dashboard = dashboardResponse(pathname);
+      if (dashboard) return dashboard;
+      if (pathname === "/v1/proxy/status") return withCors(Response.json(operatorStatus(pool), { headers: { "Cache-Control": "no-store" } }), req);
+    }
 
     if (method === "GET" && ["/health", "/health/ready"].includes(pathname)) {
       return withCors(readinessResponse(), req);

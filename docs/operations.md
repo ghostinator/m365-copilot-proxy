@@ -33,6 +33,34 @@ After a successful login:
 
 The task uses the current user's interactive identity, stays attached to a watchdog, has no 72-hour execution limit and disallows duplicate task instances. The watchdog restarts unexpected Node failures up to three times, five seconds apart; authentication/configuration exit 78 is not retried rapidly. `M365_SERVICE_RESTARTS=0..10` adjusts the watchdog's bound. Task Scheduler is additionally configured with three one-minute fallback retries. It opens no console or login window. `start` waits for `/health/ready`. `stop` verifies the recorded process identity and asks the server to drain; after 20 seconds it can force-stop the verified process. Logs are in `service-logs` under the data directory. Startup registration is separate from installing the files. Uninstall removes the startup task and preserves account/configuration state; remove application files separately when no longer needed.
 
+## Local dashboard and pi setup
+
+Visit `http://127.0.0.1:4141/dashboard` while the proxy runs. The first dashboard
+version is read-only: readiness, authentication expiry, uptime, admitted requests,
+remembered conversations, advertised models, known priority-access exhaustion and
+configured fallback routes. It sends no Microsoft requests. Remaining allowances
+are explicitly unknown; a missing exhaustion record does not mean quota remains.
+If a proxy API key is configured, enter it in the page to read status. The page
+holds it in memory only and never stores it in browser storage or the URL. Closing
+or reloading the page clears it. Recent errors, tray controls and browser-managed
+start/stop are tracked in [the roadmap](roadmap.md).
+
+Configure pi without manually editing JSON:
+
+```text
+m365-proxy client setup pi --dry-run
+m365-proxy client setup pi
+pi --provider m365 --model claude-sonnet
+```
+
+The command uses `PI_CODING_AGENT_DIR/models.json`, or `~/.pi/agent/models.json`,
+and the current server endpoint/key and model registry. Other providers and top-level
+settings are preserved. Existing different `m365` settings require `--replace`;
+an exact private backup is made before writing. Invalid JSON is left untouched.
+Dry-run writes nothing and prints no API key. `--config path` selects another file;
+`--base-url https://host/v1` selects another endpoint. Remote endpoints require
+HTTPS. Setup sends no chat, changes no pi defaults and does not install pi itself.
+
 ## Configuration and security
 
 `setup` creates a private `server.json` in the data directory if none exists:

@@ -30,6 +30,13 @@ async function start(authenticated, extra = {}) {
     }
     assert.match(logs, new RegExp(`Listening on http://127\\.0\\.0\\.1:${port}`), logs);
     const base = `http://127.0.0.1:${port}`;
+    const dashboard = await fetch(base + "/dashboard");
+    assert.equal(dashboard.status, 200);
+    assert.match(await dashboard.text(), /M365 Copilot Proxy/);
+    assert.equal((await fetch(base + "/dashboard-script")).status, 200);
+    assert.equal((await fetch(base + "/v1/proxy/status")).status, extra.M365_API_KEY ? 401 : 200);
+    const operator = await fetch(base + "/v1/proxy/status", { headers: extra.M365_API_KEY ? { authorization: `Bearer ${extra.M365_API_KEY}` } : {} });
+    assert.equal((await operator.json()).authentication.status, "ready");
     assert.equal((await fetch(base + "/health/ready")).status, 200);
     assert.equal((await fetch(base + "/health/live")).status, 200);
     assert.equal((await fetch(base + "/v1/models")).status, extra.M365_API_KEY ? 401 : 200);
