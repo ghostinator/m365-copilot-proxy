@@ -1,6 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createApp } from "./index.js";
 import { activePriorityAccessExhaustion, notePriorityAccessExhausted, resetPriorityAccessState } from "@m365-copilot/core";
+import { createContext, runInContext } from "node:vm";
+import { dashboardResponse } from "./dashboard.js";
 
 afterEach(() => { vi.unstubAllEnvs(); resetPriorityAccessState(); });
 
@@ -35,4 +37,29 @@ it("reports an observed budget wall and fallback without the upstream refusal te
     expect(JSON.stringify(status)).not.toContain("private upstream text");
     expect(activePriorityAccessExhaustion("opus")).not.toBeNull();
   } finally { app.close(); }
+});
+
+it("forgets protected data immediately and discards a late response from the previous key", async () => {
+  const elements = new Map<string, any>();
+  const element = (id: string) => {
+    if (!elements.has(id)) elements.set(id, { textContent: "", value: "", listeners: {} as Record<string, Function>, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren() {}, append() {} });
+    return elements.get(id);
+  };
+  const pending: { resolve: (value: any) => void; signal: AbortSignal }[] = [];
+  const context = createContext({ document: { getElementById: element, hidden: false, createElement: () => ({}) }, fetch: (_url: string, options: { signal: AbortSignal }) => new Promise(resolve => pending.push({ resolve, signal: options.signal })), AbortController, AbortSignal, setInterval: () => 0 });
+  runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
+  element("key").value = "old-key";
+  element("connect").listeners.submit({ preventDefault() {} });
+  element("forget").listeners.click();
+  expect(element("key").value).toBe("");
+  expect(element("ready").textContent).toBe("Unavailable");
+  expect(pending[1].signal.aborted).toBe(true);
+  // A misbehaving transport can still finish after cancellation; the generation
+  // check must prevent it from restoring data for the forgotten credential.
+  pending[1].resolve({ ok: true, json: async () => ({ authentication: { status: "ready" }, requests: {}, models: [], budgets: [], recentErrors: [] }) });
+  await new Promise(resolve => setImmediate(resolve));
+  expect(element("ready").textContent).toBe("Unavailable");
+  pending[2].resolve({ ok: false, status: 401 });
+  await new Promise(resolve => setImmediate(resolve));
+  expect(element("message").textContent).toContain("Enter your proxy API key");
 });
