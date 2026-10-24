@@ -5682,3 +5682,19 @@ locked Playwright and Playwright-core packages. Isolated release verification ru
 outside the checkout, with empty account state and paths containing spaces.
 Operational documentation: [operations](operations.md); local transport and
 conversation changes are promoted into API reference sections 6 and 8.
+
+### Windows package live smoke — Oct 24
+
+Hypothesis: the packaged Windows runtime can reuse the existing sign-in and drive
+a real pi file-write loop. Falsifier: startup/auth fails or the isolated workdir
+lacks the exact unique sentinel. With the user's explicit Nix-rule exception,
+`scripts/windows/Test-Proxy.ps1 -Tools` served one `claude-sonnet` conversation:
+the exact sentinel exists and pi reported its readback (n=1). No framing/model
+changes or additional conversations were tested. Evidence:
+[`live-smoke-evidence-2026-10-24.json`](live-smoke-evidence-2026-10-24.json).
+
+The wrapper had a false negative because Windows PowerShell lost the child's exit
+code after waiting. Retaining its native handle fixes that local issue; separate
+children returning 0 and 17 verified both outcomes without API calls. The server
+was stopped gracefully. This single sample supports install/runtime usability;
+it does not establish reliability, solve rate or long-running startup behavior.

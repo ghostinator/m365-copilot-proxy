@@ -39,6 +39,9 @@ exit $LASTEXITCODE
     $childPath = Join-Path $scratch 'run.ps1'
     [IO.File]::WriteAllText($childPath,$childScript)
     $runner = Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',('"'+$childPath+'"')) -WindowStyle Hidden -RedirectStandardOutput (Join-Path $scratch 'stdout.log') -RedirectStandardError (Join-Path $scratch 'stderr.log') -PassThru
+    # Retain the native handle before waiting: Windows PowerShell can otherwise
+    # discard it on exit and expose a null ExitCode for a successful child.
+    $null = $runner.Handle
     if (-not $runner.WaitForExit(180000)) {
         & taskkill.exe /PID $runner.Id /T /F | Out-Null
         throw ('The isolated pi run timed out; its own process tree was stopped. Evidence: '+$scratch)

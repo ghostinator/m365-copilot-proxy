@@ -35,6 +35,8 @@ Runnable probes live under `scripts/test-*.mjs`, `scripts/test-windows-*.ps1` an
 
 ## Remaining validation boundaries
 
-The real M365/pi smoke test is awaiting the requested exception to AGENTS.md's Nix-shell rule because this Windows host has no Nix. The prepared command is `scripts\windows\Test-Proxy.ps1 -Tools` against the finished package's running endpoint. It uses one isolated pi profile, one conversation and a unique file marker. No live pass rate or account compatibility is claimed yet.
+The user authorized one Windows-native exception to AGENTS.md's Nix-shell rule. The finished Windows package authenticated with the existing account, became ready, advertised 34 models, and served one isolated pi conversation using `claude-sonnet`. The requested unique sentinel file exists with the exact expected content; pi reported reading it back. This is one successful file-write smoke sample, not a model-quality benchmark or proof of broader compatibility. Sanitized evidence: `live-smoke-evidence-2026-10-24.json`.
+
+The smoke wrapper initially reported failure despite the real file write: Windows PowerShell exposed a null child ExitCode after waiting. The wrapper now retains the process handle before waiting. Local children returning 0 and 17 verified the correction without another M365 conversation. The packaged server was stopped gracefully afterward; no startup task was installed.
 
 Linux/Nix execution, actual-account sign-in startup, reboot/logoff behavior and a 24–72-hour soak have not been exercised locally. CI is configured for Windows/Linux; its remote execution/publication has not been triggered here. A true pre-login Windows service and a GUI remain optional future work; the user selected startup at sign-in.
