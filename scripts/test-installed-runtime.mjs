@@ -8,6 +8,11 @@ import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 const root = resolve(import.meta.dirname, "..");
+async function statusJson(response) {
+  const text = await response.text();
+  assert(response.ok && text.length > 0, `Expected status JSON from ${response.url}; HTTP ${response.status}, ${text.length} bytes`);
+  return JSON.parse(text);
+}
 async function start(authenticated, extra = {}) {
   const reserve = createServer(); await new Promise(r => reserve.listen(0, "127.0.0.1", r));
   const port = reserve.address().port; await new Promise(r => reserve.close(r));
@@ -41,7 +46,7 @@ async function start(authenticated, extra = {}) {
     assert.equal((await fetch(base + "/dashboard-script")).status, 200);
     assert.equal((await fetch(base + "/v1/proxy/status")).status, extra.M365_API_KEY ? 401 : 200);
     const operator = await fetch(base + "/v1/proxy/status", { headers: extra.M365_API_KEY ? { authorization: `Bearer ${extra.M365_API_KEY}` } : {} });
-    const operatorStatus = await operator.json();
+    const operatorStatus = await statusJson(operator);
     assert.equal(operatorStatus.authentication.status, "ready");
     assert.equal(operatorStatus.budgets.find(b => b.id === "opus").allowance.daily, 12);
     assert.equal(operatorStatus.lastRoute.fallbackUsed, true);
@@ -51,14 +56,17 @@ async function start(authenticated, extra = {}) {
     assert.equal((await fetch(base + "/v1/models", { headers: { origin: "https://untrusted.example" } })).status, 403);
     if (extra.M365_API_KEY) assert.equal((await fetch(base + "/v1/models", { headers: { authorization: `Bearer ${extra.M365_API_KEY}` } })).status, 200);
     const headers = { "content-type": "application/json", ...(extra.M365_API_KEY ? { authorization: `Bearer ${extra.M365_API_KEY}` } : {}) };
-    assert.equal((await fetch(base + "/v1/chat/completions", { method: "POST", headers, body: JSON.stringify({ messages: [{ role: "user", content: "x".repeat(2000) }] }) })).status, 413);
-    assert.equal((await fetch(base + "/v1/chat/completions", { method: "POST", headers, body: "{broken" })).status, 400);
-    const observed = await (await fetch(base + "/v1/proxy/status", { headers })).json();
+    await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
+    const oversized = await fetch(base + "/v1/chat/completions", { method: "POST", headers, body: JSON.stringify({ messages: [{ role: "user", content: "x".repeat(2000) }] }) });
+    assert.equal(oversized.status, 413); await oversized.text();
+    const malformed = await fetch(base + "/v1/chat/completions", { method: "POST", headers, body: "{broken" });
+    assert.equal(malformed.status, 400); await malformed.text();
+    const observed = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
     assert(observed.activity.categories.models >= 2);
     assert(observed.activity.categories.chat >= 2);
     assert(observed.activity.categories.health >= 2);
     assert(observed.activity.failed >= 3);
-    const unchanged = await (await fetch(base + "/v1/proxy/status", { headers })).json();
+    const unchanged = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
     assert.equal(unchanged.activity.total, observed.activity.total, "dashboard polls must not inflate activity");
     const instance = JSON.parse(readFileSync(join(dir, "instance.json"), "utf8"));
     writeFileSync(join(dir, `shutdown-${instance.nonce}`), "stop");

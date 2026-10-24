@@ -8,7 +8,9 @@ export default defineEventHandler(async (event) => {
   } catch (err: any) {
     return new Response(
       JSON.stringify({ error: { message: err.message, type: "invalid_request_error" } }),
-      { status: /size limit/.test(err.message) ? 413 : 400, headers: { "Content-Type": "application/json" } },
+      // A size/deadline rejection may leave unread request bytes. Do not reuse
+      // that HTTP/1 connection for a subsequent request.
+      { status: /size limit/.test(err.message) ? 413 : 400, headers: { "Content-Type": "application/json", "Connection": "close" } },
     );
   }
 
