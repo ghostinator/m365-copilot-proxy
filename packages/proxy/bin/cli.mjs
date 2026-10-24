@@ -53,7 +53,7 @@ export async function main(args) {
   let command = args[0] || "serve";
   if (/^\d+$/.test(command)) { process.env.NITRO_PORT = process.env.PORT = command; command = "serve"; }
   if (["--help", "-h", "help"].includes(command)) {
-    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy service install|status|start|stop|uninstall\nm365-proxy diagnostics [output.json]\nm365-proxy client setup pi [--config path] [--base-url URL] [--dry-run] [--replace]\nDashboard: http://127.0.0.1:<port>/dashboard\n\nConfiguration: " + configPath);
+    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy service install|status|start|stop|uninstall\nm365-proxy diagnostics [output.json]\nm365-proxy client setup pi|openclaw [--config path] [--base-url URL] [--dry-run] [--replace]\nm365-proxy client info\nDashboard: http://127.0.0.1:<port>/dashboard\n\nConfiguration: " + configPath);
     return;
   }
   if (command === "service") {
@@ -81,7 +81,14 @@ export async function main(args) {
   const runtime = await import(runtimeUrl.href);
   runtime.validateBind(config.host);
   if (command === "client") {
-    if (args[1] !== "setup" || args[2] !== "pi") throw new Error("Use client setup pi [--config path] [--base-url URL] [--dry-run] [--replace]");
+    if (args[1] === "info") {
+      if (args.length !== 2) throw new Error("Use client info without additional arguments");
+      const host = ["0.0.0.0", "::"].includes(config.host) ? "127.0.0.1" : config.host;
+      console.log(JSON.stringify({ api: "OpenAI chat completions", baseUrl: `http://${host.includes(":") ? `[${host}]` : host}:${config.port}/v1`, authorization: process.env.M365_API_KEY ? "Authorization: Bearer <proxy API key>" : "No proxy key configured; use a placeholder if your client requires one", recommendedModel: "claude-sonnet", models: runtime.getAvailableModels(), verification: "No upstream request was sent" }, null, 2));
+      return;
+    }
+    if (args[1] !== "setup" || !["pi", "openclaw"].includes(args[2])) throw new Error("Use client setup pi|openclaw [--config path] [--base-url URL] [--dry-run] [--replace]");
+    const client = args[2];
     const options = {};
     for (let i = 3; i < args.length; i++) {
       const flag = args[i];
@@ -89,12 +96,14 @@ export async function main(args) {
       else if (["--config", "--base-url"].includes(flag) && args[i + 1] && !args[i + 1].startsWith("--")) options[flag] = args[++i];
       else throw new Error(`Unknown or incomplete client option: ${flag}`);
     }
-    const path = resolve(options["--config"] || join(process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent"), "models.json"));
+    const defaultPath = client === "pi" ? join(process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent"), "models.json") : process.env.OPENCLAW_CONFIG_PATH || join(process.env.OPENCLAW_STATE_DIR || join(homedir(), ".openclaw"), "openclaw.json");
+    const path = resolve(options["--config"] || defaultPath);
     const host = ["0.0.0.0", "::"].includes(config.host) ? "127.0.0.1" : config.host;
     const url = options["--base-url"] || `http://${host.includes(":") ? `[${host}]` : host}:${config.port}/v1`;
-    const result = runtime.setupPiClient(path, url, process.env.M365_API_KEY || "", !!options["--dry-run"], !!options["--replace"]);
+    const setup = client === "pi" ? runtime.setupPiClient : runtime.setupOpenClawClient;
+    const result = setup(path, url, process.env.M365_API_KEY || "", !!options["--dry-run"], !!options["--replace"]);
     console.log(JSON.stringify(result, null, 2));
-    console.log("Connect with: pi --provider m365 --model claude-sonnet");
+    console.log(client === "pi" ? "Connect with: pi --provider m365 --model claude-sonnet" : options["--dry-run"] ? "Dry run only; no OpenClaw configuration was changed." : "OpenClaw provider m365 is configured; select m365/claude-sonnet in your client.");
     return;
   }
   if (command === "setup") {

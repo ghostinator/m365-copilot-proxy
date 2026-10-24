@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -11,6 +12,10 @@ async function start(authenticated, extra = {}) {
   const reserve = createServer(); await new Promise(r => reserve.listen(0, "127.0.0.1", r));
   const port = reserve.address().port; await new Promise(r => reserve.close(r));
   const dir = mkdtempSync(join(tmpdir(), "m365-startup-"));
+  if (authenticated) {
+    const account = createHash("sha256").update(JSON.stringify(["offline", "offline"])).digest("hex");
+    writeFileSync(join(dir, `quota-observations-${account}.json`), JSON.stringify({ version: 1, budgets: { opus: { at: Date.now(), daily: 12, weekly: 30 } }, route: { at: Date.now(), requested: "claude-opus", served: "claude-opus-4.5" } }));
+  }
   const env = { ...process.env, M365_DATA_DIR: dir, M365_CACHE_FILE: join(dir, "cache.json"), M365_SECRETS_FILE: join(dir, "absent.json"), M365_NO_INTERACTIVE: "1", M365_ENABLE_INTERACTIVE_APPROVAL: "0", M365_DEBUG: "", M365_TRACE: "", M365_LOG_STDOUT: "", M365_DUMP_FRAMES: "", M365_MAX_REQUEST_BYTES: "1024", ...extra };
   for (const key of ["HOST", "NITRO_HOST", "NITRO_PORT", "PORT", "NODE_OPTIONS", "NODE_PATH", "NITRO_UNIX_SOCKET", "M365_ALLOWED_ORIGINS"]) delete env[key];
   const args = authenticated ? ["--import", pathToFileURL(join(root, "scripts/fixtures/auth-loader.mjs")).href] : [];
@@ -36,7 +41,10 @@ async function start(authenticated, extra = {}) {
     assert.equal((await fetch(base + "/dashboard-script")).status, 200);
     assert.equal((await fetch(base + "/v1/proxy/status")).status, extra.M365_API_KEY ? 401 : 200);
     const operator = await fetch(base + "/v1/proxy/status", { headers: extra.M365_API_KEY ? { authorization: `Bearer ${extra.M365_API_KEY}` } : {} });
-    assert.equal((await operator.json()).authentication.status, "ready");
+    const operatorStatus = await operator.json();
+    assert.equal(operatorStatus.authentication.status, "ready");
+    assert.equal(operatorStatus.budgets.find(b => b.id === "opus").allowance.daily, 12);
+    assert.equal(operatorStatus.lastRoute.fallbackUsed, true);
     assert.equal((await fetch(base + "/health/ready")).status, 200);
     assert.equal((await fetch(base + "/health/live")).status, 200);
     assert.equal((await fetch(base + "/v1/models")).status, extra.M365_API_KEY ? 401 : 200);

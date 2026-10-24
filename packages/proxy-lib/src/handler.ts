@@ -1,4 +1,5 @@
 import { SessionPool } from "./session-pool.js";
+import { recordUsageObservation } from "./usage-observations.js";
 export { SessionPool } from "./session-pool.js";
 import {
   abortable,
@@ -467,6 +468,7 @@ async function handleLocked(
       lastScores = copilotStream.scores;
       lastTurnCount = copilotStream.turnCount;
       lastMetering = copilotStream.metering;
+      recordUsageObservation(requestedModel, model, lastMetering);
 
       // M365 SAYS when it throttles: the final item's result is `Throttled` /
       // `PerUserThrottled` (#35). Checked BEFORE the content check so

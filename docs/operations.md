@@ -33,20 +33,32 @@ After a successful login:
 
 The task uses the current user's interactive identity, stays attached to a watchdog, has no 72-hour execution limit and disallows duplicate task instances. The watchdog restarts unexpected Node failures up to three times, five seconds apart; authentication/configuration exit 78 is not retried rapidly. `M365_SERVICE_RESTARTS=0..10` adjusts the watchdog's bound. Task Scheduler is additionally configured with three one-minute fallback retries. It opens no console or login window. `start` waits for `/health/ready`. `stop` verifies the recorded process identity and asks the server to drain; after 20 seconds it can force-stop the verified process. Logs are in `service-logs` under the data directory. Startup registration is separate from installing the files. Uninstall removes the startup task and preserves account/configuration state; remove application files separately when no longer needed.
 
-## Local dashboard and pi setup
+## Local dashboard and client setup
 
-These features were added after the original October 24 Windows 0.2.1 archive;
-use the current source build until a new release archive is produced.
+These features are included in version 0.3.0 and later.
 
 Visit `http://127.0.0.1:4141/dashboard` while the proxy runs. The first dashboard
 version is read-only: readiness, authentication expiry, uptime, admitted requests,
 remembered conversations, advertised models, known priority-access exhaustion and
-configured fallback routes. It sends no Microsoft requests. Remaining allowances
-are explicitly unknown; a missing exhaustion record does not mean quota remains.
+configured fallback routes. It sends no Microsoft requests. Normal upstream turns
+provide allowance observations when Microsoft includes metering. The dashboard
+shows daily/weekly counts and their observation time; missing counts are unknown.
+A missing exhaustion record does not mean quota remains.
 If a proxy API key is configured, enter it in the page to read status. The page
 holds it in memory only and never stores it in browser storage or the URL. Closing
-or reloading the page clears it. Recent errors, tray controls and browser-managed
-start/stop are tracked in [the roadmap](roadmap.md).
+or reloading the page clears it. Up to 20 in-memory error summaries show fixed
+categories instead of raw log messages. Tray controls and browser-managed
+start/stop remain tracked in [the roadmap](roadmap.md).
+
+Quota observations persist atomically in private `quota-observations-<hash>.json`
+files under the data directory. The hash scopes them to the authenticated tenant
+and account; raw identifiers/tokens are not stored in these files or exposed by
+the status API. Counts and route observations expire after six hours or a UTC
+date change and then display as unknown. The last upstream route includes requested
+and actual model IDs and indicates fallback use; it may describe a refused/failed
+upstream attempt and does not establish successful client delivery. Observations
+are a snapshot, not a live authoritative balance. Persistence failures do not
+fail chat delivery. Process-local exhaustion walls retain their existing behavior.
 
 Configure pi without manually editing JSON:
 
@@ -63,6 +75,24 @@ an exact private backup is made before writing. Invalid JSON is left untouched.
 Dry-run writes nothing and prints no API key. `--config path` selects another file;
 `--base-url https://host/v1` selects another endpoint. Remote endpoints require
 HTTPS. Setup sends no chat, changes no pi defaults and does not install pi itself.
+
+OpenClaw uses the same model generator as the plugin:
+
+```text
+m365-proxy client setup openclaw --dry-run
+m365-proxy client setup openclaw
+m365-proxy client info
+```
+
+Setup honors `OPENCLAW_CONFIG_PATH`, then `OPENCLAW_STATE_DIR/openclaw.json`,
+otherwise `~/.openclaw/openclaw.json`, following [OpenClaw's environment conventions](https://docs.openclaw.ai/help/environment).
+It preserves other providers, existing aliases and the selected default model.
+The same dry-run/backup/replace rules apply. This writer accepts strict JSON;
+JSON5/comments or malformed nested config are rejected without changing the file.
+Use `--config` to generate a separate JSON file for manual merging in that case.
+`client info` prints credential-free connection instructions and model IDs for
+other OpenAI-compatible clients. It never prints the configured proxy key or
+probes Microsoft. Setup does not install or launch OpenClaw.
 
 ## Configuration and security
 

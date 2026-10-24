@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { piProvider, setupPiClient } from "./client-setup.js";
+import { piProvider, setupPiClient, setupOpenClawClient } from "./client-setup.js";
 
 it("preserves unrelated providers and exact backup bytes; dry-run does not write", () => {
   const path = join(mkdtempSync(join(tmpdir(), "m365-client-")), "models.json");
@@ -39,4 +39,30 @@ it("never overwrites malformed configuration and creates no directories in dry-r
 it("rejects credentials in URLs and plaintext remote endpoints", () => {
   for (const url of ["http://remote.example/v1", "https://user:pass@example.com/v1", "file:///v1", "https://example.com/v1?key=secret", "https://example.com/wrong"]) expect(() => piProvider(url, "")).toThrow();
   expect(piProvider("https://example.com/v1", "").baseUrl).toBe("https://example.com/v1");
+});
+
+it("merges OpenClaw providers and aliases while preserving the selected model and exact backup", () => {
+  const path = join(mkdtempSync(join(tmpdir(), "m365-openclaw-")), "openclaw.json");
+  const original = JSON.stringify({ custom: 1, models: { providers: { other: { apiKey: "keep" } } }, agents: { defaults: { model: { primary: "other/default" }, models: { "m365/claude-sonnet": { alias: "my-sonnet" } } } } });
+  writeFileSync(path, original);
+  expect(setupOpenClawClient(path, "http://localhost:4141/v1", "secret", true).backup).toBeNull();
+  expect(readFileSync(path, "utf8")).toBe(original);
+  const result = setupOpenClawClient(path, "http://localhost:4141/v1", "secret");
+  const merged = JSON.parse(readFileSync(path, "utf8"));
+  expect(readFileSync(result.backup!, "utf8")).toBe(original);
+  expect(merged.models.providers.other.apiKey).toBe("keep");
+  expect(merged.models.providers.m365.apiKey).toBe("secret");
+  expect(merged.agents.defaults.model.primary).toBe("other/default");
+  expect(merged.agents.defaults.models["m365/claude-sonnet"].alias).toBe("my-sonnet");
+  expect(setupOpenClawClient(path, "http://localhost:4141/v1", "secret").changed).toBe(false);
+  expect(() => setupOpenClawClient(path, "http://localhost:4142/v1", "secret")).toThrow(/--replace/);
+});
+
+it("leaves malformed OpenClaw configs and invalid nested shapes untouched", () => {
+  const path = join(mkdtempSync(join(tmpdir(), "m365-openclaw-invalid-")), "openclaw.json");
+  for (const original of ['{broken', '{"agents":{"defaults":[]}}', '{"models":{"providers":[]}}']) {
+    writeFileSync(path, original);
+    expect(() => setupOpenClawClient(path, "http://localhost:4141/v1", "")).toThrow();
+    expect(readFileSync(path, "utf8")).toBe(original);
+  }
 });

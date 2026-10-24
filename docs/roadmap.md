@@ -8,7 +8,7 @@ not completion of the entire feature group.
 
 - [x] Browser dashboard: readiness, authentication expiry, uptime and admitted requests.
 - [x] Display available models and known quota exhaustion without sending chat probes.
-- [ ] Recent sanitized error summaries, with bounded retention.
+- [x] Recent sanitized error summaries, with bounded retention (20, in-memory, fixed categories).
 - [ ] Start/stop/restart and sign-in recovery controls with explicit local authorization.
 - [ ] Optional Windows tray icon, including offline/stopped status.
 
@@ -16,17 +16,17 @@ not completion of the entire feature group.
 
 - [x] `client setup pi`: current model registry, proxy key and endpoint configuration.
 - [x] Preserve other providers; validate before writing; private backup and dry-run.
-- [ ] Integrate existing OpenClaw config generator into the standalone CLI.
-- [ ] Export connection instructions for other OpenAI-compatible clients.
+- [x] Integrate existing OpenClaw config generator into the standalone CLI.
+- [x] Export connection instructions for other OpenAI-compatible clients (`client info`).
 - [ ] Optional end-to-end verification, clearly separated from quota-free setup.
 
 ## 3. Quota and routing visibility
 
-- [ ] Show last observed daily/weekly allowances, with observation timestamps.
+- [x] Show last observed daily/weekly allowances, with observation timestamps.
 - [ ] Label unavailable data as unknown and estimated turn budgets as estimates.
 - [x] Show known exhaustion/reset times and configured fallback models.
-- [ ] Explain the served model when a fallback was used.
-- [ ] Persist observations safely across restarts, expiring stale information.
+- [x] Explain the observed upstream model route when a fallback was used.
+- [x] Persist observations safely across restarts, expiring stale information (account-scoped, six-hour/UTC-date expiry).
 
 ## 4. Update manager
 
@@ -53,6 +53,6 @@ not completion of the entire feature group.
 
 Native MCP/Dataverse tool calling remains out of scope per AGENTS.md.
 
-Evidence: [Linux validation](linux-validation-2026-10-24.md). The first dashboard
-and pi setup implementation is in source; the earlier Windows ZIP remains the
-preceding release and has not been replaced with a new feature archive.
+Evidence: [Linux validation](linux-validation-2026-10-24.md). The dashboard/client
+features are included in local version 0.3.0 archives. Version 0.2.1 remains the
+preceding release; nothing has been published remotely.

@@ -1,16 +1,21 @@
-import { authenticationStatus, getAvailableModels, METERED_BUDGETS, activePriorityAccessExhaustion, priorityAccessFallbackModel, type MeteredBudget } from "@m365-copilot/core";
+import { authenticationStatus, authenticationAccountKey, getAvailableModels, METERED_BUDGETS, activePriorityAccessExhaustion, priorityAccessFallbackModel, recentOperationalErrors, type MeteredBudget } from "@m365-copilot/core";
+import { usageObservations } from "./usage-observations.js";
 import type { SessionPool } from "./session-pool.js";
 
 /** Local observations only: no login, token refresh, chat or quota probe. */
 export function operatorStatus(pool: SessionPool) {
+  const observed = usageObservations.snapshot(authenticationAccountKey());
   return {
     authentication: authenticationStatus(),
     uptimeSeconds: Math.floor(process.uptime()),
     requests: pool.status,
     models: getAvailableModels(),
+    lastRoute: observed.route,
+    recentErrors: recentOperationalErrors(),
     budgets: Object.entries(METERED_BUDGETS).map(([key, value]) => {
       const exhausted = activePriorityAccessExhaustion(key);
-      return { id: key, label: value.label, allowance: null, observation: "unknown", exhausted: !!exhausted, window: exhausted?.window ?? null, resetsAt: exhausted?.resetsAt.toISOString() ?? null, fallbackModel: priorityAccessFallbackModel(key as MeteredBudget) };
+      const allowance = observed.budgets[key as MeteredBudget];
+      return { id: key, label: value.label, allowance: allowance ? { daily: allowance.daily ?? null, weekly: allowance.weekly ?? null } : null, observedAt: allowance ? new Date(allowance.at).toISOString() : null, observation: allowance ? "last_observed" : "unknown", exhausted: !!exhausted, window: exhausted?.window ?? null, resetsAt: exhausted?.resetsAt.toISOString() ?? null, fallbackModel: priorityAccessFallbackModel(key as MeteredBudget) };
     }),
   };
 }
@@ -24,13 +29,27 @@ const html = `<!doctype html>
 <header><small>LOCAL OPERATIONS</small><h1>M365 Copilot Proxy</h1><p class="muted">Readiness and routing, without spending a chat turn.</p></header>
 <section><h2>Connection</h2><form id="connect"><label for="key">Proxy API key, if configured</label><input id="key" type="password" autocomplete="off" spellcheck="false"><br><button>Connect / refresh</button><button id="forget" type="button">Forget key</button></form><small>The key stays in this page's memory only. Refreshing the page clears it.</small><p id="message" role="status" aria-live="polite">Connecting…</p></section>
 <div class="grid"><section><h2>Readiness</h2><div class="value" id="ready">Unknown</div><p id="expiry" class="muted"></p></section><section><h2>Activity</h2><div class="value" id="requests">Unknown</div><p id="uptime" class="muted"></p></section></div>
-<section><h2>Model budgets &amp; fallback routes</h2><ul id="budgets"></ul><small>Remaining allowances are unknown until observation support is added. A missing exhaustion record does not establish available quota.</small></section>
+<section><h2>Model budgets &amp; fallback routes</h2><ul id="budgets"></ul><p id="route" class="muted"></p><small>Allowances are last observed, not live balances. Missing values are unknown; observations expire after six hours or a UTC date change. A missing exhaustion record does not establish available quota.</small></section>
 <section><h2>Models</h2><details><summary id="model-count">Available model identifiers</summary><pre id="models"></pre></details><small>Advertised identifiers do not establish account entitlement or upstream availability.</small></section>
+<section><h2>Recent errors</h2><ul id="errors"></ul><small>Up to 20 summaries from this process. Raw messages and request contents stay out of the dashboard.</small></section>
 <section><h2>Recovery</h2><p>If sign-in is required, run <code>m365-proxy login</code>, then restart the proxy. Windows startup controls: <code>m365-proxy service status|start|stop</code>.</p><small>This first dashboard version is read-only. It cannot restart a stopped server or open sign-in remotely.</small></section>
 <script src="/dashboard-script"></script></html>`;
 
 const script = `const el=id=>document.getElementById(id);let key='',busy=false;
-async function refresh(){if(busy)return;busy=true;try{const r=await fetch('/v1/proxy/status',{headers:key?{Authorization:'Bearer '+key}:{},cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error(r.status===401?'Enter your proxy API key to view status.':'Status unavailable (HTTP '+r.status+').');const s=await r.json();el('ready').textContent=s.authentication.status.replaceAll('_',' ');el('expiry').textContent=s.authentication.expiresAt?'Token expires '+new Date(s.authentication.expiresAt).toLocaleString():'No authenticated token observed';el('requests').textContent=s.requests.pending+' admitted / active';el('uptime').textContent=Math.floor(s.uptimeSeconds/60)+' minutes uptime · '+s.requests.sessions+' remembered conversations';el('model-count').textContent=s.models.length+' advertised models';el('models').textContent=s.models.join('\\n');el('budgets').replaceChildren(...s.budgets.map(b=>{const li=document.createElement('li');li.textContent=b.label+': '+(b.exhausted?'exhausted until '+new Date(b.resetsAt).toLocaleString():'no recorded exhaustion')+' · fallback: '+(b.fallbackModel||'disabled');return li}));el('message').textContent='Updated '+new Date().toLocaleTimeString()+' · refreshes every 15 seconds';}catch(e){el('ready').textContent='Unavailable';el('requests').textContent='Unknown';el('expiry').textContent='';el('uptime').textContent='';el('models').textContent='';el('model-count').textContent='Models unavailable';el('budgets').replaceChildren();el('message').textContent=e.message;}finally{busy=false}}
+async function refresh(){if(busy)return;busy=true;try{
+const r=await fetch('/v1/proxy/status',{headers:key?{Authorization:'Bearer '+key}:{},cache:'no-store',signal:AbortSignal.timeout(8000)});
+if(!r.ok)throw Error(r.status===401?'Enter your proxy API key to view status.':'Status unavailable (HTTP '+r.status+').');
+const s=await r.json();
+el('ready').textContent=s.authentication.status.replaceAll('_',' ');
+el('expiry').textContent=s.authentication.expiresAt?'Token expires '+new Date(s.authentication.expiresAt).toLocaleString():'No authenticated token observed';
+el('requests').textContent=s.requests.pending+' admitted / active';
+el('uptime').textContent=Math.floor(s.uptimeSeconds/60)+' minutes uptime · '+s.requests.sessions+' remembered conversations';
+el('model-count').textContent=s.models.length+' advertised models';el('models').textContent=s.models.join('\\n');
+el('budgets').replaceChildren(...s.budgets.map(b=>{const li=document.createElement('li');const allowance=b.allowance?'daily '+(b.allowance.daily??'unknown')+' / weekly '+(b.allowance.weekly??'unknown')+' · observed '+new Date(b.observedAt).toLocaleString():'remaining allowance unknown';li.textContent=b.label+': '+allowance+' · '+(b.exhausted?'exhausted until '+new Date(b.resetsAt).toLocaleString():'no recorded exhaustion')+' · fallback: '+(b.fallbackModel||'disabled');return li}));
+el('route').textContent=s.lastRoute?'Last observed upstream route: '+s.lastRoute.requested+' → '+s.lastRoute.served+(s.lastRoute.fallbackUsed?' (fallback)':'')+' · '+new Date(s.lastRoute.at).toLocaleString():'No recent upstream route observed';
+el('errors').replaceChildren(...s.recentErrors.map(error=>{const li=document.createElement('li');li.textContent=new Date(error.at).toLocaleString()+' · '+error.component+': '+error.summary;return li}));if(!s.recentErrors.length){const li=document.createElement('li');li.textContent='No errors recorded in this process';el('errors').append(li)}
+el('message').textContent='Updated '+new Date().toLocaleTimeString()+' · refreshes every 15 seconds';
+}catch(e){el('ready').textContent='Unavailable';el('requests').textContent='Unknown';el('expiry').textContent='';el('uptime').textContent='';el('models').textContent='';el('model-count').textContent='Models unavailable';el('budgets').replaceChildren();el('errors').replaceChildren();el('route').textContent='';el('message').textContent=e.message;}finally{busy=false}}
 el('connect').addEventListener('submit',e=>{e.preventDefault();key=el('key').value;el('key').value='';refresh()});el('forget').addEventListener('click',()=>{key='';el('key').value='';refresh()});setInterval(()=>{if(!document.hidden)refresh()},15000);refresh();`;
 
 export function dashboardResponse(path: string): Response | null {

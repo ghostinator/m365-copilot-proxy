@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { recordUsageObservation } from "./usage-observations.js";
+vi.mock("./usage-observations.js", () => ({ recordUsageObservation: vi.fn() }));
 
 // Replace core's ModelSession with a scripted fake so we can exercise the handler's
 // streaming path with no auth/WebSocket. Everything else in core stays real.
@@ -1064,6 +1066,7 @@ describe("Priority access (Opus 5.5, Sonnet 5.5): OutOfCredits, remembering it, 
     expect(usage.x_m365_sonnet55_daily_remaining).toBe(79);
     expect(usage.x_m365_sonnet55_weekly_remaining).toBe(149);
     expect(usage.x_m365_opus_daily_remaining).toBe(12);
+    expect(recordUsageObservation).toHaveBeenCalledWith("claude-sonnet-5.5", "claude-sonnet-5.5", expect.objectContaining({ ClaudeSonnet55QueryDaily: 79 }));
   });
 
   it("keeps the Sonnet 5.5 and Opus walls apart", async () => {

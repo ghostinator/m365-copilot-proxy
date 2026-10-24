@@ -4,6 +4,8 @@ import { SessionPool, handleChatCompletion } from "./handler.js";
 import { dashboardResponse, operatorStatus } from "./dashboard.js";
 export { dashboardResponse, operatorStatus } from "./dashboard.js";
 export { setupPiClient, piProvider } from "./client-setup.js";
+export { setupOpenClawClient } from "./client-setup.js";
+export { generateOpenClawConfig, type OpenClawConfig, type OpenClawModelConfig, type OpenClawProviderConfig } from "./openclaw-config.js";
 import { callerIdentity, corsHeaders, modelCapabilities, readJsonBody, readinessResponse, requestGate } from "./http-policy.js";
 export { callerIdentity, corsHeaders, modelCapabilities, readJsonBody, readinessResponse, requestGate, validateBind } from "./http-policy.js";
 

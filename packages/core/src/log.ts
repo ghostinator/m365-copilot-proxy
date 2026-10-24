@@ -20,6 +20,10 @@ const enabled = flag(process.env.M365_DEBUG) || trace;
 // one terminal is enough. Safe here because the proxy speaks HTTP — stdout is
 // not a protocol channel.
 const stdoutEnabled = flag(process.env.M365_LOG_STDOUT);
+const recentErrors: { at: string; component: string; summary: string }[] = [];
+
+/** Deliberately excludes raw messages, which may contain prompts or credentials. */
+export function recentOperationalErrors() { return recentErrors.map(item => ({ ...item })); }
 
 function timestamp(): string {
   return new Date().toISOString();
@@ -28,6 +32,12 @@ function timestamp(): string {
 function write(level: string, component: string, ...args: unknown[]) {
   if (level === "DEBUG" && !enabled) return;
   if (!enabled && !stdoutEnabled && level !== "ERROR") return;
+  if (level === "ERROR") {
+    const name = /^[a-z0-9_-]{1,64}$/i.test(component) ? component : "runtime";
+    const summaries: Record<string, string> = { startup: "Authentication initialization failed; sign in and restart.", observations: "Operational observations could not be saved; inspect local permissions and disk space." };
+    recentErrors.push({ at: timestamp(), component: name, summary: summaries[name] ?? "An operational error was logged; inspect local logs for details." });
+    if (recentErrors.length > 20) recentErrors.shift();
+  }
   const msg = args
     .map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 2)))
     .join(" ");

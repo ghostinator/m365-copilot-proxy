@@ -6,6 +6,7 @@ import {
   mkdirSync,
 } from "node:fs";
 import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { CONFIG_DIR, atomicWritePrivate, withBrowserProfile } from "./storage.js";
 
@@ -680,14 +681,21 @@ export async function getTokenForScope(scopes: string[]): Promise<string | null>
 let inflightToken: Promise<string> | null = null;
 
 let authenticatedUntil = 0;
+let accountKey: string | null = null;
+/** Account-scoped local observations, without exposing tenant/user identifiers. */
+export function authenticationAccountKey(): string | null { return accountKey; }
 let authFailure = false;
 export function authenticationStatus() {
   return { status: authenticatedUntil > Date.now() ? "ready" : authFailure || authenticatedUntil > 0 ? "auth_required" : "starting", expiresAt: authenticatedUntil > 0 ? new Date(authenticatedUntil).toISOString() : null } as const;
 }
 
 function rememberAuthentication(token: string): string {
-  try { authenticatedUntil = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()).exp * 1000; }
-  catch { authenticatedUntil = Date.now() + 60_000; }
+  try {
+    const claims = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
+    authenticatedUntil = claims.exp * 1000;
+    accountKey = typeof claims.tid === "string" && typeof claims.oid === "string" ? createHash("sha256").update(JSON.stringify([claims.tid, claims.oid])).digest("hex") : null;
+  }
+  catch { authenticatedUntil = Date.now() + 60_000; accountKey = null; }
   if (!Number.isFinite(authenticatedUntil)) authenticatedUntil = Date.now() + 60_000;
   authFailure = false;
   return token;
