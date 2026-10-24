@@ -23,7 +23,8 @@ not completion of the entire feature group.
 ## 3. Quota and routing visibility
 
 - [x] Show last observed daily/weekly allowances, with observation timestamps.
-- [ ] Label unavailable data as unknown and estimated turn budgets as estimates.
+- [x] Label unavailable, expired or unobserved allowances as unknown.
+- [ ] Add an explicitly labeled estimate of the account turn budget.
 - [x] Show known exhaustion/reset times and configured fallback models.
 - [x] Explain the observed upstream model route when a fallback was used.
 - [x] Persist observations safely across restarts, expiring stale information (account-scoped, six-hour/UTC-date expiry).

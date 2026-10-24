@@ -31,7 +31,32 @@ tests; installed Nitro routes and the isolated pi configuration CLI passed offli
 checks. The dashboard was visually inspected in the in-app browser using an
 explicitly loaded offline MSAL fixture, then the preview server was stopped.
 
-## Boundaries
+## Version 0.3.0 follow-up at revision 0a4690b
+
+The full suite now passes **446 tests on both Windows and WSL Ubuntu**, with six
+live tests skipped on each. New coverage includes persisted account isolation,
+observation expiry/corrupt files, OpenClaw configuration preservation, bounded
+error summaries and late dashboard responses after credential removal. Linux
+installed-runtime checks passed with synthetic persisted quota observations and
+isolated pi/OpenClaw setup plus credential-free `client info`. The extracted Linux
+npm package passed at revision 0d6d848; the later dashboard credential-race fix and
+expanded CLI fixtures were verified by the subsequent full Linux suite and
+installed-runtime checks.
+
+The new Windows ZIP contains 908 verified manifest files, version 0.3.0, revision
+0a4690b with no uncommitted source changes. Its extracted npm package and portable
+runtime passed offline startup, dashboard/observations, client-setup and shutdown
+checks outside the checkout. The dashboard was also inspected using synthetic
+data: both daily/weekly allowance rows, fallback routing, API-key gating and
+credential removal worked. That temporary fixture server was stopped. At the
+user's request, a separate real-account dashboard was opened on loopback; no chat
+request was sent for that operation.
+
+The packaged Windows installer also passed isolated installation, replacement
+version selection and rollback, retaining its chosen account-state directory and
+sentinel. No permanent startup task was registered by that test.
+
+## Remaining boundaries
 
 WSL validation establishes Linux build/runtime behavior, not Nix derivation or
 NixOS service correctness. A regular Linux desktop user account, systemd service
