@@ -5698,3 +5698,27 @@ code after waiting. Retaining its native handle fixes that local issue; separate
 children returning 0 and 17 verified both outcomes without API calls. The server
 was stopped gracefully. This single sample supports install/runtime usability;
 it does not establish reliability, solve rate or long-running startup behavior.
+
+### Dashboard activity follow-up — Oct 24
+
+Hypothesis: the Activity card indicates application connectivity checks. Falsifier:
+`GET /v1/models` succeeds but no retained count changes. The initial implementation
+only exposed the current chat-admission count (`SessionPool.waiting`), so model and
+health probes were invisible and completed chat requests disappeared between polls.
+Source inspection and a running zero-session proxy confirmed the mismatch.
+
+The HTTP boundary now records cumulative model/chat/health/other counts, failures,
+in-flight requests and the latest 20 bounded request-metadata events. Dashboard
+polling/assets are excluded; unknown paths are masked and no headers, query strings
+or bodies are retained. Two sequential model-list checks changed the running
+proxy's total from 0 to 2 and appeared in the refreshed dashboard, without an M365
+chat. Deterministic coverage: `proxy-lib/src/http-activity.test.ts` and the expanded
+installed-runtime probe. Windows and Linux unit suites: 449 passed, 6 live skipped.
+
+The additional post-rejection probe found an HTTP keep-alive defect: after the
+oversized-body rejection, a subsequent valid status request could get an empty
+400. Consuming the error responses did not fix the reproduction. Explicitly closing
+the connection on Nitro body-validation errors made the sequence pass for both
+keyed and unkeyed startup fixtures. This is a local HTTP lifecycle finding, not
+new Microsoft protocol behavior. The runnable probe is
+`node scripts/test-installed-runtime.mjs`.
