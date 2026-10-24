@@ -2,6 +2,8 @@ import { type ModelSessionOptions, getAvailableModels } from "@m365-copilot/core
 import { ChatCompletionRequest } from "./schemas.js";
 import { SessionPool, handleChatCompletion } from "./handler.js";
 import { dashboardResponse, operatorStatus } from "./dashboard.js";
+import { HttpActivity, trackHttpResponse } from "./http-activity.js";
+export { HttpActivity, httpActivity } from "./http-activity.js";
 export { dashboardResponse, operatorStatus } from "./dashboard.js";
 export { setupPiClient, piProvider } from "./client-setup.js";
 export { setupOpenClawClient } from "./client-setup.js";
@@ -88,6 +90,7 @@ export interface FetchApp {
  */
 export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
   const pool = new SessionPool(sessionOptions);
+  const activity = new HttpActivity();
 
   async function fetch(req: Request): Promise<Response> {
     const { pathname } = new URL(req.url);
@@ -99,7 +102,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
     if (method === "GET") {
       const dashboard = dashboardResponse(pathname);
       if (dashboard) return dashboard;
-      if (pathname === "/v1/proxy/status") return withCors(Response.json(operatorStatus(pool), { headers: { "Cache-Control": "no-store" } }), req);
+      if (pathname === "/v1/proxy/status") return withCors(Response.json(operatorStatus(pool, activity), { headers: { "Cache-Control": "no-store" } }), req);
     }
 
     if (method === "GET" && ["/health", "/health/ready"].includes(pathname)) {
@@ -131,5 +134,9 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
     );
   }
 
-  return { fetch, close: () => pool.close() };
+  return { async fetch(req) {
+    const finish = activity.begin(req.method.toUpperCase(), new URL(req.url).pathname);
+    try { return trackHttpResponse(await fetch(req), finish); }
+    catch (error) { finish?.(500); throw error; }
+  }, close: () => pool.close() };
 }

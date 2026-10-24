@@ -1,14 +1,16 @@
 import { authenticationStatus, authenticationAccountKey, getAvailableModels, METERED_BUDGETS, activePriorityAccessExhaustion, priorityAccessFallbackModel, recentOperationalErrors, type MeteredBudget } from "@m365-copilot/core";
 import { usageObservations } from "./usage-observations.js";
+import { httpActivity, type HttpActivity } from "./http-activity.js";
 import type { SessionPool } from "./session-pool.js";
 
 /** Local observations only: no login, token refresh, chat or quota probe. */
-export function operatorStatus(pool: SessionPool) {
+export function operatorStatus(pool: SessionPool, activity: HttpActivity = httpActivity) {
   const observed = usageObservations.snapshot(authenticationAccountKey());
   return {
     authentication: authenticationStatus(),
     uptimeSeconds: Math.floor(process.uptime()),
     requests: pool.status,
+    activity: activity.snapshot(),
     models: getAvailableModels(),
     lastRoute: observed.route,
     recentErrors: recentOperationalErrors(),
@@ -28,7 +30,8 @@ const html = `<!doctype html>
 </style>
 <header><small>LOCAL OPERATIONS</small><h1>M365 Copilot Proxy</h1><p class="muted">Readiness and routing, without spending a chat turn.</p></header>
 <section><h2>Connection</h2><form id="connect"><label for="key">Proxy API key, if configured</label><input id="key" type="password" autocomplete="off" spellcheck="false"><br><button>Connect / refresh</button><button id="forget" type="button">Forget key</button></form><small>The key stays in this page's memory only. Refreshing the page clears it.</small><p id="message" role="status" aria-live="polite">Connecting…</p></section>
-<div class="grid"><section><h2>Readiness</h2><div class="value" id="ready">Unknown</div><p id="expiry" class="muted"></p></section><section><h2>Activity</h2><div class="value" id="requests">Unknown</div><p id="uptime" class="muted"></p></section></div>
+<div class="grid"><section><h2>Readiness</h2><div class="value" id="ready">Unknown</div><p id="expiry" class="muted"></p></section><section><h2>Activity</h2><div class="value" id="requests">Unknown</div><p id="activity-detail" class="muted"></p><p id="uptime" class="muted"></p><small>HTTP requests since this process started. Dashboard polling is excluded.</small></section></div>
+<section><h2>Recent requests</h2><ul id="http-events"></ul><small>Latest 20 requests, including rejected requests. Query strings, headers and bodies are excluded. Unknown paths are masked; 499 indicates a disconnected client.</small></section>
 <section><h2>Model budgets &amp; fallback routes</h2><ul id="budgets"></ul><p id="route" class="muted"></p><small>Allowances are last observed, not live balances. Missing values are unknown; observations expire after six hours or a UTC date change. A missing exhaustion record does not establish available quota.</small></section>
 <section><h2>Models</h2><details><summary id="model-count">Available model identifiers</summary><pre id="models"></pre></details><small>Advertised identifiers do not establish account entitlement or upstream availability.</small></section>
 <section><h2>Recent errors</h2><ul id="errors"></ul><small>Up to 20 summaries from this process. Raw messages and request contents stay out of the dashboard.</small></section>
@@ -36,7 +39,7 @@ const html = `<!doctype html>
 <script src="/dashboard-script"></script></html>`;
 
 const script = `const el=id=>document.getElementById(id);let key='',busy=false,requestId=0,controller=null;
-function clearStatus(message){el('ready').textContent='Unavailable';el('requests').textContent='Unknown';el('expiry').textContent='';el('uptime').textContent='';el('models').textContent='';el('model-count').textContent='Models unavailable';el('budgets').replaceChildren();el('errors').replaceChildren();el('route').textContent='';el('message').textContent=message}
+function clearStatus(message){el('ready').textContent='Unavailable';el('requests').textContent='Unknown';el('activity-detail').textContent='';el('http-events').replaceChildren();el('expiry').textContent='';el('uptime').textContent='';el('models').textContent='';el('model-count').textContent='Models unavailable';el('budgets').replaceChildren();el('errors').replaceChildren();el('route').textContent='';el('message').textContent=message}
 async function refresh(){if(busy)return;busy=true;const id=++requestId;controller=new AbortController();try{
 const r=await fetch('/v1/proxy/status',{headers:key?{Authorization:'Bearer '+key}:{},cache:'no-store',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(8000)])});
 if(!r.ok)throw Error(r.status===401?'Enter your proxy API key to view status.':'Status unavailable (HTTP '+r.status+').');
@@ -44,16 +47,18 @@ const s=await r.json();
 if(id!==requestId)return;
 el('ready').textContent=s.authentication.status.replaceAll('_',' ');
 el('expiry').textContent=s.authentication.expiresAt?'Token expires '+new Date(s.authentication.expiresAt).toLocaleString():'No authenticated token observed';
-el('requests').textContent=s.requests.pending+' admitted / active';
-el('uptime').textContent=Math.floor(s.uptimeSeconds/60)+' minutes uptime · '+s.requests.sessions+' remembered conversations';
+el('requests').textContent=s.activity.total+' total HTTP requests';
+el('activity-detail').textContent=s.activity.active+' in flight · '+s.activity.completed+' finished · '+s.activity.failed+' failed · '+s.activity.categories.models+' model checks · '+s.activity.categories.chat+' chat requests · '+s.activity.categories.health+' health checks · '+s.activity.categories.other+' other';
+el('uptime').textContent=Math.floor(s.uptimeSeconds/60)+' minutes uptime · '+s.requests.pending+' admitted chat requests · '+s.requests.sessions+' remembered conversations';
+el('http-events').replaceChildren(...s.activity.recent.map(event=>{const li=document.createElement('li');li.textContent=new Date(event.receivedAt).toLocaleTimeString()+' · '+event.method+' '+event.endpoint+' · '+(event.status??'in flight')+(event.durationMs===null?'':' · '+event.durationMs+' ms');return li}));if(!s.activity.recent.length){const li=document.createElement('li');li.textContent='No application requests received since startup';el('http-events').append(li)}
 el('model-count').textContent=s.models.length+' advertised models';el('models').textContent=s.models.join('\\n');
 el('budgets').replaceChildren(...s.budgets.map(b=>{const li=document.createElement('li');const allowance=b.allowance?'daily '+(b.allowance.daily??'unknown')+' / weekly '+(b.allowance.weekly??'unknown')+' · observed '+new Date(b.observedAt).toLocaleString():'remaining allowance unknown';li.textContent=b.label+': '+allowance+' · '+(b.exhausted?'exhausted until '+new Date(b.resetsAt).toLocaleString():'no recorded exhaustion')+' · fallback: '+(b.fallbackModel||'disabled');return li}));
 el('route').textContent=s.lastRoute?'Last observed upstream route: '+s.lastRoute.requested+' → '+s.lastRoute.served+(s.lastRoute.fallbackUsed?' (fallback)':'')+' · '+new Date(s.lastRoute.at).toLocaleString():'No recent upstream route observed';
 el('errors').replaceChildren(...s.recentErrors.map(error=>{const li=document.createElement('li');li.textContent=new Date(error.at).toLocaleString()+' · '+error.component+': '+error.summary;return li}));if(!s.recentErrors.length){const li=document.createElement('li');li.textContent='No errors recorded in this process';el('errors').append(li)}
-el('message').textContent='Updated '+new Date().toLocaleTimeString()+' · refreshes every 15 seconds';
+el('message').textContent='Updated '+new Date().toLocaleTimeString()+' · refreshes every 5 seconds';
 }catch(e){if(id===requestId)clearStatus(e.message)}finally{if(id===requestId){busy=false;controller=null}}}
 function changeKey(value){requestId++;controller?.abort();busy=false;key=value;el('key').value='';clearStatus('Connecting…');refresh()}
-el('connect').addEventListener('submit',e=>{e.preventDefault();changeKey(el('key').value)});el('forget').addEventListener('click',()=>changeKey(''));setInterval(()=>{if(!document.hidden)refresh()},15000);refresh();`;
+el('connect').addEventListener('submit',e=>{e.preventDefault();changeKey(el('key').value)});el('forget').addEventListener('click',()=>changeKey(''));setInterval(()=>{if(!document.hidden)refresh()},5000);refresh();`;
 
 export function dashboardResponse(path: string): Response | null {
   if (!["/dashboard", "/dashboard-script"].includes(path)) return null;

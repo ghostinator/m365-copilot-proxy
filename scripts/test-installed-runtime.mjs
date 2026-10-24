@@ -53,6 +53,13 @@ async function start(authenticated, extra = {}) {
     const headers = { "content-type": "application/json", ...(extra.M365_API_KEY ? { authorization: `Bearer ${extra.M365_API_KEY}` } : {}) };
     assert.equal((await fetch(base + "/v1/chat/completions", { method: "POST", headers, body: JSON.stringify({ messages: [{ role: "user", content: "x".repeat(2000) }] }) })).status, 413);
     assert.equal((await fetch(base + "/v1/chat/completions", { method: "POST", headers, body: "{broken" })).status, 400);
+    const observed = await (await fetch(base + "/v1/proxy/status", { headers })).json();
+    assert(observed.activity.categories.models >= 2);
+    assert(observed.activity.categories.chat >= 2);
+    assert(observed.activity.categories.health >= 2);
+    assert(observed.activity.failed >= 3);
+    const unchanged = await (await fetch(base + "/v1/proxy/status", { headers })).json();
+    assert.equal(unchanged.activity.total, observed.activity.total, "dashboard polls must not inflate activity");
     const instance = JSON.parse(readFileSync(join(dir, "instance.json"), "utf8"));
     writeFileSync(join(dir, `shutdown-${instance.nonce}`), "stop");
     assert.notEqual(await Promise.race([exit, delay(10_000).then(() => "timeout")]), "timeout", logs);

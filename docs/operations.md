@@ -38,12 +38,24 @@ The task uses the current user's interactive identity, stays attached to a watch
 These features are included in version 0.3.0 and later.
 
 Visit `http://127.0.0.1:4141/dashboard` while the proxy runs. The first dashboard
-version is read-only: readiness, authentication expiry, uptime, admitted requests,
+version is read-only: readiness, authentication expiry, uptime, HTTP request totals,
 remembered conversations, advertised models, known priority-access exhaustion and
 configured fallback routes. It sends no Microsoft requests. Normal upstream turns
 provide allowance observations when Microsoft includes metering. The dashboard
 shows daily/weekly counts and their observation time; missing counts are unknown.
 A missing exhaustion record does not mean quota remains.
+
+The Activity card counts requests since the current process started, including
+model-list connectivity tests, health probes, invalid/rejected chat requests and
+unsupported routes. It separately shows in-flight, finished and failed requests,
+with model/chat/health/other totals. Dashboard status polls, its page/script and
+favicon are excluded. The latest 20 requests show bounded metadata: a known endpoint
+(unknown paths are masked), method, time, status and duration. Query strings,
+headers and bodies are never recorded in this activity view. Status 499 denotes
+a client disconnect, and 502 can denote a streaming transport failure. HTTP 200
+with an application-level error inside an SSE chunk is still an HTTP 200 here.
+The dashboard refreshes every five seconds. The separate chat-admission count
+drops to zero after a turn; it is not a lifetime count. Counts reset on restart.
 If a proxy API key is configured, enter it in the page to read status. The page
 holds it in memory only and never stores it in browser storage or the URL. Closing
 or reloading the page clears it. Up to 20 in-memory error summaries show fixed
