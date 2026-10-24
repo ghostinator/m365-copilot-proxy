@@ -1,0 +1,2014 @@
+{
+  "commit": "65905e881d6597040966aff9b087aa9a908b358a",
+  "files": [
+    {
+      "path": ".github/workflows/publish.yml",
+      "bytes": 601,
+      "lines": 30,
+      "sha256": "bd116acaa32d786df802ca9055e548baaf57b37847fa7050a515003d0493175c",
+      "category": "repository/build",
+      "purpose": "name: Publish to npm\r on:\r   release:\r     types: [published]\r"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 911,
+      "lines": 44,
+      "sha256": "b31884f9932d49b042c9fe6bf4ef38d392b59377322287bf21b395adfb142749",
+      "category": "repository/build",
+      "purpose": "node_modules\r dist\r .output\r .nitro\r"
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 27656,
+      "lines": 353,
+      "sha256": "8aac10f54fe0abaab5980689f722e275a9f5863ee934f5bc4de063fb239452f5",
+      "category": "repository/build",
+      "purpose": "# AGENTS.md\r Guidance for AI agents (and humans) working in this repo.\r ## What this is\r `m365-copilot-proxy` wraps Microsoft 365 Copilot's undocumented SignalR/WebSocket\r",
+      "headings": [
+        "# AGENTS.md\r",
+        "## What this is\r",
+        "## Operating principles (read first)\r",
+        "## How we work — hypothesis-driven (default)\r",
+        "## Layout (pnpm workspace, all TypeScript/ESM)\r",
+        "## Build & test\r",
+        "## Running against real M365 (important)\r",
+        "## Gotchas to know before you \"fix\" something\r",
+        "## Verifying changes end-to-end\r",
+        "# proxy smoke + tool call + multiturn (run unsandboxed, inside nix develop):\r",
+        "## Conventions\r"
+      ]
+    },
+    {
+      "path": "CLAUDE.md",
+      "bytes": 952,
+      "lines": 19,
+      "sha256": "729a184b9e6117b7d1aadaac30e7558d54d6ac7e7cc891bc59488560b072e6a5",
+      "category": "repository/build",
+      "purpose": "# CLAUDE.md\r Working guidance for this repo lives in **[AGENTS.md](AGENTS.md)** — read it first.\r Start with the **Operating principles (read first)** and **How we work —\r hypothesis-driven** sections. In short:\r",
+      "headings": [
+        "# CLAUDE.md\r"
+      ]
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1098,
+      "lines": 22,
+      "sha256": "e1ba611b4e13e3a3af546c020c206fe954c6609d3e076dd2da93d425e495abe8",
+      "category": "repository/build",
+      "purpose": "MIT License\r Copyright (c) 2026 Alexandra Østermark\r Permission is hereby granted, free of charge, to any person obtaining a copy\r of this software and associated documentation files (the \"Software\"), to deal\r"
+    },
+    {
+      "path": "README.md",
+      "bytes": 50255,
+      "lines": 703,
+      "sha256": "3b16c148e8cec9c240256aa7eff4cc3d138b76c2b1a8478a4a765e4a810fd14e",
+      "category": "repository/build",
+      "purpose": "# m365-copilot-proxy\r Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents like [pi](https://pi.dev/) and [OpenClaw](https://docs.openclaw.ai/). Wraps M365 Copilot's WebSocket/SignalR API in an OpenAI-compatible interface with tool calling support.\r > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR ",
+      "headings": [
+        "# m365-copilot-proxy\r",
+        "## How it works\r",
+        "### Tool calling\r",
+        "### Agent mode\r",
+        "### Conversation reuse\r",
+        "## Packages\r",
+        "## Setup\r",
+        "### Prerequisites\r",
+        "### 1. Install\r",
+        "### 2. Configure credentials\r",
+        "### 3. Use with pi (or any OpenAI-compatible agent)\r",
+        "### 4. Use with OpenClaw\r",
+        "# Configure and start in one command\r",
+        "# Or configure only, then start separately\r",
+        "### 5. Use as standalone proxy\r",
+        "# or\r",
+        "### 6. Run on NixOS (systemd service)\r",
+        "# flake.nix\r",
+        "## Available models\r",
+        "### GPT-5.6 chat (`gpt-5.6` / `gpt-5.6-quick`) — newer, and worse at agentic work\r",
+        "### GPT-6 (`gpt-6-think-deeper`) — entitlement, but no separate quota\r",
+        "### GPT-6 Sol (`gpt-6-sol`) — no entitlement, the agent only on premium\r",
+        "### GPT-6.1 Sol (`gpt-6.1-sol`) — GPT-6 Sol's routing, and the `relay_batch` framing\r",
+        "### Sonnet 5 and 5.5 (`claude-sonnet-5`, `claude-sonnet-5.5`) — their own sandbox, and the `relay` framing\r",
+        "### Opus (`claude-opus`, `claude-opus-4.8`) — two models, one with a small quota\r",
+        "## Image generation\r",
+        "## Authentication\r",
+        "## Environment variables\r",
+        "### Usage / context-window % in responses\r",
+        "## Config files\r",
+        "## Development\r",
+        "## Known limitations\r",
+        "## License\r"
+      ]
+    },
+    {
+      "path": "docs/experiments.md",
+      "bytes": 12657,
+      "lines": 222,
+      "sha256": "fba8ce2b29e6417c7f4205a6b25e8b3d210a3b315a296d4868315d4adfb65dce",
+      "category": "documentation",
+      "purpose": "# Experiments — a runnable catalog\r Reusable experiments for this project. Each is a **hypothesis + an exact way to\r run it + how to read the result**. This is the \"press go\" layer; the messy\r thinking lives in [`hypotheses.md`](hypotheses.md), confirmed facts in\r",
+      "headings": [
+        "# Experiments — a runnable catalog\r",
+        "## Setup\r",
+        "# probes: M365_NO_INTERACTIVE=1 CHROMIUM_PATH=$(which chromium) node scripts/<probe>.mjs\r",
+        "# bench:  node scripts/bench/run.mjs --base-url http://localhost:4141/v1 --model <id> --label <name>\r",
+        "## A. Tool-call compliance — the headline problem (baseline: 0/5, §8.12)\r",
+        "### E-C0 — Re-baseline (run first, on a rested account)\r",
+        "### E-C1 — Fenced format vs JSON  ✅ RESOLVED (JSON deleted)\r",
+        "### E-C1b — Shell-routing ⭐ THE WIN (June 14, hypotheses F12)\r",
+        "### E-C2 — Task-type sensitivity\r",
+        "### E-C3 — Anti-hallucination framing\r",
+        "### E-C4 — `tool_choice` enforcement\r",
+        "### E-C5 — Model comparison (agent path)\r",
+        "## B. Throttle / degradation (api doc §7)\r",
+        "### E-T1 — Characterise the throttle  (`scripts/throttle-probe.mjs`)\r",
+        "### E-T2 — Is degradation grounding-path dependent?\r",
+        "### E-T3 — Does a fresh login clear throttle, or is it just idle time?  (`scripts/throttle-recovery-ab.mjs`)\r",
+        "## C. License-free capability unlocks (optionsSets — §8.1)\r",
+        "### E-O1 — Web-search toggle (H8.9)\r",
+        "### E-O2 — Memory / custom-instructions (H8.14)\r",
+        "### E-O3 — Image input (H8.10)\r",
+        "### E-O4 — Code interpreter regression (already wired)\r",
+        "## D. Limits / regression (confirmed once — re-run to catch M365 changes)\r",
+        "### E-L1 — Input ceiling / retrieval depth (F9/F10)\r",
+        "### E-L2 — Output ceiling (F9)\r",
+        "### E-L3 — Disengaged tool-count threshold (F6)\r",
+        "## E. Claude Sonnet 5 (paid scenario — §21)\r",
+        "### E-S1 — What gates Sonnet 5's own sandbox tools? (F36)\r",
+        "### E-S2 — Framing sweep for Sonnet 5 (F37, F43)\r",
+        "## Adding an experiment\r"
+      ]
+    },
+    {
+      "path": "docs/hypotheses.md",
+      "bytes": 422964,
+      "lines": 5643,
+      "sha256": "18e34ac12fb815b40b0e30c78677ca2f9340c0ab419b7ee55a6341674a1be97f",
+      "category": "documentation",
+      "purpose": "# Reverse-engineering hypotheses & experiments\r A live notebook of things we've **guessed**, things we've **tested**, and the\r levers each one gives us. Update as we learn. The companion API doc\r ([`m365-copilot-api.md`](m365-copilot-api.md)) is for confirmed protocol\r",
+      "headings": [
+        "# Reverse-engineering hypotheses & experiments\r",
+        "## 15. `scenario` is a model gate — Opus is real, and it is metered\r",
+        "### F26 — `scenario` gates which models will serve; `licenseType` does not 🟢\r",
+        "### F27 — Opus has a separate priority-access budget, and it refuses in *content* 🟢\r",
+        "### H15.1 — Does the proxy's framing block burn the budget faster? 🟡 partially addressed, UNPROVEN\r",
+        "### Claude_Fable — accepted, answers, and is not Fable 🟡\r",
+        "## 11. July 7 2026 — flying under Microsoft's radar (auto-reauth detection science run)\r",
+        "### F25 — Our headless login browser presents a textbook automation fingerprint 🟢\r",
+        "### H-R1 — Re-auth does NOT clear throttle; any recovery is the idle time it forces 🟡→(near-confirmed)\r",
+        "### H-R2 — The interactive re-login is the actual Entra-risk event; silent refresh is invisible 🔴\r",
+        "### H-R3 — A persistent browser profile makes the RARE login device-familiar (partly SSO) 🟢\r",
+        "### Ranked recommendations (design; not yet implemented)\r",
+        "## 10. June 25 2026 — framing A/B sweep (rested account) + a benign task that always Disengages\r",
+        "### F24 — (July 7 2026) The `magic`/GPT path REGRESSED to 0 tool-calls; Claude-tone agent-less still works; model-string routing had a confab trap 🟡\r",
+        "### F23 — CLAUDE-FOR-TOOLS works via agent-LESS shell-routing (overturns §8.9-8.11 \"MCP-only\") 🟢\r",
+        "### F17 — The AGENT path Disengages on \"replace literal value X→Y in a file\" requests 🟢\r",
+        "### F21 — The substitution-Disengage is driven by FRAMING WEIGHT; no clean auto-mitigation 🟡\r",
+        "### F22 — The substitution-Disengage is Prompt-Shields JAILBREAK detection: an ADDITIVE shape threshold 🟢\r",
+        "### F18 — Framing shape modulates Disengage on a fragile task; aggressive framings backfire 🟡\r",
+        "### F19 — the §8.12 fakeable-task hallucination is largely CLOSED (by framing, not the detector) 🟢\r",
+        "### F20 — Real `pi` drives the proxy to fix a bug end-to-end: 10/10 (the goal, validated) 🟢\r",
+        "## 9. June 14 2026 — agentic tool-use SOLVED via shell-routing (bench 0/5 → real multi-turn loops)\r",
+        "### F12 — Shell-routing is the unlock: model writes ```bash, proxy executes it 🟢\r",
+        "### F13 — Account degradation is THREAD-rate, not message-count; fresh login clears it 🟡\r",
+        "### F14 — End-to-end through real pi works, but turn-1 confabulation is stochastic 🟡\r",
+        "### F15 — Shell-routing executes a model's OWN document if it contains code fences 🟢\r",
+        "### F16 — Behavioural reliability fixes (from the live pi README run) 🟢\r",
+        "### What did NOT work (negative results, all this session)\r",
+        "### Remaining gap\r",
+        "## M. Methods — how the June 9 2026 data was collected\r",
+        "### Environment\r",
+        "### Probes used\r",
+        "### Raw captures\r",
+        "### Caveats and threats to validity\r",
+        "### Falsification criteria\r",
+        "## 0. Headline findings from the June 9 2026 dig\r",
+        "### F1 — M365 emits its own classifier scores on every bot message 🟢\r",
+        "### F2 — The few-shot in our tool prompt is dead weight 🟢\r",
+        "### F3 — `tool_choice: \"required\"` is actively harmful 🟢\r",
+        "### F4 — Synthetic `reply()` tool routes prose through the tool channel 🟢\r",
+        "### F5 — No public REST endpoint exposes token usage 🟡\r",
+        "### F6 — Disengaged didn't fire in 30 attempts including jailbreak framing 🟡\r",
+        "### F7 — Diagnostic fields exposed through the runtime 🟢\r",
+        "### F8 — Things we saw but haven't dug into 🔴\r",
+        "### F9 — The I/O is wildly asymmetric: huge retrieval-backed input, tiny output 🟢\r",
+        "### F10 — Benign input size does NOT drive Disengaged 🟢\r",
+        "### F11 — \"send → cancel → send\": context persists, quota does not refund 🟢\r",
+        "### Summary as one table\r",
+        "### Probe → proxy actions (from the June 13 I/O dig)\r",
+        "## 1. Tool-call compliance — what actually moves the needle?\r",
+        "## 2. Token usage — what M365 actually exposes\r",
+        "### What we know for sure (🟢)\r",
+        "### What we hunted (June 9 2026)\r",
+        "### What we should surface today (🟢 implemented)\r",
+        "## 3. Context-window % — what it actually means\r",
+        "## 4. Frame surface area — fields we're dropping\r",
+        "## 5. The \"Disengaged\" filter — open questions\r",
+        "## 6. Cost / metering — does Microsoft tell us?\r",
+        "## 7. Probe backlog (ordered by expected information gain ÷ cost)\r",
+        "### Recommended next session\r",
+        "## 8. Capability-expansion hypotheses (June 13 2026 web-research dig)\r",
+        "### 8.1 — Server-side tools we may be able to switch on (highest payoff)\r",
+        "### 8.2 — Model selection beyond `tone`\r",
+        "### 8.3 — Grounding & multimodal\r",
+        "### 8.4 — Memory, instructions, behavior (bears on the prose-compliance bug)\r",
+        "### 8.5 — Quota / throttling / licensing\r",
+        "### 8.6 — Prioritized test order (cheap oracle → high payoff)\r",
+        "### 8.7 — New probes these motivate\r",
+        "### 8.8 — Reference implementations to mine (the real payloads)\r",
+        "### 8.9 — CONFIRMED live (June 13 2026 dig), service `1.0.03449.35222`\r",
+        "### 8.10 — MCP / native tools: the architecture wall (June 13, conclusive)\r",
+        "### 8.12 — Benchmark baseline: tool-call compliance is ~0 on realistic tasks 🟢\r",
+        "### 8.11 — Both native-tool paths CLOSED on this tenant (June 13, conclusive)\r",
+        "## 12. Multi-agent research dig (July 13 2026)\r",
+        "### 12.1 — §8.11's native-tool \"CLOSED\" verdict was mis-scoped 🟡 REOPENS\r",
+        "### 12.2 — Sandbox egress is conclusively dead (do not reopen) ⚫\r",
+        "### 12.3 — In-band encoding is a *framing* problem, not a *channel* problem 🟡\r",
+        "### 12.4 — Structured affordances already on the wire that we drop 🔴 cheap probes\r",
+        "### 12.5 — Experimental results (July 13 2026 execution run)\r",
+        "### 12.6 — Web-client JS decompile: the WS-native action path 🟢 (biggest lead)\r",
+        "### 12.7 — Native-action round-trip IMPLEMENTED + E2E-tested (July 13 2026)\r",
+        "### 12.8 — Decompile of the captured bundles: the map redrawn (July 13 2026)\r",
+        "### 12.9 — LocalMCP E2E: handshake PROVEN, tool-use is server-flighted (July 13 2026)\r",
+        "### 12.10 — Tool-call test harness (July 13 2026)\r",
+        "### 12.11 — Framing A/B pilot: baseline still trips Prompt Shields; the bench SOLVED metric HIDES it (July 14 2026)\r",
+        "### 12.12 — Framing disengage-rate A/B + confab-fix validation (July 14 2026, live)\r",
+        "### 12.13 — Tool-less requests silently execute in M365's sandbox and return a REAL transcript 🟢 (July 30 2026, third-party report)\r",
+        "### 12.14 — GPT-5.6 reasoning tone is live (August 6 2026) 🟢\r",
+        "### 12.15 — tone validation is THREE-state: `Gpt_5_6_Chat` is registered but dead 🟢\r",
+        "## 13. July 29 2026 — user-driven SSO for tenants that can't do TOTP (third-party)\r",
+        "### H13.1 — A random loopback redirect works for the first-party client ❌ FALSIFIED\r",
+        "### H13.2 — Device-code flow is enabled for the first-party client ❌ FALSIFIED\r",
+        "### Landed — interactive approval is upstream (Aug 6 2026) 🟢\r",
+        "## 14. Aug 1 2026 — image generation: it works, and we throw it away\r",
+        "### F14.1 — Image generation works on this account, agent-less 🟢\r",
+        "### F14.2 — The image IS the answer; there is no text message 🟢\r",
+        "### F14.3 — The wire format 🟢\r",
+        "### F14.4 — Three independent layers in our client discard it 🟢\r",
+        "### F14.5 — optionsSets gap 🟢\r",
+        "### F14.6 — The image bytes sit behind a DIFFERENT auth boundary 🟢 (the blocker)\r",
+        "### Resolved — the pipeline works end to end 🟢 (Aug 1 2026)\r",
+        "### Follow-ups now that the core API exists\r",
+        "### Incidental — fixed in the same change\r",
+        "## 16. Sep 21 2026 — `disableMemory=1`: temporary chats that still remember\r",
+        "### F28 — `disableMemory=1` does NOT cost multi-turn context 🟢\r",
+        "### F29 — the temporary thread is genuinely absent from history 🟢\r",
+        "### Not established\r",
+        "### F30 — the magic path still does not tool-call (Sep 21 2026) 🟢\r",
+        "## 17. Sep 23 2026 — GPT-6 is entitlement-gated, and that is all it is\r",
+        "### F31 — the paid scenario is an entitlement gate, not a metering signal 🟢\r",
+        "### F32 — `Gpt_6_Chat` is REJECTED, where `Gpt_5_6_Chat` is registered-but-dead 🟢\r",
+        "### Bench: 24/30, and why that doesn't make it the default\r",
+        "## 18. Sep 24 2026 — `Gpt_5_6_Chat` was gated, not dead, and is now ungated\r",
+        "### F33 — the \"registered but dead\" state was an entitlement gate all along 🟢\r",
+        "### Bench: 10/30, and why a higher version number bought nothing\r",
+        "## 19. Sep 28 2026 (UTC) — the `*_Quick` tones are retired; `*_Chat` replaced them\r",
+        "### F34 — `Gpt_Quick` and `Gpt_5_{2,3,4}_Quick` are REJECTED; each generation's `*_Chat` serves 🟢\r",
+        "### Bench: GPT-5.5 wins the chat half; the reasoning half is a tie\r",
+        "### Side observations (uninterpreted, n=3 each)\r",
+        "## 20. Sep 28 2026 — Claude bench forensics: proxy bugs found in the frame dumps\r",
+        "### F38 — Multi-message turns lost the head of every message after the first 🟢 (#29)\r",
+        "### F39 — Sonnet 4.6 writes its own `<tool_response>` in about half its turns 🟢 (#31)\r",
+        "### F41 — The document guard was mostly discarding correct first actions 🟢 (#33)\r",
+        "### F40 — M365 says when it throttles: `result.value = \"Throttled\"`, `errorCode = \"PerUserThrottled\"` 🟢 (#35)\r",
+        "## 21. Sep 28 2026 — Claude Sonnet 5: its own sandbox, a `<system>`-tag injection defense, and the `relay` framing (#37)\r",
+        "### F35 — One tone, two models 🟢\r",
+        "### F36 — Sonnet 5 brings its own tools, and no client knob turns them off 🟢\r",
+        "### F37 — `<system>` tags inside the user turn read as a forged system prompt 🟢\r",
+        "### H-sidepath — 4.6 fails because the tool path also enables M365's own sandbox/search ⚫ not supported\r",
+        "### F42 — Sonnet 4.6 reads the `<system>` block as an injection too, more weakly: relay wins there as well 🟢\r",
+        "### F43 — `relay_inline` (the note inside a `<user>` block) is falsified: Sonnet 5 rejects the whole setup ⚫\r",
+        "## 22. Oct 1 2026 — which tones the tool agent honours (`agent-tone-probe.mjs`)\r",
+        "### F44 — whether the agent lets Claude through depends on the account 🟡\r",
+        "### F45 — `Gpt_6_Reasoning` has never worked with the agent 🟢\r",
+        "### F46 — the paid scenario on a non-premium account: `ForbiddenRequest` / `InvalidCopilotLicense` 🟢\r",
+        "### F47 — agent-less GPT-6 needs `relay`: baseline 0/30, relay 30/30 🟢\r",
+        "## 23. Oct 2 2026 — GPT-6 Sol (`Gpt_6_Sol_Reasoning`, #23): ungated, the agent only on premium, a sandbox of its own, and `relay`\r",
+        "### F48 — live on the included scenario on every account; `Gpt_6_Sol_Chat` is the GPT-5 chat model 🟢\r",
+        "### F49 — with the agent: premium serves it, non-premium gets the dead route 🟢\r",
+        "### F50 — agent-less, GPT-6 Sol has a sandbox of its own, and `M365_NO_CODE_INTERPRETER` doesn't remove it 🟢\r",
+        "### F51 — framing sweep: `relay` wins on both paths 🟢\r",
+        "### F52 — the premium account produces the dead route's exact wire state too, as a one-off 🟢 (fixed)\r",
+        "### Confirmation round + real pi (13:13–14:25Z, 3 accounts in parallel, sequential within each)\r",
+        "## 24. Oct 4 2026 — Claude Opus 4.5: `Claude_Opus` on the included scenario, through the tool agent only\r",
+        "### F53 — the agent is Opus 4.5's only route, and only on a premium account 🟢\r",
+        "### F54 — \"Opus 5\" is the system prompt talking; the model says 4.5 🟢\r",
+        "### F55 — the priority-access budget is on the wire, counts turns, and the included scenario has none 🟢\r",
+        "### F56 — framing sweep: solve rate at ceiling, the jailbreak classifier decides → `relay` 🟢\r",
+        "### F57 — Opus ends some fenced calls with its native call markup (`</invoke>`, `</parameter>`) 🟢 (fixed)\r",
+        "### F58 — four throttles in one day on the premium account; a fixed \"N per 30 min\" doesn't fit, a per-turn bucket might 🟡\r",
+        "### F59 — Opus 5.5 with the agent and relay; the daily wall; what issue #18 was 🟢\r",
+        "### F60 — `relay_batch` cuts Opus 4.5's turns per task by 37% (bench) and 42% (real pi) at no cost → the Opus default 🟢\r",
+        "## 25. Oct 5 2026 — should the `relay` tones batch too? (`relay` vs `relay_batch`)\r",
+        "### F61 — bench: relay_batch cuts turns ~33% on the GPT-6 tones, ~15% on the Sonnets, at no solve cost 🟡\r",
+        "### F62 — real pi, Sonnet 4.6: relay_batch 20/20 at 5.65 turns per run vs relay 19/19 at 7.16 → passes 🟢\r",
+        "### F63 — real pi on the premium account: GPT-6 batches cleanly, Sonnet 5 doesn't save turns → the decision 🟢\r",
+        "### H25b — relay_batch without a shell tool: Sonnet 4.6 refuses? (pre-registered 12:08Z)\r",
+        "## 26. Oct 6 2026 — `Claude_Sonnet` @ paid becomes Sonnet 5.5; Sonnet 5 moves to `Claude_Sonnet_5`\r",
+        "### F64 — `Claude_Sonnet` is Sonnet 4.6 (included) / Sonnet 5.5 (paid); `Claude_Sonnet_5` is Sonnet 4.6 / Sonnet 5 🟢\r",
+        "### F65 — Sonnet 5.5 has its own priority-access budget: 80 turns a day, 150 a week 🟢\r",
+        "### F66 — Sonnet 5.5 has Sonnet 5's sandbox → relay 🟡 (n=1)\r",
+        "### H26a — a GPT-6.1 Sol budget with no tone we can find 🟢 (resolved, §27 F67)\r",
+        "### H26b — does relay_batch save Sonnet 5.5's budget? 🔴\r",
+        "## 27. Oct 6 2026 — GPT-6.1 Sol (`Gpt_61_Sol_Reasoning`): ungated, the agent only on premium, a budget on the paid scenario\r",
+        "### F67 — the paid scenario spends the `GPT61Sol*` budget; the included one doesn't 🟢\r",
+        "### H27a — is the included scenario's GPT-6.1 Sol the same model as the paid one's? 🔴\r",
+        "### F68 — agent: premium only, on both scenarios; agent-less: included only, every account 🟢\r",
+        "### Framing: design and pre-registered decision rule\r",
+        "### F69 — phase A: with the agent every framing works; without it only the user-voice ones do 🟢\r",
+        "### F70 — phase B: relay_batch passes the rule on both paths → the default 🟢\r",
+        "## 28. Oct 7 2026 — GPT-6 Sol, `relay` vs `relay_batch` again\r",
+        "### F71 — the sandbox gap was noise: relay_batch passes on both paths, `gpt-6-sol` switches 🟢\r",
+        "## 29. Oct 7 2026 — agent-less GPT-6.1 Sol vs GPT-6 Sol: the same model to the bench, but only 6.1 stays out of its sandbox\r",
+        "### F72 — the same solves and turns; GPT-6.1 Sol keeps out of its sandbox when asked, GPT-6 Sol doesn't 🟢\r",
+        "## 30. Oct 7 2026 — Sonnet 4.6 behind both tones, with and without the tool agent\r",
+        "### Follow-up, pre-registered 21:05Z (after the main sweep's agent-less arms, before the last premium arm finished)\r",
+        "### Main sweep: results (ran 09:48Z–21:20Z)\r",
+        "### F73 — `Claude_Sonnet_5` @ included is `Claude_Sonnet` @ included, to the bench too 🟢\r",
+        "### F74 — the agent takes Sonnet 4.6 out of its code interpreter, and that is where it fails 🟢\r",
+        "### Follow-up: run notes (provisional, while it runs)\r",
+        "### Follow-up: results (ran 21:21Z–02:28Z, premium account, no throttle, no budget wall)\r",
+        "### F75 — neither `Claude_Sonnet` nor `Claude_Sonnet_5` takes the agent 🟢\r",
+        "## 31. Oct 2 2026 — Windows / pi as a general agent (#6, #7): six proxy-side causes, and what is still open\r",
+        "### F76 — a Windows host is not a PowerShell shell: the platform note sent pi's bash PowerShell 🟢\r",
+        "### F77 — the fence regex closed on the first ```, so nested fences executed 🟢\r",
+        "### F78 — pi's shell tool cuts commands past ~8,190 characters silently 🟢 (model-free)\r",
+        "### F79 — every follow-up tool result went out as `name=\"unknown\"` 🟢; that it caused the give-ups ⚫ not supported\r",
+        "### F80 — give-ups the forcing retry never saw: Turkish ones, and ones dressed as a document 🟢\r",
+        "### F81 — the forcing prompt contradicted the transcript mid-task 🟡\r",
+        "### F82 — framing variants and \"a refusal poisons the thread\": both ⚫ at the scale tested\r",
+        "### F83 — the general suite: coding works, documents don't yet 🟡\r",
+        "### F84 — sessions that share an opening message shared one M365 conversation 🟢\r",
+        "## 32. Oct 4 2026 — one conversation, two backends: turns forked until `X-RoutingParameter-SessionKey` pinned them\r",
+        "### F85 — each turn landed on a random backend, and the conversation forked under the model 🟢\r",
+        "## 33. Oct 8 2026 — image input (#39)\r",
+        "### F86 — the web client's upload works with the chat token, on both paths, with no extra optionsSets 🟢\r",
+        "## 34. Oct 8 2026 — agent instructions that let Sonnet 4.6 batch (`M365_AGENT_VARIANT`)\r",
+        "### F87 — it's the agent path, not its instructions and not the code interpreter 🟢\r",
+        "## 35. Oct 8 2026 — stop the turn when the model starts writing its own `<tool_response>` (#65)\r",
+        "### F88 — stopping early saves a quarter to a third of the wall time and costs nothing the rule counts 🟢 (#65)\r",
+        "### Follow-up, Oct 11: after the rebase onto main, the turn cost replicates\r",
+        "### F89 — a 2,000-char cap keeps the turns and still ends the runaways; the stop at the tag costs 10% 🟢 (#65)\r",
+        "## 36. Oct 13 2026 — `Claude_Opus` @ included becomes Opus 4.8, and serves without the tool agent\r",
+        "### F90 — the agent stays: relay_batch ties on the bench, and agent-less costs 22% more turns in real pi 🟢\r",
+        "### F91 — agent-less, Opus 4.8 has a code interpreter of its own, and writes its own tool results 🟢\r",
+        "### F92 — tool-less requests go agent-less now; a non-premium account gets the premium-only 502 on every path 🟢\r",
+        "## 37. Oct 12 2026 — `M365_AVOID_THROTTLING` in the proxy: a pi session waits for the F58 bucket too\r",
+        "### F93 — a pi turn held 6.7 min on keepalives runs normally; a throttle hold costs pi nothing upstream 🟢\r",
+        "### F94 — with `M365_AVOID_THROTTLING` on the proxy alone, 144 pi turns in 40 min, 42 of them at the floor, and no throttle 🟢 (H37c)\r",
+        "### F95 — the bucket doesn't refill at 00:00Z: the account throttled 31 turns after it, where the continuous model said empty 🟢 (H37d, n=1)\r",
+        "## 38. Oct 14 2026 — a content-less `InternalError` drops the turn; \"Please continue.\" loses the request\r",
+        "### F96 — the empty-reply retry re-sent nothing the dropped turn carried 🟡\r"
+      ]
+    },
+    {
+      "path": "docs/m365-copilot-api.md",
+      "bytes": 81681,
+      "lines": 704,
+      "sha256": "10fadb8bf59d63d2db35f10fd8f558c4749897bda4f140f31f6584ab02e67930",
+      "category": "documentation",
+      "purpose": "# The M365 Copilot API — field notes from reverse engineering\r Microsoft 365 Copilot (the \"BizChat\" / \"Office web\" Copilot, **not** the public\r Azure OpenAI API) has no documented developer API. It is a **SignalR-over-WebSocket**\r service intended to be driven only by Microsoft's own first-party web/desktop clients.\r",
+      "headings": [
+        "# The M365 Copilot API — field notes from reverse engineering\r",
+        "## 0. TL;DR — the weird parts\r",
+        "## 1. The endpoint\r",
+        "## 2. Authentication\r",
+        "### Client and scopes\r",
+        "### Flow: MSAL PKCE\r",
+        "### The `nativeclient` redirect gotcha (this one cost hours)\r",
+        "### Automated login quirks (Playwright)\r",
+        "## 3. Transport: SignalR over WebSocket\r",
+        "### Required headers\r",
+        "### Framing\r",
+        "### Handshake\r",
+        "### Frame types (the `type` field)\r",
+        "## 4. Sending a chat turn\r",
+        "### The chat invocation (`type: 4`, `target: \"chat\"`, `invocationId: \"0\"`)\r",
+        "### Images in a turn (vision)\r",
+        "### The mandatory Metrics frame (`type: 1`, `target: \"Metrics\"`)\r",
+        "## 5. Models are selected by `tone`, not model id\r",
+        "### Entitlement: `scenario` (and its `licenseType`) gate which models will serve\r",
+        "### Claude Sonnet 5 arrives with its own tools — and reads our framing as an injection\r",
+        "### GPT-6 Sol: a sandbox of its own on the agent-less path\r",
+        "### Opus (and Sonnet 5.5) priority access is a separate, much smaller budget\r",
+        "### Code interpreter — a real server-side Python sandbox\r",
+        "## 6. Receiving a response\r",
+        "### a) Delta update (incremental text)\r",
+        "### b) Message update (full snapshot)\r",
+        "### c) Throttling update\r",
+        "### Control messageTypes you'll see\r",
+        "### End of turn\r",
+        "### Cancelling a turn (the \"Stop generating\" button)\r",
+        "### `type:2` stream item — the conversation summary\r",
+        "## 7. Throttling & quotas\r",
+        "### Account degradation under sustained use (observed June 13 2026)\r",
+        "## 8. Conversations & sessions\r",
+        "## 9. The \"Disengaged\" filter\r",
+        "### Trimming a heavy harness: opencode\r",
+        "## 10. Tool calling & Copilot Studio agents\r",
+        "### Model behaviour under tool calling (measurement traps)\r",
+        "### Creating the agent (`agent.ts`)\r",
+        "### Referencing the agent in a chat turn\r",
+        "### Versioning the agent by instructions hash\r",
+        "### Agent types: declarative (`minimalBots`) vs Studio/Dataverse — and why you can't bind a model\r",
+        "## 11. Quirks cheat-sheet\r",
+        "## 12. Source map\r",
+        "### Reverse-engineering probe scripts (`scripts/`, read-only)\r",
+        "### Frame dumping at runtime (`M365_DUMP_FRAMES=1`)\r"
+      ]
+    },
+    {
+      "path": "docs/overnight-log.md",
+      "bytes": 18163,
+      "lines": 217,
+      "sha256": "ccf9923af9739928020d3bd55bf166efe26ae8df9ea43f842d330fb879e6bc34",
+      "category": "documentation",
+      "purpose": "# Overnight work log (autonomous session, started 2026-06-24 night)\r Durable scratch log so work survives context summarization. Newest entries at top.\r Goal: usable coding agent in pi/openclaw via the prompt-emulated shell-routing path.\r ## ☀️ END-OF-NIGHT SUMMARY (for Alex, ~05:30 2026-06-25)\r",
+      "headings": [
+        "# Overnight work log (autonomous session, started 2026-06-24 night)\r",
+        "## ☀️ END-OF-NIGHT SUMMARY (for Alex, ~05:30 2026-06-25)\r",
+        "## Operating constraints (self-reminders)\r",
+        "## Plan / phases\r",
+        "## Notes\r",
+        "## LIVE STATE (read this first on wake-up)\r",
+        "### (history) earlier bg sweep tasks: brgoh98x5 (wake-5), b8kcmtnfm (wake-4), bemd9qspp, b1ilyr1u0.\r",
+        "### On wake-up, do:\r",
+        "### Smoke results (baseline, pre-sweep), rested account:\r",
+        "## Timeline / entries\r"
+      ]
+    },
+    {
+      "path": "docs/prompt-engineering.md",
+      "bytes": 18783,
+      "lines": 259,
+      "sha256": "ae5ee4c614b263f22e7837c3348c9764cee51a1d1622ee632e9bf3c168166e40",
+      "category": "documentation",
+      "purpose": "# Prompt-engineering M365 Copilot into tool-calling\r Distilled, **conclusive** findings on how to make M365 Copilot's chat-tuned model\r emit usable tool calls — enough to drive a real agent loop in pi/openclaw. This is\r the reference layer: the protocol lives in [`m365-copilot-api.md`](m365-copilot-api.md),\r",
+      "headings": [
+        "# Prompt-engineering M365 Copilot into tool-calling\r",
+        "## The cage theory (why this is hard)\r",
+        "## The load-bearing levers (confirmed)\r",
+        "## Claude Sonnet: don't *cage* it, don't *label* things `<system>`\r",
+        "## GPT-6 / GPT-6 Sol: `relay` is not just a Claude fix\r",
+        "## Claude Opus: when every framing solves, count the Disengages\r",
+        "## What does NOT work (confirmed dead-ends — don't re-litigate)\r",
+        "## Constraints that bite while tinkering\r",
+        "## The framing-variant registry (how to A/B strategies)\r",
+        "# 1. one persistent proxy pointed at the control file\r",
+        "# 2. sweep all strategies × discriminating tasks, rotated order, big cooldowns\r",
+        "# 3. aggregate into a strategy × task matrix + leaderboard\r",
+        "# starts a proxy per arm; `default` = the model's shipped default; arms may repeat\r",
+        "## Results\r",
+        "### June 24 2026 — 10-strategy framing sweep — ⏳ IN PROGRESS\r"
+      ]
+    },
+    {
+      "path": "docs/tool-calling.md",
+      "bytes": 9882,
+      "lines": 132,
+      "sha256": "ebf76e1d6fe519c8981f0c374885b4736bc11d2c288bec90f17a80673ef042d9",
+      "category": "documentation",
+      "purpose": "# Tool Calling Contract\r This proxy translates OpenAI-compatible tool calls to/from M365 Copilot. Because M365 doesn't natively support the OpenAI tool-calling protocol, we prompt-engineer it via a system prompt and enforce the contract at the proxy layer.\r ## Output Contract\r Tool calls are **fenced** (Markdown code blocks) — the JSON `{\"tool\":...}` format\r",
+      "headings": [
+        "# Tool Calling Contract\r",
+        "## Output Contract\r",
+        "## Enforcement\r",
+        "### 1. System Prompt (packages/core/src/tools.ts)\r",
+        "### 2. Copilot Studio Agent System Prompt (packages/core/src/agent.ts)\r",
+        "### 3. Behaviour-hardening layer (packages/proxy-lib/src/handler.ts, tools.ts)\r"
+      ]
+    },
+    {
+      "path": "flake.lock",
+      "bytes": 3068,
+      "lines": 117,
+      "sha256": "3811159b62fd566d55870b38f5b108937ae214519c038cb95c1b9f36dec4fb88",
+      "category": "repository/build",
+      "purpose": "{\r   \"nodes\": {\r     \"flake-utils\": {\r       \"inputs\": {\r"
+    },
+    {
+      "path": "flake.nix",
+      "bytes": 5845,
+      "lines": 128,
+      "sha256": "9179d8902983f1d7324f435805bacb0bdb72334d6b1ca258b86551c36c547597",
+      "category": "repository/build",
+      "purpose": "{\r   description = \"m365-copilot-proxy — OpenAI-compatible proxy for M365 Copilot (dev shell, package, NixOS module)\";\r   inputs = {\r     nixpkgs.url = \"github:NixOS/nixpkgs/nixos-unstable\";\r"
+    },
+    {
+      "path": "nix/module.nix",
+      "bytes": 5224,
+      "lines": 137,
+      "sha256": "5341cebd6b82dd46841f90689e891d4bc3183943362c2a846887925b589255b4",
+      "category": "repository/build",
+      "purpose": "# NixOS module for m365-copilot-proxy.\r #\r # Runs the Nitro proxy as a hardened systemd service. Credentials are delivered\r # via systemd LoadCredential (never copied into the world-readable Nix store) and\r"
+    },
+    {
+      "path": "package.json",
+      "bytes": 612,
+      "lines": 23,
+      "sha256": "f7713d6b375ce35ac22d81a94bcaadb8f15e41c0953854d2c40de2c2fb9ab7cf",
+      "category": "repository/build",
+      "purpose": "{\r   \"name\": \"m365-copilot-proxy\",\r   \"private\": true,\r   \"license\": \"MIT\",\r"
+    },
+    {
+      "path": "packages/core/package.json",
+      "bytes": 694,
+      "lines": 35,
+      "sha256": "a55d0baa85a3a9149b0834cc6d3f9ed203eb52d5cde3f3dbd37178cf0e2af5df",
+      "category": "runtime/build",
+      "purpose": "{\r   \"name\": \"@m365-copilot/core\",\r   \"version\": \"0.2.0\",\r   \"license\": \"MIT\",\r"
+    },
+    {
+      "path": "packages/core/src/agent.test.ts",
+      "bytes": 906,
+      "lines": 22,
+      "sha256": "776620a699d117a343f2e56108cbd32ef197df9e9e81b61efa7c00b699f57dbe",
+      "category": "tests",
+      "purpose": "import { describe, it, expect } from \"vitest\";\r import { environmentUrlFromName } from \"./agent.js\";\r describe(\"environmentUrlFromName\", () => {\r   it(\"splits the last two env-ID chars into their own DNS label\", () => {\r"
+    },
+    {
+      "path": "packages/core/src/agent.ts",
+      "bytes": 15793,
+      "lines": 403,
+      "sha256": "b29a2ef2414184a31d195459934246a38e9465c79385fbea98bc80495297c0d9",
+      "category": "runtime/build",
+      "purpose": "import { existsSync, readFileSync, writeFileSync } from \"node:fs\";\r import { join } from \"node:path\";\r import { homedir } from \"node:os\";\r import { createHash } from \"node:crypto\";\r"
+    },
+    {
+      "path": "packages/core/src/auth-recovery.test.ts",
+      "bytes": 4744,
+      "lines": 125,
+      "sha256": "f9ef4d2709d24e6e50444dc227b7fafdca570bd32fe937070cb279cd477a131f",
+      "category": "tests",
+      "purpose": "import { describe, it, expect } from \"vitest\";\r import { createBackoffController } from \"./auth-recovery.js\";\r function setup(overrides: Record<string, unknown> = {}) {\r   let t = 0;\r"
+    },
+    {
+      "path": "packages/core/src/auth-recovery.ts",
+      "bytes": 7059,
+      "lines": 151,
+      "sha256": "710c2032a55e910099a75dcf34d376f94c07f7bd8d23a8dee126eabdea6c61d3",
+      "category": "runtime/build",
+      "purpose": "import { createLogger } from \"./log.js\";\r const log = createLogger(\"backoff\");\r // Degradation BACKOFF policy (docs/hypotheses.md §11, H-R1). Account degradation is\r // thread-rate throttle that surfaces as EMPTY responses across many DISTINCT\r"
+    },
+    {
+      "path": "packages/core/src/auth.ts",
+      "bytes": 28380,
+      "lines": 706,
+      "sha256": "e47e2743737cd6661e2dd05dd986c04943817338d717065b3dc9bf3097b14e49",
+      "category": "runtime/build",
+      "purpose": "import * as msal from \"@azure/msal-node\";\r import {\r   readFileSync,\r   writeFileSync,\r"
+    },
+    {
+      "path": "packages/core/src/copilot.test.ts",
+      "bytes": 21036,
+      "lines": 457,
+      "sha256": "70be9ea6510fe2b8359477a1f557d39c4d06f2316078f7f9359d4a8290fb583a",
+      "category": "tests",
+      "purpose": "import { describe, expect, it, afterEach } from \"vitest\";\r import {\r   AGENT_CLAUDE_TONES,\r   AGENTLESS_TOOL_TONES,\r"
+    },
+    {
+      "path": "packages/core/src/copilot.ts",
+      "bytes": 29008,
+      "lines": 575,
+      "sha256": "7e7faa941a3133929b60f8efd8257ba169161c2081c419268459a6d0f9068b0f",
+      "category": "runtime/build",
+      "purpose": "import { JwtClaims } from \"./schemas.js\";\r import type { MeteredBudget } from \"./priority-access.js\";\r // Model name → tone mapping.\r // The server VALIDATES tones (an unknown tone errors with \"Failed to invoke\r"
+    },
+    {
+      "path": "packages/core/src/fenced.test.ts",
+      "bytes": 45774,
+      "lines": 957,
+      "sha256": "0eca3bfc6407345460b0d287c45222728214789630653660a0fe4f8689cae48c",
+      "category": "tests",
+      "purpose": "import { afterEach, describe, it, expect } from \"vitest\";\r import {\r   deriveFencedSpec,\r   renderFencedCall,\r"
+    },
+    {
+      "path": "packages/core/src/fenced.ts",
+      "bytes": 81440,
+      "lines": 1476,
+      "sha256": "b7e6c2f726bc0a5dbd4a7bfe9eb6ce3b9453d5cd3869cf907c92d98137652085",
+      "category": "runtime/build",
+      "purpose": "import { readFileSync } from \"node:fs\";\r import { createLogger } from \"./log.js\";\r import { getToneForModel, isSonnet55Model } from \"./copilot.js\";\r import type { ParsedToolCall, ToolDef } from \"./tools.js\";\r"
+    },
+    {
+      "path": "packages/core/src/image-input.test.ts",
+      "bytes": 2180,
+      "lines": 38,
+      "sha256": "107c32320d54964914bdd6ae919a0be05c2585de39ee29af4f87150b96edd598",
+      "category": "tests",
+      "purpose": "import { describe, it, expect, vi, afterEach } from \"vitest\";\r import { uploadImage, imageUrls } from \"./image-input.js\";\r afterEach(() => vi.unstubAllGlobals());\r describe(\"uploadImage\", () => {\r"
+    },
+    {
+      "path": "packages/core/src/image-input.ts",
+      "bytes": 2963,
+      "lines": 62,
+      "sha256": "793cb5c796b2a0b2d05983bd97fbf0415133d3916fd66b6c86b263541b41ae4b",
+      "category": "runtime/build",
+      "purpose": "import { randomUUID } from \"node:crypto\";\r import { createLogger } from \"./log.js\";\r import type { Message } from \"./tools.js\";\r const log = createLogger(\"image-input\");\r"
+    },
+    {
+      "path": "packages/core/src/image.test.ts",
+      "bytes": 2627,
+      "lines": 58,
+      "sha256": "f17fab7da93cd2bb2e25128eca65c290caec459171f1687b43cbf2e4ade94caa",
+      "category": "tests",
+      "purpose": "import { describe, it, expect } from \"vitest\";\r import { buildImagePrompt, classifyImageFailure } from \"./image.js\";\r describe(\"buildImagePrompt\", () => {\r   it(\"leaves the prompt untouched when no options are set\", () => {\r"
+    },
+    {
+      "path": "packages/core/src/image.ts",
+      "bytes": 9393,
+      "lines": 193,
+      "sha256": "3b266550ef8194cecf9be94df7b4810a994d0019b2655f6649f86f9f06b23c37",
+      "category": "runtime/build",
+      "purpose": "// Image generation (§14). M365 Copilot generates images through a built-in\r // server-side tool; the picture comes back on a GraphicArt frame as a URL, never\r // as chat text, and the bytes sit behind a separate auth boundary. This module\r // ties the three pieces together into one call:\r"
+    },
+    {
+      "path": "packages/core/src/index.ts",
+      "bytes": 3598,
+      "lines": 160,
+      "sha256": "5839df97a1cdbd91d4e1fc415869d6a1a4e16a2650ed5308d5dd1004716247f1",
+      "category": "runtime/build",
+      "purpose": "export {\r   getToken,\r   getTokenSilent,\r   getTokenForScope,\r"
+    },
+    {
+      "path": "packages/core/src/log.test.ts",
+      "bytes": 1437,
+      "lines": 35,
+      "sha256": "f30afe7f4c194b18647ceb32b051224305f5e4993e9a8f723660886534fcb16b",
+      "category": "tests",
+      "purpose": "import { afterEach, describe, expect, it, vi } from \"vitest\";\r import { homedir } from \"node:os\";\r import { join } from \"node:path\";\r const CONFIG_DIR = join(homedir(), \".config\", \"opencode-m365\");\r"
+    },
+    {
+      "path": "packages/core/src/log.ts",
+      "bytes": 2596,
+      "lines": 66,
+      "sha256": "de8636b77b0b32b69e5b421d76ecdca7badda40194818a0b84feb43e1d0b459b",
+      "category": "runtime/build",
+      "purpose": "import { appendFileSync, mkdirSync } from \"node:fs\";\r import { dirname, join, resolve } from \"node:path\";\r import { homedir } from \"node:os\";\r const CONFIG_DIR = join(homedir(), \".config\", \"opencode-m365\");\r"
+    },
+    {
+      "path": "packages/core/src/model.test.ts",
+      "bytes": 3078,
+      "lines": 77,
+      "sha256": "7a886835d1cd7131a6ad5c62592048e76226cb745eace41f455923351d253e87",
+      "category": "tests",
+      "purpose": "import { afterEach, describe, expect, it, vi } from \"vitest\";\r import { TurnBudgetHold } from \"./turn-budget.js\";\r // ModelSession.run's reconnect: when the first chat() fails it sends the turn\r // again on a fresh CopilotSession, and that turn waits on the budget like any\r"
+    },
+    {
+      "path": "packages/core/src/model.ts",
+      "bytes": 9185,
+      "lines": 206,
+      "sha256": "c4aba4e44fca29c4f514e6c1ff03c99eaa6eee3c975bcc84f6981e9ba7eb285d",
+      "category": "runtime/build",
+      "purpose": "import { getToken } from \"./auth.js\";\r import { getOrCreateAgent } from \"./agent.js\";\r import { CopilotSession } from \"./session.js\";\r import { uploadImage, type ImageAnnotation } from \"./image-input.js\";\r"
+    },
+    {
+      "path": "packages/core/src/native-actions.test.ts",
+      "bytes": 4795,
+      "lines": 112,
+      "sha256": "614c78eaee0718ec42a3afa14e14bb895a0f2ee0f0835d7eaa03aa238edf0f6c",
+      "category": "tests",
+      "purpose": "import { describe, it, expect } from \"vitest\";\r import {\r   parseActionConfirmation,\r   buildResumeInvokeAction,\r"
+    },
+    {
+      "path": "packages/core/src/native-actions.ts",
+      "bytes": 9111,
+      "lines": 192,
+      "sha256": "642ccaef4bd9e6d5a7b42c092e2174c3fb0d6dd77deb235b997835a05025774b",
+      "category": "runtime/build",
+      "purpose": "// Native custom-action support over the substrate WebSocket (docs/hypotheses.md\r // §12.6, H-NATIVE-6). The M365 web client, when an agent decides to call a custom\r // action/plugin, receives a server frame that is a confirmation TRIGGER (an adaptive\r // card asking \"allow this action?\"), and replies on the SAME socket with a\r"
+    },
+    {
+      "path": "packages/core/src/priority-access.test.ts",
+      "bytes": 9084,
+      "lines": 201,
+      "sha256": "04a207cfba068da6801d7e6f8412f3724bbdfa1ca2093bea67b542a205d5e563",
+      "category": "tests",
+      "purpose": "import { describe, it, expect, afterEach } from \"vitest\";\r import {\r   activePriorityAccessExhaustion,\r   couldBePriorityAccessPrefix,\r"
+    },
+    {
+      "path": "packages/core/src/priority-access.ts",
+      "bytes": 10199,
+      "lines": 212,
+      "sha256": "2f3a9fd71f715ae9f3b476e62a1a4cbb8ab52ca4761298ea2dc6a6bf676451a1",
+      "category": "runtime/build",
+      "purpose": "// Priority-access exhaustion (the Opus 5.5 and Sonnet 5.5 daily / weekly caps).\r //\r // Opus 5.5 and Sonnet 5.5 are metered separately from everything else on this\r // API. When a budget runs out M365 does NOT throttle, disengage, or return\r"
+    },
+    {
+      "path": "packages/core/src/schemas.ts",
+      "bytes": 4489,
+      "lines": 131,
+      "sha256": "1436f02952bf5f5137a1ee7d5e122922247ee139e1bf4e573f796d4550bff41e",
+      "category": "runtime/build",
+      "purpose": "import { z } from \"zod/v4\";\r // --- SignalR Protocol Schemas ---\r export const SignalRHandshakeResponse = z.object({\r   error: z.string().optional(),\r"
+    },
+    {
+      "path": "packages/core/src/session.test.ts",
+      "bytes": 9554,
+      "lines": 218,
+      "sha256": "39d6533d19f3a9232c1d871dff444a19d2c4e42b9fd0eb5ba0314b0facd81d75",
+      "category": "tests",
+      "purpose": "import { describe, it, expect, afterEach } from \"vitest\";\r import { buildCopilotWebSocketHeaders, buildCopilotWebSocketUrl, cursorMessageId, foldStreamText, TurnTextComposer } from \"./session.js\";\r import { MessageUpdate } from \"./schemas.js\";\r /** Replay a sequence of raw M365 frames (deltas as {d}, snapshots as {s}) through\r"
+    },
+    {
+      "path": "packages/core/src/session.ts",
+      "bytes": 40849,
+      "lines": 942,
+      "sha256": "ed06a6ac98ce724a0c5b1fa36338f60145409108b6826a5996d8a631ad05d1f2",
+      "category": "runtime/build",
+      "purpose": "import WebSocket from \"ws\";\r import type { ImageAnnotation } from \"./image-input.js\";\r import { appendFileSync, mkdirSync } from \"node:fs\";\r import { join } from \"node:path\";\r"
+    },
+    {
+      "path": "packages/core/src/tools.test.ts",
+      "bytes": 38197,
+      "lines": 682,
+      "sha256": "8476ac20857f79f86d165d78978136ed3f8a542f8e10632ee0e7dff82132c5c2",
+      "category": "tests",
+      "purpose": "import { describe, it, expect } from \"vitest\";\r import { parseToolCalls, formatToolDefinitions, looksLikeConfabulation, looksLikeHallucinatedCompletion, looksLikeRemoteArtifactCompletion, isProseDocument } from \"./tools.js\";\r import type { ToolDef } from \"./tools.js\";\r describe(\"parseToolCalls\", () => {\r"
+    },
+    {
+      "path": "packages/core/src/tools.ts",
+      "bytes": 30745,
+      "lines": 594,
+      "sha256": "388fcdf15cdaf8adc7aa372ec0629c85674ce241afaf0614ce8122b8c2704e78",
+      "category": "runtime/build",
+      "purpose": "import { createLogger } from \"./log.js\";\r import {\r   buildSpecMap,\r   currentFramingVariant,\r"
+    },
+    {
+      "path": "packages/core/src/turn-budget.test.ts",
+      "bytes": 14449,
+      "lines": 296,
+      "sha256": "237e84141a4f3afbbc0c782f852d27b577f84f9fa95a4b87634ebd0a7763893a",
+      "category": "tests",
+      "purpose": "import { afterEach, describe, expect, it, vi } from \"vitest\";\r import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from \"node:fs\";\r import { tmpdir } from \"node:os\";\r import { join } from \"node:path\";\r"
+    },
+    {
+      "path": "packages/core/src/turn-budget.ts",
+      "bytes": 20795,
+      "lines": 434,
+      "sha256": "681f479f847dad4801e578989c1bd001b097d8c4cc96407b637013c7ac4e98d2",
+      "category": "runtime/build",
+      "purpose": "import { closeSync, openSync, readdirSync, readSync, statSync } from \"node:fs\";\r import { homedir } from \"node:os\";\r import { basename, join, resolve } from \"node:path\";\r import { createLogger, fileLoggingEnabled, LOG_PATH } from \"./log.js\";\r"
+    },
+    {
+      "path": "packages/core/tsconfig.json",
+      "bytes": 188,
+      "lines": 14,
+      "sha256": "15bbd9403195b731292f86c3cc3e92fceb088286b8b600d74c490b9340d5f4a1",
+      "category": "runtime/build",
+      "purpose": "{\r   \"extends\": \"../../tsconfig.json\",\r   \"compilerOptions\": {\r     \"outDir\": \"dist\",\r"
+    },
+    {
+      "path": "packages/openclaw-plugin/package.json",
+      "bytes": 825,
+      "lines": 35,
+      "sha256": "7b5f8c261d19365bea969bbf6db0161c992d6a3009e56a75560f2242feab1a32",
+      "category": "runtime/build",
+      "purpose": "{\r   \"name\": \"@m365-copilot/openclaw-plugin\",\r   \"version\": \"0.2.0\",\r   \"license\": \"MIT\",\r"
+    },
+    {
+      "path": "packages/openclaw-plugin/skill/SKILL.md",
+      "bytes": 1662,
+      "lines": 46,
+      "sha256": "727b3fe32942e01fb26aeef0b880fc3b86184e85fead1234bba0528ef88ad5eb",
+      "category": "runtime/build",
+      "purpose": "---\r name: m365-copilot\r description: Use Microsoft 365 Copilot as your LLM backend via an OpenAI-compatible proxy\r user-invocable: false\r",
+      "headings": [
+        "# M365 Copilot Provider\r",
+        "## How it works\r",
+        "## Setup\r",
+        "# Configure only\r",
+        "# Configure and start proxy\r",
+        "# Configure with custom port\r",
+        "## Authentication\r"
+      ]
+    },
+    {
+      "path": "packages/openclaw-plugin/src/index.test.ts",
+      "bytes": 6155,
+      "lines": 159,
+      "sha256": "3aaeb5259f22e6ab6f50f986229287cb3cea92983abea6bd7126bf7794de5526",
+      "category": "tests",
+      "purpose": "import { describe, it, expect, beforeAll, afterAll } from \"vitest\";\r import { generateOpenClawConfig, startForOpenClaw, type ProxyHandle } from \"./index.js\";\r import { getAvailableModels } from \"@m365-copilot/core\";\r // --- Sample tools for integration tests ---\r"
+    },
+    {
+      "path": "packages/openclaw-plugin/src/index.ts",
+      "bytes": 4271,
+      "lines": 161,
+      "sha256": "4c11ee1e5600c3cd597ee63712abc661150284e26cea0513002455b65a68e9ac",
+      "category": "runtime/build",
+      "purpose": "import { getToken, getAvailableModels, createLogger } from \"@m365-copilot/core\";\r import { createApp } from \"@m365-copilot/proxy-lib\";\r import { serve } from \"srvx\";\r const log = createLogger(\"openclaw-plugin\");\r"
+    },
+    {
+      "path": "packages/openclaw-plugin/src/setup.ts",
+      "bytes": 4281,
+      "lines": 109,
+      "sha256": "0ec926e781f2359cb84627c9a67dba66c4ac04f169eb400c009be047bd3afba9",
+      "category": "runtime/build",
+      "purpose": "#!/usr/bin/env node\r import { readFileSync, writeFileSync, existsSync, mkdirSync } from \"node:fs\";\r import { join } from \"node:path\";\r import { homedir } from \"node:os\";\r"
+    },
+    {
+      "path": "packages/proxy-lib/package.json",
+      "bytes": 626,
+      "lines": 32,
+      "sha256": "5749dd2bff59f3d91aff1df919693cc00fe5dca0f6fb60605743decce865d280",
+      "category": "runtime/build",
+      "purpose": "{\r   \"name\": \"@m365-copilot/proxy-lib\",\r   \"version\": \"0.2.0\",\r   \"license\": \"MIT\",\r"
+    },
+    {
+      "path": "packages/proxy-lib/src/handler.ts",
+      "bytes": 66458,
+      "lines": 1206,
+      "sha256": "df8d6984c5444a0570ab4517992367820c241c894dfde11a893e458d71a1309a",
+      "category": "runtime/build",
+      "purpose": "import {\r   ModelSession,\r   type ModelSessionOptions,\r   createLogger,\r"
+    },
+    {
+      "path": "packages/proxy-lib/src/index.test.ts",
+      "bytes": 5211,
+      "lines": 147,
+      "sha256": "e453b854ad6e5c706239e20ba1b7323a82fd1fb2a0da19e8303298436563bf08",
+      "category": "tests",
+      "purpose": "import { describe, it, expect } from \"vitest\";\r import { createApp } from \"./index.js\";\r // This whole suite hits real M365 (auth, WS, agent creation, ~600-msg quota),\r // so it has to be opt-in. Without the guard, `pnpm test` waits 2 min for an\r"
+    },
+    {
+      "path": "packages/proxy-lib/src/index.ts",
+      "bytes": 4905,
+      "lines": 131,
+      "sha256": "b9e84802fd71856903ddde887d9b2a650ff520321e481fd9e3740c70ce2ef9d2",
+      "category": "runtime/build",
+      "purpose": "import { type ModelSessionOptions, getAvailableModels } from \"@m365-copilot/core\";\r import { ChatCompletionRequest } from \"./schemas.js\";\r import { SessionPool, handleChatCompletion } from \"./handler.js\";\r export { SessionPool, handleChatCompletion } from \"./handler.js\";\r"
+    },
+    {
+      "path": "packages/proxy-lib/src/schemas.test.ts",
+      "bytes": 1109,
+      "lines": 31,
+      "sha256": "11aac0d08db38482f76d504f686435174572b748fc66b16a51b6b4b70e89975c",
+      "category": "tests",
+      "purpose": "import { describe, it, expect } from \"vitest\";\r import { ChatMessage, ChatCompletionRequest } from \"./schemas\";\r describe(\"ChatMessage role normalization\", () => {\r   it(\"normalizes the OpenAI `developer` role to `system`\", () => {\r"
+    },
+    {
+      "path": "packages/proxy-lib/src/schemas.ts",
+      "bytes": 2539,
+      "lines": 70,
+      "sha256": "197643d5280bdcfdda9bce5b55791389eb4ee7fa460bf895237d75468fccca23",
+      "category": "runtime/build",
+      "purpose": "import { z } from \"zod/v4\";\r // --- OpenAI Request Schemas ---\r export const ToolCallFunction = z.object({\r   name: z.string(),\r"
+    },
+    {
+      "path": "packages/proxy-lib/src/streaming.test.ts",
+      "bytes": 62500,
+      "lines": 1228,
+      "sha256": "ededab224db947bebe2e372c12cea8d898f20aff95ad16d3b480f0290cfbe59a",
+      "category": "tests",
+      "purpose": "import { describe, it, expect, vi, afterEach } from \"vitest\";\r // Replace core's ModelSession with a scripted fake so we can exercise the handler's\r // streaming path with no auth/WebSocket. Everything else in core stays real.\r const scripted: {\r"
+    },
+    {
+      "path": "packages/proxy-lib/tsconfig.json",
+      "bytes": 188,
+      "lines": 14,
+      "sha256": "15bbd9403195b731292f86c3cc3e92fceb088286b8b600d74c490b9340d5f4a1",
+      "category": "runtime/build",
+      "purpose": "{\r   \"extends\": \"../../tsconfig.json\",\r   \"compilerOptions\": {\r     \"outDir\": \"dist\",\r"
+    },
+    {
+      "path": "packages/proxy/bin/m365-proxy.mjs",
+      "bytes": 527,
+      "lines": 15,
+      "sha256": "f79c70acbcfd04516d6f5cab56ca8c78cb018d95361ba745688aa997c2c0382b",
+      "category": "runtime/build",
+      "purpose": "#!/usr/bin/env node\r // Thin launcher for the built Nitro server.\r // Usage: m365-proxy [port]   (default 4141, or $PORT)\r import { fileURLToPath, pathToFileURL } from \"node:url\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "packages/proxy/middleware/cors.ts",
+      "bytes": 434,
+      "lines": 12,
+      "sha256": "037488e51c2b60d159a061689db332f6352e6ad793a0a315cedbb1c19b5683f1",
+      "category": "runtime/build",
+      "purpose": "/**\r  * Permissive CORS for every route, matching the old Hono `cors()` default.\r  * `handleCors` returns true when it has fully handled a preflight (OPTIONS)\r  * request, in which case we stop here; otherwise it appends the CORS headers\r"
+    },
+    {
+      "path": "packages/proxy/nitro.config.ts",
+      "bytes": 783,
+      "lines": 17,
+      "sha256": "9c4026e0e05580810aaf66f69eb7c978d235e1bab50f4d3893570c6e7e071e0e",
+      "category": "runtime/build",
+      "purpose": "// Nitro server config for the M365 Copilot proxy.\r // Routes live under routes/, the startup auth lives in plugins/, CORS in middleware/.\r export default defineNitroConfig({\r   compatibilityDate: \"2025-01-01\",\r"
+    },
+    {
+      "path": "packages/proxy/package.json",
+      "bytes": 587,
+      "lines": 30,
+      "sha256": "afaecafa4fd9641f9a45a8b4ec870ffe50997e8e5ee01c42c8f2e87a2970ef4c",
+      "category": "runtime/build",
+      "purpose": "{\r   \"name\": \"@m365-copilot/proxy\",\r   \"version\": \"0.2.0\",\r   \"license\": \"MIT\",\r"
+    },
+    {
+      "path": "packages/proxy/plugins/auth.ts",
+      "bytes": 495,
+      "lines": 17,
+      "sha256": "d7182aaff2b3c2d1dd41da251fc8378a50ca2cb810326857f987ea3d6110e256",
+      "category": "runtime/build",
+      "purpose": "import { getToken } from \"@m365-copilot/core\";\r /**\r  * Authenticate against M365 once, at server startup. A failure here throws and\r  * aborts boot — the equivalent of the old binary's `process.exit(1)` on auth\r"
+    },
+    {
+      "path": "packages/proxy/routes/health.get.ts",
+      "bytes": 119,
+      "lines": 4,
+      "sha256": "2c64180c7e0f82763c33d9294422c3339c6cb3b211523aa6c6a67389e059e0c4",
+      "category": "runtime/build",
+      "purpose": "import { HEALTH_PAYLOAD } from \"@m365-copilot/proxy-lib\";\r export default defineEventHandler(() => HEALTH_PAYLOAD);\r"
+    },
+    {
+      "path": "packages/proxy/routes/v1/chat/completions.post.ts",
+      "bytes": 1467,
+      "lines": 34,
+      "sha256": "e55cf8dc069497c05293dc8f4f3e6647f9dae2d01d8dec1b5917b3c43c9ed3cd",
+      "category": "runtime/build",
+      "purpose": "import { ChatCompletionRequest, handleChatCompletion } from \"@m365-copilot/proxy-lib\";\r import { pool } from \"../../../server-pool\";\r export default defineEventHandler(async (event) => {\r   let body: ReturnType<typeof ChatCompletionRequest.parse>;\r"
+    },
+    {
+      "path": "packages/proxy/routes/v1/models.get.ts",
+      "bytes": 129,
+      "lines": 4,
+      "sha256": "5e887040f44c3229f83dc471ac2943d55dedb8bb218a19f28c86fae3ea541d17",
+      "category": "runtime/build",
+      "purpose": "import { buildModelsPayload } from \"@m365-copilot/proxy-lib\";\r export default defineEventHandler(() => buildModelsPayload());\r"
+    },
+    {
+      "path": "packages/proxy/server-pool.ts",
+      "bytes": 374,
+      "lines": 11,
+      "sha256": "1330cbd89d3ad30641f55ac0d716a7f9276a014634f0ff5def603bd7c629ec39",
+      "category": "runtime/build",
+      "purpose": "import { SessionPool } from \"@m365-copilot/proxy-lib\";\r /**\r  * Process-wide session pool shared by every request.\r  *\r"
+    },
+    {
+      "path": "packages/proxy/tsconfig.json",
+      "bytes": 51,
+      "lines": 4,
+      "sha256": "d1d8b6e3c7f49d26777ce838e25003bddba85e1aa9ddc82d5f213aaa65184574",
+      "category": "runtime/build",
+      "purpose": "{\r   \"extends\": \"./.nitro/types/tsconfig.json\"\r }\r"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "bytes": 164350,
+      "lines": 5082,
+      "sha256": "a694e6c8ec266b4d32a2853e80d4c0ea6e93c6ef396d683dfcde3e84b92ef7c8",
+      "category": "repository/build",
+      "purpose": "lockfileVersion: '9.0'\r settings:\r   autoInstallPeers: true\r   excludeLinksFromLockfile: false\r"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "bytes": 87,
+      "lines": 6,
+      "sha256": "4aecfdf4a8ccb5e31a1232dc3a8e82db771968ad9fc2e95cb1725346d9877f21",
+      "category": "repository/build",
+      "purpose": "packages:\r   - \"packages/*\"\r allowBuilds:\r   '@parcel/watcher': true\r"
+    },
+    {
+      "path": "scripts/_probe-chat.mjs",
+      "bytes": 10576,
+      "lines": 264,
+      "sha256": "b4f740dde7670e6ceb2994211bfa143cc840c6e1f54327cd6b297362ca8aac83",
+      "category": "experiments/harness",
+      "purpose": "// Shared single-turn chat helper for RE probes.\r //\r // Opens one raw WS to M365 Copilot, sends one chat turn, accumulates the\r // response, and returns a structured summary. No files written — callers\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/agent-model-probe.mjs",
+      "bytes": 3083,
+      "lines": 83,
+      "sha256": "dc85d2c6c31d677019b17a29eb32adf1c2c56ee9a29022e9e55067dcc1a0f270",
+      "category": "experiments/harness",
+      "purpose": "// Read-only deep probe: can a Copilot Studio minimal agent carry a model\r // binding? Pull the FULL bot definition and hunt for model/deployment fields,\r // then try to discover a models-list endpoint. GETs only — mutates nothing.\r // Usage: M365_NO_INTERACTIVE=1 node scripts/agent-model-probe.mjs\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/agent-tone-probe.mjs",
+      "bytes": 21910,
+      "lines": 418,
+      "sha256": "2f4e2a42845dc7c9aa80cfb97a6e514fda8e0f45d8f5d207070457043e0647bb",
+      "category": "experiments/harness",
+      "purpose": "// RE probe: which `tone` strings does our Copilot Studio tool agent honour?\r //\r // tone-probe.mjs asks \"is this tone a real model?\" with NO agent. This asks the\r // question the proxy depends on for tool calls: with the declarative agent\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/bench/README.md",
+      "bytes": 8798,
+      "lines": 149,
+      "sha256": "1faf0a1359419964c946359a23a3cb5db0d0081bd3e0d8909bfb9ba1860aec38",
+      "category": "experiments/harness",
+      "purpose": "# m365-bench — a tiny Terminal-Bench-style benchmark\r Quantify **what actually works** instead of guessing. Real agentic coding tasks,\r objective pass/fail verifiers, scored across whatever lever you want to compare\r (tool-call format, model/tone, prompt, optionsSets). \"Best\" becomes a number.\r",
+      "headings": [
+        "# m365-bench — a tiny Terminal-Bench-style benchmark\r",
+        "## How it works\r",
+        "## Usage\r",
+        "# in another:\r",
+        "### Nix\r",
+        "## Comparing levers (the whole point)\r",
+        "## Phase sweeps and reading them back\r",
+        "## Cost & caveats\r"
+      ]
+    },
+    {
+      "path": "scripts/bench/_mock-proxy.mjs",
+      "bytes": 2508,
+      "lines": 37,
+      "sha256": "96611e111f0cdf94e2e6faa966c3c43ac70a94cf5cdc44524c59a195869bfb25",
+      "category": "experiments/harness",
+      "purpose": "// Instrument validation: a fake OpenAI endpoint that returns a REAL tool_call,\r // so we can confirm the bench's tool-execution + verify(SOLVED) path works\r // end-to-end without spending M365 messages. If the bench scores fizzbuzz as\r // SOLVED against this, a 0/5 from the real proxy is genuine model failure, not a\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/bench/analyze-arms.mjs",
+      "bytes": 20415,
+      "lines": 383,
+      "sha256": "3d833f43e55ff8beaa986f4bb34707ecd29217ca83b83230d35c1b7ac971b2db",
+      "category": "experiments/harness",
+      "purpose": "// Per-arm forensics for sweep archives (phase-sweep.sh, sonnet5-sweep.sh): what\r // each arm scored AND what happened on the wire. A scorecard alone can't tell\r // \"the framing failed\" from \"the model worked in its own sandbox\", \"the agent\r // was dropped\", \"Disengaged\" or \"the network was down\". This reads each arm's\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/bench/analyze-arms.test.mjs",
+      "bytes": 3366,
+      "lines": 60,
+      "sha256": "d2d936c6d59326cd96805fc4a874770d5721fa1aba64a82110def63ad25bc8fe",
+      "category": "experiments/harness",
+      "purpose": "import { describe, expect, it } from \"vitest\";\r import { mkdtempSync, writeFileSync } from \"node:fs\";\r import { tmpdir } from \"node:os\";\r import { join } from \"node:path\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/bench/analyze-sweep.mjs",
+      "bytes": 3175,
+      "lines": 69,
+      "sha256": "5f2486ac5bc04deb500ec1503878af961699f670f3dabd42afe26af54e8140c6",
+      "category": "experiments/harness",
+      "purpose": "// Aggregate sweep result JSONs into a strategy × task matrix + per-strategy totals.\r // Reads scripts/bench/out/<prefix>-*.json (default prefix \"s2\"). Each file is one\r // (task, strategy) cell. Prints outcome per cell and a ranked leaderboard.\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/bench/overnight-sweep.sh",
+      "bytes": 6458,
+      "lines": 126,
+      "sha256": "86ebabf159ba9bb47d0c9e4724abe722dcc72f73fcf6962f78870f6e86042651",
+      "category": "experiments/harness",
+      "purpose": "#!/usr/bin/env bash\r # Overnight framing A/B orchestrator — unattended, throttle-aware, resumable.\r #\r # Drives a PERSISTENT proxy (started separately with M365_FRAMING_FILE=$CTRL) and\r"
+    },
+    {
+      "path": "scripts/bench/phase-sweep.sh",
+      "bytes": 15710,
+      "lines": 299,
+      "sha256": "421994ed6b8e661579045e5b1c98312558c73c1c33e65d47020e0a2ee962197f",
+      "category": "experiments/harness",
+      "purpose": "#!/usr/bin/env bash\r # Phase sweep: bench arms and real-pi runs for one model, with a FRESH proxy per\r # arm, and per phase the proxy's own environment can change (agent off, code\r # interpreter off, …). The framing switches per arm through M365_FRAMING_FILE.\r"
+    },
+    {
+      "path": "scripts/bench/pi-reliability.sh",
+      "bytes": 6294,
+      "lines": 99,
+      "sha256": "266e5fe973f936afd45cf6f045d7cf160045e3a22ed71ac7a4f7a53d531e6bb8",
+      "category": "experiments/harness",
+      "purpose": "#!/usr/bin/env bash\r # Real-harness reliability run (toward the ultimate goal): drive the ACTUAL `pi`\r # coding agent headless (--print) against the local M365 proxy on the fix-bug task,\r # N times, verifying each with the objective check. This validates the PRODUCT path\r"
+    },
+    {
+      "path": "scripts/bench/prompts/p0_baseline.txt",
+      "bytes": 228,
+      "lines": 2,
+      "sha256": "84b2562aee2ce16d34c21fbd0617d6484ab0194fb35ce735db685171ad0a48f9",
+      "category": "experiments/harness",
+      "purpose": "You are an autonomous coding agent working in a real shell. Use the provided tools to actually do the task against the live filesystem. Do not ask questions. When the task is fully complete, reply with a one-line confirmation.\r"
+    },
+    {
+      "path": "scripts/bench/prompts/p1_alone.txt",
+      "bytes": 420,
+      "lines": 2,
+      "sha256": "3026bd90e1587eb4b56264a1a79d86568cf851b8b620974494cd3c9e4f91c7f9",
+      "category": "experiments/harness",
+      "purpose": "You are an autonomous coding agent. You are ALONE: no human will read your words or act on them. Explaining, advising, or pasting \"the corrected code\" accomplishes NOTHING — the only way a file changes or a command runs is if you emit a tool call and the runtime executes it. To change a file you MUST call edit_file or write_file; showing fixed code in prose does not change the file. Act with tools; do not advise.\r"
+    },
+    {
+      "path": "scripts/bench/prompts/p2_real.txt",
+      "bytes": 399,
+      "lines": 2,
+      "sha256": "9de3991fde2a9439ccd8e9842f3f8836fa770d280afea1efb844d238a4f22bf3",
+      "category": "experiments/harness",
+      "purpose": "You are an autonomous coding agent on a live, real filesystem. The files named in the task exist right now. You have run NO commands yet and have NO prior output — never claim a command \"returned no content\", that files are \"missing\", or that you \"cannot access the environment\" before you have actually looked via a tool call. Your first action must be a tool call that inspects the real files.\r"
+    },
+    {
+      "path": "scripts/bench/prompts/p3_firstmove.txt",
+      "bytes": 280,
+      "lines": 2,
+      "sha256": "93b6fe126e23bc67b461c549918e3b5309a09ccf57e990353014aca732de2431",
+      "category": "experiments/harness",
+      "purpose": "You are an autonomous coding agent. Begin by emitting exactly ONE tool call to inspect the filesystem (read_file or bash). Do NOT write any prose until at least one real tool_response has come back to you. After that, keep emitting one tool call per turn until the task is done.\r"
+    },
+    {
+      "path": "scripts/bench/prompts/p4_batch.txt",
+      "bytes": 322,
+      "lines": 2,
+      "sha256": "6d1221472a5d7b502ac7399c9f5c91a62becb27e1700d0606127e5c555a3d55f",
+      "category": "experiments/harness",
+      "purpose": "You are a non-interactive batch process, not a chat assistant. You cannot talk to anyone and there is no conversation. Until the task is verified complete, every message you produce is exactly one tool call against the live filesystem. You do the work yourself with tools; you never describe, suggest, or hand work back.\r"
+    },
+    {
+      "path": "scripts/bench/prompts/p5_verify.txt",
+      "bytes": 339,
+      "lines": 2,
+      "sha256": "0464d4a39614a007aeb4b25ecc46837f80745ca77a6ecf650fbc86ba0dc39551",
+      "category": "experiments/harness",
+      "purpose": "You are an autonomous coding agent. The task is NOT complete until a tool_response proves it (the verify command prints the expected output, or a read_file shows the new content). Do not announce completion and do not say \"Done\" — keep emitting tool calls until that proof appears in a tool_response, then give a one-line final answer.\r"
+    },
+    {
+      "path": "scripts/bench/prompts/p6_terse.txt",
+      "bytes": 84,
+      "lines": 2,
+      "sha256": "acf6d7e34c3b3afbaa073698f30bca81a80e22852f594dcdaf45d7bd7d90c9e6",
+      "category": "experiments/harness",
+      "purpose": "Do the task using the tools. Do not explain. Do not advise. Do not summarize. Act.\r"
+    },
+    {
+      "path": "scripts/bench/prompts/p7_combined.txt",
+      "bytes": 617,
+      "lines": 2,
+      "sha256": "780f3b3a21a4ffc9619fec9f87c3b7d61915c9aa11467d6b479a5b7e8a8d0fc9",
+      "category": "experiments/harness",
+      "purpose": "You are an autonomous coding agent on a live, real filesystem, working ALONE — no human reads your words or acts on them. Rules: (1) The files exist; you have run nothing yet, so never claim empty output or a missing/inaccessible environment before looking. (2) Your first action is a tool call that inspects the real files — no opening prose. (3) Explaining or pasting corrected code does nothing; to change a file you MUST call edit_file/write_file"
+    },
+    {
+      "path": "scripts/bench/prompts/p8_bashplan.txt",
+      "bytes": 529,
+      "lines": 2,
+      "sha256": "b8acacc2968f60562e4a86ea7a771711074ad7179d536166b0adb52c690a371d",
+      "category": "experiments/harness",
+      "purpose": "You accomplish tasks by writing shell commands. Output the exact bash command(s) needed to perform the ENTIRE task, as a single fenced ```bash block — a complete, runnable script (use heredocs to create files, sed to edit them, python3 to run them, cat/grep to inspect). The commands run in the task's working directory on a real filesystem. Output ONLY the ```bash block and nothing else. After it runs you will see its output; if the task is done, "
+    },
+    {
+      "path": "scripts/bench/prompts/p9_bashplan_strict.txt",
+      "bytes": 480,
+      "lines": 2,
+      "sha256": "1686561fb03518e7ec37f7117e91f5c8f227174fb652c80fb45921abc2745b7b",
+      "category": "experiments/harness",
+      "purpose": "You are a shell command generator. For the given task, emit ONE fenced ```bash block containing a complete script that does the whole task against the real files in the working directory. Rules: create/overwrite files with `cat > name <<'XEOF' ... XEOF` heredocs; edit existing files in place with sed; run programs with python3/bash; print results with cat/echo. Do not explain. Do not say you cannot access files — you can, via these commands. Outp"
+    },
+    {
+      "path": "scripts/bench/run.mjs",
+      "bytes": 14183,
+      "lines": 241,
+      "sha256": "0ce655d180ec08970659fb3bf4c239f7cf16197fe773adba558eed0025a8dfd7",
+      "category": "experiments/harness",
+      "purpose": "// m365-bench: a tiny Terminal-Bench-style harness to QUANTIFY what works best.\r //\r // Drives the local proxy as an OpenAI-compatible agent loop over a throwaway\r // sandbox, runs each task's objective verifier, and prints a scorecard. Vary ONE\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/bench/sonnet5-sweep.sh",
+      "bytes": 3866,
+      "lines": 88,
+      "sha256": "25822fb1a020c5aa4cd7822feb18ef1fc0a3eeeef1aed87ae305af8f0913f98b",
+      "category": "experiments/harness",
+      "purpose": "#!/usr/bin/env bash\r # Sonnet 5 framing sweep (docs/hypotheses.md §21).\r #\r # Starts a fresh proxy per arm with M365_FRAMING_FILE=$CONTROL, switching the\r"
+    },
+    {
+      "path": "scripts/bench/sweep2.sh",
+      "bytes": 1759,
+      "lines": 45,
+      "sha256": "745f43c596accb3f92e79ce1cd7c0c650f9f888f2cd1dd855275e50a4e3d3bca",
+      "category": "experiments/harness",
+      "purpose": "#!/usr/bin/env bash\r # Strategy sweep against a PERSISTENT proxy (no restarts). Switches strategy by\r # writing the control file /tmp/m365-framing, then runs the bench for one task.\r # Interleaved by task with rotated strategy order to spread thread-rate order\r"
+    },
+    {
+      "path": "scripts/bench/tasks.mjs",
+      "bytes": 5396,
+      "lines": 99,
+      "sha256": "331f7039736d1918e588804c1f8e9ffed31a516aa908f852f7b78c0f20a467f8",
+      "category": "experiments/harness",
+      "purpose": "// Benchmark task suite. Each task is an objectively-verifiable agentic coding\r // task runnable in a throwaway sandbox dir with only `python3` + `bash`.\r //\r // Each task:\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/bench/turn-budget.mjs",
+      "bytes": 4619,
+      "lines": 77,
+      "sha256": "85e51d3d7ce3350326188e897d59503866604d7abc4cc590e41c0cbb5e99f9a5",
+      "category": "experiments/harness",
+      "purpose": "// Throttle avoidance for the bench, OFF unless M365_AVOID_THROTTLING=1: wait\r // before a task until the account can afford it, so a sweep doesn't trip M365's\r // `PerUserThrottled` (hypotheses §24 F58). Without it the bench runs as fast as\r // before and still stops at the first throttled task.\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/bench/turn-budget.test.mjs",
+      "bytes": 7637,
+      "lines": 141,
+      "sha256": "813fbe8a34f174ef3a5fa72970e8743a1a7c99d6c18904a969147839fc90b513",
+      "category": "experiments/harness",
+      "purpose": "import { describe, expect, it } from \"vitest\";\r import { mkdirSync, mkdtempSync, writeFileSync } from \"node:fs\";\r import { homedir, tmpdir } from \"node:os\";\r import { join } from \"node:path\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/bench/variant-sweep.sh",
+      "bytes": 2320,
+      "lines": 66,
+      "sha256": "37a480357360466b065d271e763c8797ab791a163276810699e02fa194eb79f5",
+      "category": "experiments/harness",
+      "purpose": "#!/usr/bin/env bash\r # Sweep 10 tool-calling prompting strategies through the live bench.\r # Each strategy = a fresh proxy with its own env, then the bench on a fixed task\r # subset. One strategy at a time (one port) so threads don't overlap. Results land\r"
+    },
+    {
+      "path": "scripts/cancel-frame-capture.mjs",
+      "bytes": 9944,
+      "lines": 205,
+      "sha256": "14d6dc23ac65793726f3b809029bbf137d263d0197e191d1c98fe20771ebe68e",
+      "category": "experiments/harness",
+      "purpose": "// RE dig: capture what the REAL m365.cloud.microsoft Copilot client sends over\r // its chat WebSocket when the user clicks \"Stop generating\".\r //\r // Why: our proxy has NO cancellation path — every turn runs to completion and\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/claude-tools-probe.mjs",
+      "bytes": 3259,
+      "lines": 46,
+      "sha256": "bbbe8d576cb3032e4b2c81a67948b25bb16e65e680126647e82195c1e469d0bb",
+      "category": "experiments/harness",
+      "purpose": "// Tangent #2: can we get CLAUDE to do tool calls? The declarative agent forces GPT\r // routing (H8.6), so Claude+tools requires the AGENT-LESS path (Claude tone leaks\r // through). Agent-less tool-calling was unreliable (~1/3) under minimal framing; does\r // the new `softened` framing make agent-less Claude reliably emit tool fences without\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/code-interp-egress-diag.mjs",
+      "bytes": 4730,
+      "lines": 92,
+      "sha256": "d081dbac6421b3537ab5561304f5832500c165d4b0442698f2c2b73868b3aebb",
+      "category": "experiments/harness",
+      "purpose": "// Egress DIAGNOSTIC battery for the M365 code-interpreter sandbox.\r //\r // Single message that asks the model to run an EXACT Python script which probes,\r // in order: DNS resolution, raw TCP connect (port 443 + 80), an HTTPS GET to our\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/code-interp-egress.mjs",
+      "bytes": 2969,
+      "lines": 48,
+      "sha256": "3503b056e779f9ff3f109d84d98e40050416f95ed5586d652f3eb77fbda8bbba",
+      "category": "experiments/harness",
+      "purpose": "// Does M365's code-interpreter sandbox have OUTBOUND NETWORK? If so, the\r // lightweight bot can call our tunnel via Python — a tool bridge with no native\r // tool attachment needed.\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/code-interp-proxy-probe.mjs",
+      "bytes": 5235,
+      "lines": 107,
+      "sha256": "8799019651a86fa3fb960b8b86f88afb0fe39dc81353136abaecdf15699741b5",
+      "category": "experiments/harness",
+      "purpose": "// Probe the EGRESS PROXY discovered at localhost:8000 inside the M365\r // code-interpreter sandbox. DNS is blocked; all egress is forced through this\r // proxy (http_proxy/https_proxy=http://localhost:8000). It returned 404 for our\r // tunnel + example.com, suggesting an allowlist. We test:\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/code-interp-rawip-probe.mjs",
+      "bytes": 4150,
+      "lines": 87,
+      "sha256": "effb51c936e57cd1b8a38450789e4624c5540edf6a7acdf1978f59d70daac5ed",
+      "category": "experiments/harness",
+      "purpose": "// Final egress confirmation: bypass DNS and the localhost proxy entirely by\r // connecting to raw external IPs from inside the M365 code-interpreter sandbox.\r // If even a raw TCP SYN to a public IP fails, the network namespace itself is\r // airgapped (not merely DNS/proxy filtered). We also re-check our tunnel via its\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/code-interp-rawip2.mjs",
+      "bytes": 2058,
+      "lines": 41,
+      "sha256": "4cb8f798ff7615166132bc4c8dbbc78e1b5cb4041b74a1abdd500e996e4c13d2",
+      "category": "experiments/harness",
+      "purpose": "// Lean retry: raw TCP SYN to public IPv4s (no DNS, no proxy, no subprocess).\r import { readFileSync, writeFileSync, mkdirSync } from \"node:fs\";\r import { getToken, decodeJwt } from \"../packages/core/dist/index.mjs\";\r import { oneTurn } from \"./_probe-chat.mjs\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/code-interpreter-probe.mjs",
+      "bytes": 4826,
+      "lines": 102,
+      "sha256": "6a075e5ed5f819d724a1ca7d28faf78b60362c2602ecff2bb51f9ff967db201f",
+      "category": "experiments/harness",
+      "purpose": "// RE probe (H8.1): does enabling the `cwc_code_interpreter` optionsSets unlock a\r // REAL server-side Python sandbox in BizChat?\r //\r // Oracle: ask for the SHA-256 of a unique string. The model CANNOT produce a\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/create-full-bot.mjs",
+      "bytes": 5913,
+      "lines": 107,
+      "sha256": "f6e285ba6222dd0dd8fc310c3e86a40a1a48bb58de35f1083b565f0aba02220b",
+      "category": "experiments/harness",
+      "purpose": "// Create a REAL (full, Dataverse-backed) Copilot Studio agent via the UI, capture\r // its cdsBotId + the gateway create/publish calls, so we can then test whether a\r // full bot is reachable over the BizChat WebSocket (the decisive MCP question).\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/build-package.mjs",
+      "bytes": 6257,
+      "lines": 120,
+      "sha256": "c6a28e190518d1cf7d76db0b75b848bba61e76138c705fe341389f71e92e67ce",
+      "category": "experiments/harness",
+      "purpose": "// Build a Microsoft 365 declarative-agent app package that carries ONE custom\r // OpenAPI action pointing at our public sentinel tunnel. Proving H-NATIVE-1\r // (docs/hypotheses.md §12.1): does a free declarative agent with a custom action\r // cause Microsoft's orchestrator to make an outbound HTTPS call to our endpoint?\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/gate-probe.mjs",
+      "bytes": 2301,
+      "lines": 48,
+      "sha256": "6741c8b495164017a7227b09e6c475f3247f426f19dd63115c66e1636877d6bf",
+      "category": "experiments/harness",
+      "purpose": "// H-NATIVE-1 gate probe: what can we actually do toward sideloading a declarative\r // agent with a custom action? Mints a Graph token via the repo auth, decodes its\r // scopes, checks admin/identity, and inspects the Teams app-catalog + sideload\r // policy. READ-ONLY (no upload here) so it's safe to run repeatedly.\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/install-probe.mjs",
+      "bytes": 2538,
+      "lines": 46,
+      "sha256": "e9ebd1b464464dee39ffe825fdb6c7298a11755bea518000259a5695cae43d0f",
+      "category": "experiments/harness",
+      "purpose": "// After Developer Portal import, find the app in the catalog and install it for the\r // current user via Graph (bypasses the headless-unfriendly Teams SPA). Then it should\r // appear in Copilot as a selectable agent.\r import { getTokenForScope, decodeJwt } from \"../../packages/core/dist/index.mjs\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/license-check.mjs",
+      "bytes": 1805,
+      "lines": 26,
+      "sha256": "f8ce4524acfc0ed466809bb63d947b008f4a0d3e2af55d6e91df964924089636",
+      "category": "experiments/harness",
+      "purpose": "// What Copilot / agent entitlements does this account actually have? Reads assigned\r // license SKUs + service plans via Graph — directly informs whether native-agent/MCP\r // tool features would be flighted for this tenant. READ-ONLY.\r import { getTokenForScope, decodeJwt } from \"../../packages/core/dist/index.mjs\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/localmcp-probe.mjs",
+      "bytes": 10362,
+      "lines": 127,
+      "sha256": "11c6ff802fb73cbb3e6394cbf5f57c89492ff4f078ecd205a9f5a6e8a175a9ce",
+      "category": "experiments/harness",
+      "purpose": "// DECISIVE E2E for native tool-calling via LocalMCP over the raw substrate WS\r // (docs/hypotheses.md §12.8/§12.9). No browser, no desktop host — the proxy IS the\r // MCP host. Per turn: handshake → send LocalMcpDiscovery → send chat → answer Sydney's\r // mcp_describe (tool schema) and invoke_local_plugin (execute + return). Because the\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/native-action-ws-probe.mjs",
+      "bytes": 5635,
+      "lines": 98,
+      "sha256": "a00f29528984862da1e255512be349da073dc90f351c43ae832defdc1576c1d0",
+      "category": "experiments/harness",
+      "purpose": "// E2E: drive a native custom action over the substrate WS via the proxy's new\r // native-action support (H-NATIVE-6/7). Attaches our sentinel OpenAPI action inline\r // (no Teams sideload), asks the model to call it with model gpt-5.5-think-deeper, and\r // checks: (a) did the model trigger an action (stream.sawAction), (b) did the proxy\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/shell-tool-e2e.mjs",
+      "bytes": 2559,
+      "lines": 38,
+      "sha256": "62ca580d2d19b7ae8b88a19a4d085654df0ce6c20dc5e21966369c76cb1f67ff",
+      "category": "experiments/harness",
+      "purpose": "// Quick E2E of the SHIPPING tool path with a shell tool present (so shell-routing\r // engages — the documented-working case). Confirms the proxy emits a tool_call and\r // uses the tool result. Model overridable (default gpt-5.5-think-deeper).\r import { createApp } from \"../../packages/proxy-lib/dist/index.mjs\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/sideload-and-trigger.mjs",
+      "bytes": 7209,
+      "lines": 117,
+      "sha256": "4112af4d7477868749bd8204eead196fd533f3b0c41e005d047044b316b05912",
+      "category": "experiments/harness",
+      "purpose": "// H-NATIVE-1 end-to-end (headful under Xvfb so heavy SPAs render):\r // 1) Developer Portal → Preview in Teams → complete the install (\"Add\") dialog.\r // 2) M365 Copilot chat → open the \"Sentinel Probe\" agent → ask for the sentinel.\r // Oracle: scripts/sentinel-hits.log gains a Microsoft-originated GET /sentinel, and\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/sideload-devportal.mjs",
+      "bytes": 5478,
+      "lines": 84,
+      "sha256": "d22feb1347737da089b63bf7586d589cbaa4c493cd653c6c2b31a6307622b2f3",
+      "category": "experiments/harness",
+      "purpose": "// H-NATIVE-1 sideload attempt #2: Teams Developer Portal (dev.teams.microsoft.com)\r // is more automation-friendly than Teams v2 and can import an app package + preview\r // it in Copilot. Uses a real desktop UA (Teams v2 reset our headless client) and\r // persists the logged-in session to scripts/da-app/state.json for reuse.\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/sideload-devportal2.mjs",
+      "bytes": 4665,
+      "lines": 79,
+      "sha256": "56f1c5640542e94e77fdbcae361084db1db237ea35bd83de6545e04b1c284487",
+      "category": "experiments/harness",
+      "purpose": "// Continue the Developer Portal sideload: the package validates (\"No issues found\");\r // now commit Import, open the app, and Preview-in-Copilot to install it for the user.\r // Reuses the saved session (state.json). Screenshot-heavy + adaptive.\r import { mkdirSync, writeFileSync, existsSync } from \"node:fs\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/sideload-gui.mjs",
+      "bytes": 6517,
+      "lines": 117,
+      "sha256": "199352eabb136e9a2f91ee30ad81a50e345fd2cb40ab664ea2c1bc174590935b",
+      "category": "experiments/harness",
+      "purpose": "// H-NATIVE-1 GUI sideload + trigger. Logs in as the M365 user, tries to upload the\r // declarative-agent app package (sentinel-agent.zip) via Teams \"Upload a custom app\",\r // then opens the agent in Copilot and asks for the sentinel — watching whether\r // Microsoft's orchestrator makes the outbound call (scripts/sentinel-hits.log).\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/da-app/tone-selfid.mjs",
+      "bytes": 762,
+      "lines": 10,
+      "sha256": "c547ce44ca56f2f525f40f453cba24846d7422d5f0a05cff4a2d3bf4f520994d",
+      "category": "experiments/harness",
+      "purpose": "import { getToken, decodeJwt } from \"../../packages/core/dist/index.mjs\";\r import { oneTurn } from \"../_probe-chat.mjs\";\r const token = await getToken(); const claims = decodeJwt(token);\r const tones = process.argv.slice(2).length ? process.argv.slice(2) : [\"Claude_Fable\", \"Claude_Fable_Reasoning\", \"Gpt_5_5_Auto\"];\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/dataverse-bot-probe.mjs",
+      "bytes": 3941,
+      "lines": 76,
+      "sha256": "b73c2eca44afd6e73a1e35df77fdaff28ddab19a86e0a9044b3f72dd44e12058",
+      "category": "experiments/harness",
+      "purpose": "// Deep dig: read the agent's FULL definition straight from Dataverse (the store\r // the Studio UI actually uses) and its components, to find the model binding.\r // Read-only GETs. Usage: M365_NO_INTERACTIVE=1 node scripts/dataverse-bot-probe.mjs\r import { readFileSync } from \"node:fs\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/disengage-agentless-probe.mjs",
+      "bytes": 3355,
+      "lines": 67,
+      "sha256": "be408abcc176720834ec0f3c0df8ebc2fba9acd8f672b112b6eebb8a4f709be3",
+      "category": "experiments/harness",
+      "purpose": "// F17 mitigation feasibility: does AGENT-LESS (DeepLeo) + the fenced shell-routing\r // framing still (a) avoid the \"replace X->Y\" Disengage AND (b) emit tool fences?\r // If yes, \"on Disengaged, retry agent-less\" is a viable proxy fix.\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/disengage-config-probe.mjs",
+      "bytes": 2892,
+      "lines": 55,
+      "sha256": "058990c7b262988b155ff9c8fe17e2021be52cad1b72cabb296fb0b6f40170ce",
+      "category": "experiments/harness",
+      "purpose": "// F17 probe — WHY does the benign \"edit config.json port\" task Disengage?\r // Isolates the trigger by varying ONE thing at a time in PLAIN CHAT (no agent,\r // no tools, no framing) so any Disengage is pure task-content, not framing shape.\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/disengage-matrix.sh",
+      "bytes": 2999,
+      "lines": 55,
+      "sha256": "f801cc3677ff4f8375e1fb4c46a625ed0166247bbc9f2e88b2b3d1d798c7d176",
+      "category": "experiments/harness",
+      "purpose": "#!/usr/bin/env bash\r # F22 science: map the boundary of the \"replace existing value\" Disengage trigger.\r # Hits the live proxy (real agent+framing path) with a matrix of phrasings/contents,\r # classifies each as REFUSE / TOOL_CALL / PROSE, n=REPEAT each, spaced for thread-rate.\r"
+    },
+    {
+      "path": "scripts/fork-probe.mjs",
+      "bytes": 4699,
+      "lines": 80,
+      "sha256": "7967006d183b60076e6eb3e94fcfa383509f84cd53416a520c949b30d441088f",
+      "category": "experiments/harness",
+      "purpose": "// H-FORK: does M365 append every turn of a conversation to ONE thread?\r //\r // The proxy opens a fresh WebSocket per turn on a reused ConversationId. In the\r // debug logs of real pi runs, the server's turnCount after each turn often steps\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/fork-scan.mjs",
+      "bytes": 4381,
+      "lines": 82,
+      "sha256": "4e2ff3b6988b1fda19deffa9dd528ac351d36515eed8544a4fd7c30860a38848",
+      "category": "experiments/harness",
+      "purpose": "// Did the server append every turn to the conversation? Reads proxy debug logs\r // (M365_DEBUG=1; files or directories, *.debug.log / debug.log found recursively)\r // and checks the server's own count of user messages after each turn, which must\r // grow by one per turn on one ConversationId. A turn whose count falls short ran\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/frame-dump-disengage.mjs",
+      "bytes": 6019,
+      "lines": 122,
+      "sha256": "90df1ffa3a7706bac18a6d42efd4978eab97a69f59d8bf05206793ab851a8f7c",
+      "category": "experiments/harness",
+      "purpose": "// Targeted probe: deliberately try to trigger the Disengaged filter so we\r // can read the classifier scores at the moment of disengagement and compare\r // against the safe baselines from frame-dump-probe.mjs. One M365 turn.\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/frame-dump-probe.mjs",
+      "bytes": 12634,
+      "lines": 321,
+      "sha256": "f326cea575ad4ea9976d96f203d075652e502ec5625d189469f6f2642bcde2d1",
+      "category": "experiments/harness",
+      "purpose": "// Reverse-engineering probe: open a raw WebSocket to M365 Copilot and dump\r // EVERY field of EVERY frame it sends, plus a structured field-frequency\r // summary at the end. Read-only — sends one chat turn and shuts down.\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/gateway-capture.mjs",
+      "bytes": 4490,
+      "lines": 76,
+      "sha256": "ea444d8cf0dfe48959274c8ef1acc9d6fd83fbdbe257c0ec656a768bf8654dbb",
+      "category": "experiments/harness",
+      "purpose": "// Capture the Island Gateway URL + the TOKEN RESOURCE the real Copilot Studio\r // frontend uses, by driving copilotstudio.microsoft.com and reading the\r // Authorization header (decode JWT `aud`) off its gateway calls. Unblocks the\r // MCP-tool path (we need to know which token to acquire + the gateway host).\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/gateway-explore.mjs",
+      "bytes": 4888,
+      "lines": 91,
+      "sha256": "8e7bd709802af1cb2b4e33b37627cfea0db1cab859aab66f35dd8824e6175c0f",
+      "category": "experiments/harness",
+      "purpose": "// Borrow a live Island Gateway token from the authenticated Copilot Studio\r // frontend, then probe whether the gateway sees OUR minimalBots agent and lets\r // us read/write its components (the path to attaching an MCP tool).\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/guard-experiment.mjs",
+      "bytes": 2912,
+      "lines": 46,
+      "sha256": "e39427d012f842c8893502319c7483b88d586b6702982c6bab3e20d9807812f3",
+      "category": "experiments/harness",
+      "purpose": "// Offline experiment: which \"is this a document, not a tool call?\" guard best\r // separates content responses (a model writing a README full of ```bash fences)\r // from real agentic actions (a single shell command)? No quota — pure parsing.\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/harness/README.md",
+      "bytes": 3153,
+      "lines": 64,
+      "sha256": "3af89ab5054eaa1392a24cbc19b7bc2f3eb2fd07fd4bdd64940bd76bb0d53b85",
+      "category": "experiments/harness",
+      "purpose": "# Tool-call test harness\r Answers one question empirically: **which models + system-prompt sizes + toolset sizes\r actually do tool calls correctly through the proxy** — and where a big system prompt\r kills tool-calling (a failure mode seen repeatedly with real coding-agent prompts).\r",
+      "headings": [
+        "# Tool-call test harness\r",
+        "## Dimensions\r",
+        "## Run\r",
+        "# small default (1 model × 5 prompt sizes × standard toolset × fix-bug)\r",
+        "# hunt the failure modes: 2 models × extremes × the big toolset\r",
+        "# read the grid + prompt-size \"death curve\"\r",
+        "## Cost / quota\r",
+        "## Prerequisites\r",
+        "## First findings (2026-07-13, n=1/cell — illustrative, not conclusive)\r"
+      ]
+    },
+    {
+      "path": "scripts/harness/analyze-matrix.mjs",
+      "bytes": 3580,
+      "lines": 68,
+      "sha256": "1605fba34c9709b7d66a7a48c91f322d6652185f237b6d490bbb815f149cb8d1",
+      "category": "experiments/harness",
+      "purpose": "// Aggregate harness cell outputs into a readable grid: for each model, a\r // (prompt-size × toolset) table of turn-1 tool-call COMPLIANCE / SOLVE / DISENGAGE.\r // Surfaces the core question — at what system-prompt size does tool-calling die?\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/harness/matrix.mjs",
+      "bytes": 3826,
+      "lines": 64,
+      "sha256": "599ccd58abf41370e8cba6fc8345c5b36cb462ab0046748ea789f76736eecfd6",
+      "category": "experiments/harness",
+      "purpose": "// Tool-call matrix sweep: for each (model × system-prompt-size × toolset-size), run\r // the verifiable tasks through the proxy and record solve / turn-1-compliance /\r // disengage. Purpose-built to expose where a BIG SYSTEM PROMPT kills tool-calling.\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/harness/prompts/gen.mjs",
+      "bytes": 5898,
+      "lines": 67,
+      "sha256": "31bdd437b5da99c0d4a07f3116b3f323a2c76f3d205e244312917fdea9761e72",
+      "category": "experiments/harness",
+      "purpose": "// Generate graduated system-prompt fixtures for the tool-call harness. The point is\r // to measure at what SYSTEM-PROMPT SIZE a model's tool-calling degrades or dies — a\r // failure mode seen repeatedly with real coding-agent prompts (opencode / Claude Code\r // / pi send multi-KB system prompts). Sizes are reproducible so results are comparable.\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/harness/prompts/sys_huge.txt",
+      "bytes": 26357,
+      "lines": 157,
+      "sha256": "1f9b94b3dbe9c1f3ae49bbbc4ad2ecf4d58752a4e249033e430031d0e809acd5",
+      "category": "experiments/harness",
+      "purpose": "You are an autonomous software-engineering agent operating in a real shell inside the user's working directory. You complete tasks by calling the provided tools against the live filesystem. Do not ask the user questions; act. When the task is fully complete, reply with a one-line confirmation and nothing else.\r ## Tone and style\r You should be concise, direct, and to the point. Avoid unnecessary preamble or postamble. Do not explain your reasonin"
+    },
+    {
+      "path": "scripts/harness/prompts/sys_large.txt",
+      "bytes": 3867,
+      "lines": 35,
+      "sha256": "a2faec0099a4502b94b0434f91d194dc08d8db39e1481ddb05b3b047109c4e42",
+      "category": "experiments/harness",
+      "purpose": "You are an autonomous software-engineering agent operating in a real shell inside the user's working directory. You complete tasks by calling the provided tools against the live filesystem. Do not ask the user questions; act. When the task is fully complete, reply with a one-line confirmation and nothing else.\r ## Tone and style\r You should be concise, direct, and to the point. Avoid unnecessary preamble or postamble. Do not explain your reasonin"
+    },
+    {
+      "path": "scripts/harness/prompts/sys_medium.txt",
+      "bytes": 1356,
+      "lines": 10,
+      "sha256": "8b2b55f5eeedaeb5c17a738c292e3b1d3b179ac99744f74d5ed87f819a7452b3",
+      "category": "experiments/harness",
+      "purpose": "You are an autonomous software-engineering agent operating in a real shell inside the user's working directory. You complete tasks by calling the provided tools against the live filesystem. Do not ask the user questions; act. When the task is fully complete, reply with a one-line confirmation and nothing else.\r ## Tone and style\r You should be concise, direct, and to the point. Avoid unnecessary preamble or postamble. Do not explain your reasonin"
+    },
+    {
+      "path": "scripts/harness/prompts/sys_none.txt",
+      "bytes": 311,
+      "lines": 1,
+      "sha256": "877436003cb14ef1441dce11c110a3a24a3f8c00fcc846788f0c14c48cca30ec",
+      "category": "experiments/harness",
+      "purpose": "You are an autonomous software-engineering agent operating in a real shell inside the user's working directory. You complete tasks by calling the provided tools against the live filesystem. Do not ask the user questions; act. When the task is fully complete, reply with a one-line confirmation and nothing else."
+    },
+    {
+      "path": "scripts/harness/prompts/sys_small.txt",
+      "bytes": 311,
+      "lines": 1,
+      "sha256": "877436003cb14ef1441dce11c110a3a24a3f8c00fcc846788f0c14c48cca30ec",
+      "category": "experiments/harness",
+      "purpose": "You are an autonomous software-engineering agent operating in a real shell inside the user's working directory. You complete tasks by calling the provided tools against the live filesystem. Do not ask the user questions; act. When the task is fully complete, reply with a one-line confirmation and nothing else."
+    },
+    {
+      "path": "scripts/harness/run-cell.mjs",
+      "bytes": 10960,
+      "lines": 145,
+      "sha256": "142b999b2ce2ce3c3da7ff874c2b3a2c77b74f49ffd8abe51875ce1d1c462568",
+      "category": "experiments/harness",
+      "purpose": "// One matrix cell of the tool-call harness: (model × system-prompt × toolset × task).\r // Drives the proxy as a real OpenAI tool loop over a Docker sandbox, runs the task's\r // objective verifier, and records the metrics that expose \"big system prompt kills\r // tool-calling\": turn-1 COMPLIANCE (did it emit a tool call at all) and DISENGAGE\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/harness/serve.mjs",
+      "bytes": 1405,
+      "lines": 30,
+      "sha256": "9c04d7335d10f320c9f585eda40c2154fb847146a8d6afee6c8eeb61eb6b1c24",
+      "category": "experiments/harness",
+      "purpose": "// In-process proxy server for the harness — wraps createApp() over node:http so the\r // harness needs no separate Nitro build. Auth uses the repo's cached M365 login.\r // Usage: node scripts/harness/serve.mjs [port]   (default 4142)\r import { createServer } from \"node:http\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/image-artifact-auth-probe.mjs",
+      "bytes": 9194,
+      "lines": 177,
+      "sha256": "3cef5d791a4561bc033139977a26afda50e32da283c77c745f2c71971bd80c40",
+      "category": "experiments/harness",
+      "purpose": "// RE probe (H14.2): what auth opens a generated-image artifact?\r //\r // §14 established that the image URL in `contentGenerationProgressList[].\r // ImageReferenceUrls` returns 401 anonymously, with the Sydney token, and with\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/image-gen-smoke.mjs",
+      "bytes": 1392,
+      "lines": 27,
+      "sha256": "569a29ecd59c0b34df49766fb1787230839736d45e9790d1b3b8c9165ace94e5",
+      "category": "experiments/harness",
+      "purpose": "// Live smoke test for the core image-gen API (§14, H14.1 + H14.6 end to end).\r // Sends ONE image prompt through OUR proxy path (not the GUI) and downloads the\r // bytes. Costs 1 image credit — do not loop.\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/image-input-probe.mjs",
+      "bytes": 2622,
+      "lines": 48,
+      "sha256": "bb0b2f0bd7ceb7f650a17d40f7e7cbffceebacbaca415f8ed872bee96a3bdc9b",
+      "category": "experiments/harness",
+      "purpose": "// H8.10: can a turn carry an image? Uploads IMAGE through ModelSession (the proxy's\r // own path: /m365Copilot/UploadFile → docId → an ImageFile messageAnnotation) and\r // asks about content the model can't guess. Arms, one fresh conversation each:\r //   image     — agent-less\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/image-options-verify.mjs",
+      "bytes": 3064,
+      "lines": 57,
+      "sha256": "71eb0efcf237887489c2b37066196bc1493176184022dbf04ea201c078f5d845",
+      "category": "experiments/harness",
+      "purpose": "// Live verification of image-gen options + the implicit-draw path (§14).\r // Each mode costs 1 image credit — pass which one(s) to run, don't run blindly.\r //\r // Usage:\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/input-size-bisect.mjs",
+      "bytes": 6425,
+      "lines": 148,
+      "sha256": "aa272afb20f66701f6a94b23850f90de03d7b633077bb8fafcd7944964b47260",
+      "category": "experiments/harness",
+      "purpose": "// RE probe: how large an INPUT will M365 Copilot accept before it caps,\r // truncates, Disengages, or errors?\r //\r // Key design choice: isolate pure SIZE from jailbreak-SHAPE. The existing\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/listbots-probe.mjs",
+      "bytes": 1819,
+      "lines": 45,
+      "sha256": "c0648feeecbf064a88a6c71bdac80b9ff67fb9c2c4bd4c21fe5d32c86c93a451",
+      "category": "experiments/harness",
+      "purpose": "// Read-only probe: dump the raw Copilot Studio listBots response so we can see\r // how the server reflects displayName -> shortBotName (the round-trip the\r // hash-in-name versioning depends on). GET requests only — creates nothing.\r // Usage: M365_NO_INTERACTIVE=1 node scripts/listbots-probe.mjs\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/login-probe.mjs",
+      "bytes": 1205,
+      "lines": 33,
+      "sha256": "220c5a81e603d2a2146478e6c0b41f4071a376d9e92461464de2fc5096c22cb6",
+      "category": "experiments/harness",
+      "purpose": "// Isolated headless login probe. Never opens browser tabs (M365_NO_INTERACTIVE).\r // Usage: M365_DEBUG=1 node scripts/login-probe.mjs [--force]\r process.env.M365_DEBUG = process.env.M365_DEBUG ?? \"1\";\r process.env.M365_NO_INTERACTIVE = \"1\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/m365-gui-capture.mjs",
+      "bytes": 6340,
+      "lines": 108,
+      "sha256": "d32fd9d9b7a8da848125011651c45ebaf934a2f2610f2d9400b012b0b93140ec",
+      "category": "experiments/harness",
+      "purpose": "// Capture what Microsoft's OWN M365 Copilot web client sends/receives over the\r // substrate Chathub WebSocket — to VERIFY our Disengage model with eyes-on and to\r // diff the GUI's request payload (optionsSets / variants / agent / tone) against\r // ours. Reuses the repo's Playwright+secrets login (cf. gateway-capture.mjs).\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/m365-gui-emulate.mjs",
+      "bytes": 9231,
+      "lines": 134,
+      "sha256": "498ea15f0f42667910fa9686260edcbacadbb47be3635d427d19c65f670a1937",
+      "category": "experiments/harness",
+      "purpose": "// Emulate OUR proxy's request from INSIDE the authenticated GUI browser context.\r // Logs into the real M365 Copilot web app, lets the GUI open its substrate Chathub\r // WS (so we capture the GUI's exact token + query params), then from the PAGE\r // opens a fresh WS to the same endpoint and sends OUR proxy's payload (declarative\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/mcp-agent-probe.mjs",
+      "bytes": 8065,
+      "lines": 138,
+      "sha256": "affe7878686014665a3ab36d5fc5e39e8797714457ca3cb5c64f7c0693fcc55f",
+      "category": "experiments/harness",
+      "purpose": "// HOLY GRAIL probe (H8.5): attach an MCP server to a minimalBots declarative\r // agent and see if BizChat calls OUR tool over the cloudflare tunnel.\r //\r // Tools attach as a separate BotComponentInsert of $kind:\"DialogComponent\" whose\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/opus-fallback-probe.mjs",
+      "bytes": 4842,
+      "lines": 78,
+      "sha256": "293a255439495f86db17de885fca5ef43a4814e4aa107114a2924e6f13f4c8fd",
+      "category": "experiments/harness",
+      "purpose": "// Probe: does a conversation survive the Opus priority-access wall MID-WAY,\r // via M365_OPUS_FALLBACK_MODEL? (issue #18, docs/hypotheses.md §24 F59)\r //\r // Plays a harness against the proxy in-process: the model is asked to count\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/output-ceiling-probe.mjs",
+      "bytes": 5723,
+      "lines": 133,
+      "sha256": "9b1c4c0168e890abe81e64da4e85cc99218337476e4baa10b2803b0c523f3409",
+      "category": "experiments/harness",
+      "purpose": "// RE probe: how much can M365 Copilot EMIT in a single turn?\r //\r // Hypothesis (mine): `streamingMode: \"ConciseWithPadding\"` (hardcoded in\r // copilot.ts/session.ts) silently caps output length. A coding agent that\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/pi-local.sh",
+      "bytes": 2445,
+      "lines": 53,
+      "sha256": "8ed4f3bbbf32ba6eb03edf9934866b01754515a3475d65ae72c9d5a4a64735e4",
+      "category": "experiments/harness",
+      "purpose": "#!/usr/bin/env bash\r # Launch the `pi` harness pointed at the LOCAL M365 proxy, using an isolated,\r # repo-local pi HOME (./.pi-local) so it never touches your real ~/.pi config,\r # sessions, or auth.\r"
+    },
+    {
+      "path": "scripts/pi-smoke-test.sh",
+      "bytes": 2497,
+      "lines": 60,
+      "sha256": "d6d57ea44929eb60eaf71ba44c9b5c8a0954091aebd745866e64dcd245775f96",
+      "category": "experiments/harness",
+      "purpose": "#!/usr/bin/env bash\r # Reusable end-to-end test: drive the real `pi` harness against a running proxy\r # and verify the TOOL LOOP actually executes — not just that text comes back.\r #\r"
+    },
+    {
+      "path": "scripts/proxy-verify.mjs",
+      "bytes": 5930,
+      "lines": 136,
+      "sha256": "4b0a7fe7a5b6cf05e7202c36cb0378870716f10917220a4656305bbf897ea56f",
+      "category": "experiments/harness",
+      "purpose": "// End-to-end proxy verification against live M365. Run unsandboxed.\r // Usage: M365_DEBUG=1 node scripts/proxy-verify.mjs [--tools] [--agent]\r import { createApp } from \"../packages/proxy-lib/dist/index.mjs\";\r import { getToken } from \"../packages/core/dist/index.mjs\";\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/send-cancel-send.mjs",
+      "bytes": 10373,
+      "lines": 170,
+      "sha256": "593fadfdd212c11ed8983ff588469ba00031f89aa176ec9ecfd5c374c741f2ad",
+      "category": "experiments/harness",
+      "purpose": "// RE probe: does \"send → cancel → send\" work, and what does the cancel cost?\r //\r // Replicates the real UI Stop button (captured: it sends\r // {\"type\":1,\"target\":\"stop\",\"invocationId\":\"1\",\"arguments\":[{}]} then closes)\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/sentinel-server.mjs",
+      "bytes": 3815,
+      "lines": 77,
+      "sha256": "36525baece136c4217dec6277d431b5e8f306bbf8a8e3467fb5a5dd7fa5b9db4",
+      "category": "experiments/harness",
+      "purpose": "// Tiny public sentinel server for the native-action / MCP probe.\r // Logs EVERY inbound request (so we can see if Copilot's orchestrator calls us)\r // and serves an OpenAPI spec + a single tool endpoint that returns a unique\r // sentinel only obtainable by actually calling it.\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/sonnet5-native-tools-probe.mjs",
+      "bytes": 8813,
+      "lines": 138,
+      "sha256": "51bd25da1e9cd145eb517aed490fa5843912e28743af18783d076313dff5fe86",
+      "category": "experiments/harness",
+      "purpose": "// RE probe: what gates Claude Sonnet 5's NATIVE server-side tools?\r //\r // Under `scenario=OfficeWebPaidCopilot` the `Claude_Sonnet_5` tone serves Claude\r // Sonnet 5 (it was `Claude_Sonnet` until 2026-10-06, which now serves Sonnet 5.5\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/studio-dig.mjs",
+      "bytes": 5722,
+      "lines": 117,
+      "sha256": "6f7e3954796e2067a512877d7385c0c5d1936e84513a30c365011849d1540173",
+      "category": "experiments/harness",
+      "purpose": "// Reverse-engineering dig: log into the real Copilot Studio web UI and capture\r // every API call it makes, to discover (a) the endpoint that returns a full\r // agent definition and (b) whether an agent can be bound to a model. Read-only\r // — we only navigate and observe; we never save/publish anything.\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/temporary-chat-probe.mjs",
+      "bytes": 5678,
+      "lines": 94,
+      "sha256": "c61abecb224f3682b00a4fbc76bb0d2e2039a3c2508134f804b5be07e0ad4cd5",
+      "category": "experiments/harness",
+      "purpose": "// H-TEMPCHAT: `disableMemory=1` on the Chathub URL gives a *temporary* chat —\r // multi-turn context still works on the live ConversationId, but the thread is\r // never added to the Copilot history sidebar.\r //\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/throttle-probe.mjs",
+      "bytes": 4357,
+      "lines": 86,
+      "sha256": "38e9220d9b0b09500dbb88995cf77ee5171618bd1b01c14d4d6c11bb6e67e241",
+      "category": "experiments/harness",
+      "purpose": "// E-T1: characterise account-level throttling / degradation (api doc §7, H8.20).\r // Fires N trivial \"pong\" turns at a fixed requests-per-minute rate (each a fresh\r // conversation, no agent) and records where Disengaged/empty onset begins, then\r // optionally measures the recovery window.\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/throttle-recovery-ab.mjs",
+      "bytes": 9466,
+      "lines": 194,
+      "sha256": "abb26a4a47271e8745b43f30424a7384c645fbee144aa68fa23c49c6dbab42f2",
+      "category": "experiments/harness",
+      "purpose": "// H-R1 decider: does a FRESH login token clear account-level (thread-rate)\r // throttle, or is recovery purely time/identity-driven?\r //\r // Design — within-episode two-token control (the strong version):\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/token-regen-probe.mjs",
+      "bytes": 2714,
+      "lines": 47,
+      "sha256": "aa584d442215cf9ed0ff7f0205cbe5bfcecfb68728055dd61808e08e52400dcb",
+      "category": "experiments/harness",
+      "purpose": "// Science: what happens when we KILL the cached token and regenerate it?\r // Tests (a) robustness — does auth self-heal from an empty cache? — and (b) the\r // hypothesis that a fresh token clears account-level throttling (vs throttle\r // being token-independent).\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/tone-probe.mjs",
+      "bytes": 10029,
+      "lines": 166,
+      "sha256": "4d007649375357cba75e78b421c1b99ad764a9cb74778f44e0a702ef94ce713e",
+      "category": "experiments/harness",
+      "purpose": "// RE probe (H8.6): which `tone` strings are real models vs silent fallback?\r // g365 uses Gpt_5_5_Chat/Gpt_5_5_Reasoning; MS shipped Claude in Copilot.\r // A bogus control tone reveals how the server treats an unknown tone\r // (error => it validates tones; content => it silently falls back).\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/tool-compliance-experiment.mjs",
+      "bytes": 9839,
+      "lines": 210,
+      "sha256": "f992bf4d5477cd6e5f9e533c643e5d8a70cc76904f0a3172e6038b85b74cf1b3",
+      "category": "experiments/harness",
+      "purpose": "// Tool-call compliance A/B harness. For each (variant) × (prompt) we send a\r // fresh conversation and score the response on whether the model produced a\r // clean tool call. Designed to answer: which prompt levers actually move\r // compliance, and how badly does the Disengaged filter trip as we change them?\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/toolformat-experiment.mjs",
+      "bytes": 3120,
+      "lines": 80,
+      "sha256": "1345dfe3a2fb02275e2b2b88e2e741f2087f0ae6b1e89b7573a05a3f7d6f3ea1",
+      "category": "experiments/harness",
+      "purpose": "// A/B tool-call format experiment. Fresh conversation per call, agent on.\r // Measures: does the model emit a parseable tool call (when expected),\r // is it the right tool, and how much stray prose surrounds it.\r // Run unsandboxed inside nix develop. Burns ~9 M365 messages.\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/usage-endpoint-hunt.mjs",
+      "bytes": 5545,
+      "lines": 104,
+      "sha256": "3f4d2e1f0d4f4d0b94b179f18f777ce4bfc0eb3b8e91ab40d0b1d63f540ddad1",
+      "category": "experiments/harness",
+      "purpose": "// Hunt for a REST endpoint that exposes token usage / context-window limits\r // for M365 Copilot. We have three tokens already (Sydney, PowerPlatform, BAP).\r // Try plausible URLs against each; record status + first 800 chars of body.\r // Read-only — GETs only. Run unsandboxed.\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "scripts/variants-bisect.mjs",
+      "bytes": 11317,
+      "lines": 216,
+      "sha256": "6e2829792b945830dbef0180cd97512b3aa748953e32ca55c8c0825bab452589",
+      "category": "experiments/harness",
+      "purpose": "// Bisect the `VARIANTS` feature-flag list to find which flag (if any)\r // controls the Disengaged classifier, the streaming mode, or the model\r // routing. Strategy:\r //   1. Establish a baseline with the FULL flag set (our current shipping list)\r",
+      "syntax": {
+        "ok": true
+      }
+    },
+    {
+      "path": "tsconfig.json",
+      "bytes": 398,
+      "lines": 21,
+      "sha256": "3e039cdfca13c04248dcd55ef11ec4a11244868ae003640a0a47f86f28fe0b73",
+      "category": "repository/build",
+      "purpose": "{\r   \"compilerOptions\": {\r     \"target\": \"ES2022\",\r     \"module\": \"ESNext\",\r"
+    }
+  ]
+}

@@ -5640,3 +5640,45 @@ bursty. Falsifier: fresh-conversation retries failing at the same rate as same-c
 Cost to watch: each such retry starts a conversation, which is what the F13 thread-rate throttle
 counts. Bounded to one per dropped turn, but on a bad `InternalError` day it adds up; the same
 afternoon's benching (one conversation per run) did trip `PerUserThrottled`.
+
+## 39. Oct 24 2026 — offline packaging and service-lifecycle review
+
+No M365 calls or protocol/framing changes. Full findings, implementation priorities and
+reproduction commands: [repository review](review-2026-10-24.md). Evidence:
+`review-offline-evidence-2026-10-24.json`, `scripts/review/offline-review.mjs` and
+`scripts/review/offline-session.test.ts`.
+
+| Hypothesis / falsifier | Probe | Result |
+| --- | --- | --- |
+| Auth failure prevents a healthy listener; falsified by a 200 health response with no account | Built Nitro server with absent cache/secrets and interactive login disabled | Disproved, 2/2 launches: auth rejection logged, listener alive, health 200 |
+| Independent histories cannot share pool state; falsified by identical state/conversation IDs | Divergent histories with same opener; deterministic `Aa`/`BB` hash collision | Disproved, 1 case each; local state only, no live-content leakage measured |
+| A pre-handshake socket close settles chat; falsified by a pending promise after close | Mock WebSocket closes without error before handshake | Disproved, 1 deterministic case; no general deadline in source |
+| Windows drive paths survive budget-log parsing; falsified by splitting drive letters | `budgetConfig` with Windows absolute paths | Disproved, 1 deterministic case |
+
+These are local application/lifecycle findings, not new conclusions about the undocumented
+M365 API. Promote fixes into the operator/setup docs once implemented and verified.
+
+### Implementation follow-up — Oct 24
+
+The lifecycle fixes now live on `fix/service-readiness-packaging`. Startup failure
+exits nonzero; readiness and liveness are separate; the launcher defaults to
+loopback and requires a key for other binds. Sessions use acknowledged histories
+and SHA-256 message digests, with serialized turns and bounded state. Shared bots
+are preserved on publication failure. Cache writes are atomic, browser profile
+ownership is coordinated, and native budget-log paths survive parsing.
+
+Evidence is deterministic/offline: `packages/core/src/session-connection.test.ts`,
+`storage.test.ts`, `agent-preservation.test.ts`, proxy-lib policy/session tests,
+OpenClaw config-preservation tests, `scripts/test-installed-runtime.mjs` and
+`scripts/test-windows-ops.ps1`. The original review's fake-socket test was moved
+into the core package so its `ws` mock resolves the same dependency as production;
+the new test asserts that the mock was constructed. No live M365 conclusion is
+drawn from that fixture. `scripts/review/offline-review.mjs` now verifies fixes;
+the baseline evidence file remains unchanged.
+
+Packaging check discovered a further reproducible defect: Nitro's traced runtime
+omitted Playwright entry/CLI/browser-registry files. The build now copies the full
+locked Playwright and Playwright-core packages. Isolated release verification runs
+outside the checkout, with empty account state and paths containing spaces.
+Operational documentation: [operations](operations.md); local transport and
+conversation changes are promoted into API reference sections 6 and 8.
