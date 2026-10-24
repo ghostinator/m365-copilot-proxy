@@ -47,8 +47,12 @@ not completion of the entire feature group.
 
 ## Validation
 
-- [ ] WSL Ubuntu build, offline unit tests and installed-package tests.
-- [ ] WSL Linux portable-release manifest/startup verification.
+- [x] WSL Ubuntu build, offline unit tests and installed-package tests (439 passed).
+- [x] WSL Linux portable-release manifest/startup verification (baseline fixes).
 - [ ] Actual-account sign-in/reboot and 24–72-hour soak (separate host checks).
 
 Native MCP/Dataverse tool calling remains out of scope per AGENTS.md.
+
+Evidence: [Linux validation](linux-validation-2026-10-24.md). The first dashboard
+and pi setup implementation is in source; the earlier Windows ZIP remains the
+preceding release and has not been replaced with a new feature archive.

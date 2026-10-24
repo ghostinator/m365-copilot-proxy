@@ -35,6 +35,9 @@ The task uses the current user's interactive identity, stays attached to a watch
 
 ## Local dashboard and pi setup
 
+These features were added after the original October 24 Windows 0.2.1 archive;
+use the current source build until a new release archive is produced.
+
 Visit `http://127.0.0.1:4141/dashboard` while the proxy runs. The first dashboard
 version is read-only: readiness, authentication expiry, uptime, admitted requests,
 remembered conversations, advertised models, known priority-access exhaustion and
