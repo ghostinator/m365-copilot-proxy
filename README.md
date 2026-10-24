@@ -55,6 +55,11 @@ Each agent session reuses the same M365 conversation (same `sessionId` + `conver
 
 ## Setup
 
+For a prebuilt runtime, Windows sign-in startup, diagnostics and update/rollback,
+see [Install and operate the proxy](docs/operations.md). The CLI provides `setup`,
+`login`, `doctor`, `serve` and `service` commands. The default listener is loopback;
+non-loopback addresses require `M365_API_KEY`.
+
 ### Prerequisites
 
 - Node.js 24+

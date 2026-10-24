@@ -1,4 +1,9 @@
 node_modules
+release/
+release-npm/
+package-contents.log
+packages/proxy/LICENSE
+packages/proxy/OPERATIONS.md
 dist
 .output
 .nitro

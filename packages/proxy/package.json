@@ -1,6 +1,6 @@
 {
   "name": "@m365-copilot/proxy",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -8,11 +8,14 @@
   },
   "files": [
     ".output",
-    "bin"
+    "bin",
+    "windows",
+    "OPERATIONS.md",
+    "LICENSE"
   ],
   "scripts": {
     "dev": "nitro dev --port 4141",
-    "build": "nitro build",
+    "build": "nitro build && node copy-runtime-deps.mjs && tsdown",
     "prepare": "nitro prepare"
   },
   "dependencies": {
@@ -25,5 +28,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "engines": { "node": ">=24" }
 }

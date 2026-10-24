@@ -1,0 +1,42 @@
+name: Validate
+on:
+  push:
+  pull_request:
+  workflow_call:
+jobs:
+  validate:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - shell: bash
+        run: |
+          pnpm --filter @m365-copilot/proxy pack --pack-destination "$GITHUB_WORKSPACE/release-npm" > package-contents.log
+          node scripts/test-npm-package.mjs release-npm/*.tgz
+      - run: node scripts/test-installed-runtime.mjs
+      - if: runner.os == 'Windows'
+        shell: powershell
+        run: .\scripts\test-windows-ops.ps1
+      - run: node scripts/build-release.mjs --include-node
+      - shell: bash
+        run: node scripts/verify-release.mjs "$(find release -mindepth 1 -maxdepth 1 -type d | head -1)"
+      - if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $release = Get-ChildItem release -Directory | Select-Object -First 1
+          .\scripts\test-windows-install.ps1 -ReleaseDirectory $release.FullName
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.os }}
+          path: |
+            release/*.tar.gz
+            release/*.zip
+            release/*.sha256
