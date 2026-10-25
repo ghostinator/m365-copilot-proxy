@@ -80,6 +80,11 @@ export class RequestSources {
     const database = this.open();
     return new HistoryCursor(database.db, database.path, activityQuery.parse(options));
   }
+  storageStatistics() {
+    this.flush();
+    try { return { storage: this.open().storage(), available: !this.error && !this.pending.length && !this.notSaved, unsavedRecords: this.pending.length, lostRecords: this.notSaved }; }
+    catch { return { storage: null, available: false, unsavedRecords: this.pending.length, lostRecords: this.notSaved }; }
+  }
   backupStore() {
     this.flush(); if (!this.directory || this.closed || this.pending.length) throw new Error("A writable persistent history database is required");
     this.open(); return new HistoryBackups(this.directory);

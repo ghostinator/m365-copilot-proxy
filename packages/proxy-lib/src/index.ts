@@ -1,6 +1,8 @@
 export { HistoryBackups, historyBackups } from "./history-backups.js";
 export { historyDownloads } from "./history-export.js";
 import { historyDownloads } from "./history-export.js";
+export { metricsResponse } from "./metrics.js";
+import { metricsResponse } from "./metrics.js";
 export { operatorAction } from "./operator-actions.js";
 export { operatorAccess } from "./operator-access.js";
 export { registerServiceController, serviceState, drainingResponse } from "./service-control.js";
@@ -128,6 +130,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
     }
 
     if (method === "GET") {
+      if (pathname === "/v1/proxy/metrics") return withCors(metricsResponse(activity), req);
       const dashboard = dashboardResponse(pathname);
       if (dashboard) return dashboard;
       if (pathname === "/v1/proxy/status") {

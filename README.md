@@ -4,7 +4,7 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.13.0)
+## Dashboard and operations (0.14.0)
 
 New: export **all matching history** as streamed JSON/CSV, create verified online
 SQLite backups, and prepare an explicit offline restore with a safety snapshot.
@@ -816,6 +816,8 @@ manually requested. Missing historical timings are labeled unknown.
 
 **Opt-in alerts** monitor sustained chat failures, throttling, sign-in recovery and history-storage problems in the background. Enable them with operator access in Settings; inspect and acknowledge incidents in Errors. No external notifications or model probes are enabled.
 
+**Storage planning and optional metrics:** Overview estimates activity growth from observed volume and logical SQLite density, and shows shared filesystem capacity. An opt-in Prometheus endpoint exposes fixed operational labels without client or application identities. See [observability setup and limitations](docs/observability.md). Retention stays unlimited.
+
 See the [dashboard guide](docs/dashboard.md) and [feature roadmap](docs/roadmap.md).
 
 New analytics views use synthetic documentation data, not live model evaluations:
@@ -849,3 +851,7 @@ Use synthetic/demo data; keep operator grants and application tokens out of view
 > incident, acknowledgement and recovery events. Keep operator/application tokens
 > out of view. Also capture Models → Observed model reliability with a rolling
 > time range, requested/served routes, sample counts and expanded chart intervals.
+
+> **Screenshot to add — storage/metrics:** Capture Overview → Storage planning with sample coverage and estimated growth; capture Settings → Prometheus metrics status. No tokens.
+
+Notification delivery is currently dashboard-only. [Planned delivery providers](docs/notification-delivery.md) include SMTP, Postal, SendGrid, Twilio and Teams/Slack webhooks, with shared queue/retry/privacy requirements. None is configured or sends messages yet.

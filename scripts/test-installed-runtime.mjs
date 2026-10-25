@@ -26,6 +26,7 @@ async function start(authenticated, extra = {}) {
   const env = { ...process.env, M365_DATA_DIR: dir, M365_CACHE_FILE: join(dir, "cache.json"), M365_SECRETS_FILE: join(dir, "absent.json"), M365_NO_INTERACTIVE: "1", M365_ENABLE_INTERACTIVE_APPROVAL: "0", M365_DEBUG: "", M365_TRACE: "", M365_LOG_STDOUT: "", M365_DUMP_FRAMES: "", M365_MAX_REQUEST_BYTES: "1024", ...extra };
   for (const key of ["HOST", "NITRO_HOST", "NITRO_PORT", "PORT", "NODE_OPTIONS", "NODE_PATH", "NITRO_UNIX_SOCKET", "M365_ALLOWED_ORIGINS"]) delete env[key];
   env.M365_FORCE_AGENT = "0";
+  env.M365_METRICS = "0";
   const args = authenticated ? ["--import", pathToFileURL(join(root, "scripts/fixtures/chat-loader.mjs")).href] : [];
   args.push(process.argv[2] || join(root, "packages/proxy/bin/m365-proxy.mjs"), String(port));
   const child = spawn(process.execPath, args, { cwd: dir, env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -141,6 +142,8 @@ async function start(authenticated, extra = {}) {
     const history = await statusJson(await request(base + "/v1/proxy/status?range=24h&limit=1", { headers }));
     assert.equal(history.sources.storage.engine, "SQLite");
     assert.equal(history.sources.storage.retention, "unlimited");
+    assert.equal((await request(base + "/v1/proxy/metrics", { headers })).status, 404);
+    assert.equal(history.metrics.enabled, false);
     assert.equal(history.sources.recent.length, 1);
     const reliability = history.sources.reliability;
     assert.equal(reliability.current.total, history.sources.performance.total);

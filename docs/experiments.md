@@ -348,3 +348,21 @@ installed runtime verifies opt-in defaults, persisted settings and a running eva
 through detached restart. No Microsoft request, notification or production alert
 configuration change is required. Fatal startup/whole-process outage and long-running
 soak remain external host checks; history backups do not cover the alert database.
+
+
+## Storage planning and metrics (offline, 0.14.0)
+
+```sh
+pnpm build
+pnpm exec vitest run packages/proxy-lib/src/observability.test.ts packages/proxy-lib/src/dashboard.test.ts
+node scripts/test-installed-runtime.mjs
+node scripts/test-operator-runtime.mjs
+```
+
+Fixtures exercise future/time-window exclusions, minimum sampling, in-memory state,
+WAL checkpoint stability, finite classic histogram samples, duplicate finish guards,
+HTTP-200 SSE failures, cancellation, disabled/no-I/O metrics, key/origin policy,
+no scrape-generated history, missing storage, and fixed-label privacy. Installed
+runtime fixtures test metrics disabled by default versus explicit file-based opt-in,
+content type, no scrape counters and enabled state after detached restart. No M365
+chat, production enablement, retention changes or deletion is performed.

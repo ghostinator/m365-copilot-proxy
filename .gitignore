@@ -72,3 +72,5 @@ packages/proxy/api-keys.md
 packages/proxy/history-management.md
 
 /alerts.sqlite*
+
+packages/proxy/observability.md

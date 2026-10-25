@@ -40,7 +40,7 @@ export interface RequestTrace {
   result(status: number): void;
   output(bytes: number): void;
 }
-const ignored = new Set(["/dashboard", "/dashboard-script", "/v1/proxy/status", "/v1/proxy/checks", "/favicon.ico"]);
+const ignored = new Set(["/dashboard", "/dashboard-script", "/v1/proxy/status", "/v1/proxy/checks", "/v1/proxy/metrics", "/favicon.ico"]);
 const endpoints: Record<string, Kind> = { "/v1/models": "models", "/v1/chat/completions": "chat", "/health": "health", "/health/live": "health", "/health/ready": "health", "/v1/proxy/model-check": "other", "/v1/responses": "other", "/v1/messages": "other", "/messages": "other" };
 
 /** Bounded metadata only. No prompts, answers, headers, keys or query strings. */
@@ -53,6 +53,9 @@ export class HttpActivity {
   private selfChecks = 0;
   private chat = { validated: 0, completed: 0, failed: 0, cancelled: 0, streamed: 0, nonStreamed: 0, upstreamAttempts: 0, upstreamFailures: 0, retries: 0 };
   private categories = { models: 0, chat: 0, health: 0, other: 0 };
+  private durationBounds = [0.1, 0.5, 1, 5, 15, 30, 60, 120, 300];
+  private durationCounts = this.durationBounds.map(() => 0);
+  private durationSum = 0;
   private recent: ActivityEvent[] = [];
   private activeRequests = new Map<string, ActivityEvent>();
 
@@ -87,6 +90,8 @@ export class HttpActivity {
       finished = true;
       event.status = Number.isInteger(status) && status >= 100 && status <= 599 ? status : 500;
       event.durationMs = Math.max(0, Date.now() - started);
+      this.durationSum += event.durationMs / 1000;
+      this.durationBounds.forEach((bound, i) => { if (event.durationMs! / 1000 <= bound) this.durationCounts[i]++; });
       const result = event.status >= 400 ? event.status : event.applicationStatus ?? event.status;
       finishChat(result);
       event.outcome = result === 499 ? "cancelled" : result >= 400 ? "error" : "success";
@@ -118,6 +123,11 @@ export class HttpActivity {
   snapshot() {
     const live = [...this.activeRequests.values()].map(event => ({ ...event, elapsedMs: Math.max(0, Date.now() - Date.parse(event.receivedAt)), timeline: event.timeline?.map(point => ({ ...point })) }));
     return { live, total: this.total, applicationRequests: this.total - this.selfChecks, selfChecks: this.selfChecks, active: this.total - this.completed, completed: this.completed, failed: this.failed, categories: { ...this.categories }, chats: { ...this.chat, active: this.chat.validated - this.chat.completed - this.chat.failed - this.chat.cancelled }, recent: this.recent.map(event => ({ ...event, timeline: event.timeline?.map(point => ({ ...point })) })).reverse() };
+  }
+  metricsSnapshot() {
+    return { total: this.total, completed: this.completed, failed: this.failed, active: this.total - this.completed,
+      applicationRequests: this.total - this.selfChecks, selfChecks: this.selfChecks, categories: { ...this.categories }, chats: { ...this.chat },
+      duration: { count: this.completed, sum: this.durationSum, buckets: this.durationBounds.map((le, i) => ({ le, count: this.durationCounts[i] })) } };
   }
 }
 export const httpActivity = new HttpActivity(new RequestSources(CONFIG_DIR));

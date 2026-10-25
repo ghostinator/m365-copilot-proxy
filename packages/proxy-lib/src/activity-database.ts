@@ -1,6 +1,7 @@
 import { requestSelection, requestColumns, withRequestDetails, decodeRequest, errorTypeSql, errorCodeSql, errorCategorySql } from "./activity-records.js";
 import { activityInsights, modelCheckHistory } from "./activity-insights.js";
 import { modelReliability } from "./model-reliability.js";
+import { storageGrowth } from "./storage-growth.js";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -197,13 +198,18 @@ export class ActivityDatabase {
       ORDER BY requests DESC,lastSeen DESC LIMIT 50`).all(...bindings);
     const labels = Object.fromEntries(this.labels);
     for (const address of this.local) if (!labels[address]) labels[address] = "This device";
-    const storedRecords = Number(this.statement("SELECT COALESCE(SUM(total),0) AS count FROM system_totals").get()!.count);
-    const bytes = (suffix: string) => { try { return statSync(this.path + suffix).size; } catch { return 0; } };
-    const databaseBytes = this.directory ? bytes("") : 0, walBytes = this.directory ? bytes("-wal") : 0, sharedMemoryBytes = this.directory ? bytes("-shm") : 0;
-    return { errorGroups, keyActivity, reliability: modelReliability(this.db, query, now), performance: activityInsights(this.db, query, now), checkHistory: modelCheckHistory(this.db, query, now), errors, errorHistory: { total: errorTotal, offset: errorOffset, limit: query.errorLimit }, startedAt: String(this.statement("SELECT value FROM metadata WHERE key='startedAt'").get()!.value), systems, recent, labels, modelActivity, modelChecks: this.statement("SELECT model,kind,verdict,evidence,turns,checked_ms AS checkedAt,status,identity,served_model AS servedModel,duration_ms AS durationMs FROM model_checks WHERE seq IN(SELECT MAX(seq) FROM model_checks GROUP BY model,kind) ORDER BY checked_ms DESC").all(), range: query.range, from: aggregate.since === null ? null : new Date(aggregate.since).toISOString(), to: new Date(now).toISOString(), summary: { ...summary, averageDurationMs: Number(summary.durationSamples) ? Number(summary.durationSum) / Number(summary.durationSamples) : null }, history: { total: totalRecords, limit: query.limit, offset }, legacyUndated, storage: { engine: "SQLite", retention: "unlimited", databaseBytes, walBytes, sharedMemoryBytes, totalBytes: databaseBytes + walBytes + sharedMemoryBytes, storedRecords, averageBytesPerRecord: storedRecords ? Math.round((databaseBytes + walBytes) / storedRecords) : null } };
+    return { errorGroups, keyActivity, reliability: modelReliability(this.db, query, now), performance: activityInsights(this.db, query, now), checkHistory: modelCheckHistory(this.db, query, now), errors, errorHistory: { total: errorTotal, offset: errorOffset, limit: query.errorLimit }, startedAt: String(this.statement("SELECT value FROM metadata WHERE key='startedAt'").get()!.value), systems, recent, labels, modelActivity, modelChecks: this.statement("SELECT model,kind,verdict,evidence,turns,checked_ms AS checkedAt,status,identity,served_model AS servedModel,duration_ms AS durationMs FROM model_checks WHERE seq IN(SELECT MAX(seq) FROM model_checks GROUP BY model,kind) ORDER BY checked_ms DESC").all(), range: query.range, from: aggregate.since === null ? null : new Date(aggregate.since).toISOString(), to: new Date(now).toISOString(), summary: { ...summary, averageDurationMs: Number(summary.durationSamples) ? Number(summary.durationSum) / Number(summary.durationSamples) : null }, history: { total: totalRecords, limit: query.limit, offset }, legacyUndated, storage: this.storage(now) };
   }
   saveModelCheck(model: string, status: number, identity: string, durationMs: number, servedModel: string | null = null, kind = "identity", verdict = "unknown", evidence = "", turns = 1) {
     this.statement("INSERT INTO model_checks(model,checked_ms,status,identity,duration_ms,served_model,kind,verdict,evidence,turns) VALUES(?,?,?,?,?,?,?,?,?,?)").run(model, Date.now(), status, identity.slice(0, 1000), durationMs, servedModel, kind, verdict, evidence.slice(0,2000), turns);
+  }
+  storage(now = Date.now()) {
+    const storedRecords = Number(this.statement("SELECT COALESCE(SUM(total),0) AS count FROM system_totals").get()!.count);
+    const bytes = (suffix: string) => { try { return statSync(this.path + suffix).size; } catch { return 0; } };
+    const databaseBytes = this.directory ? bytes("") : 0, walBytes = this.directory ? bytes("-wal") : 0, sharedMemoryBytes = this.directory ? bytes("-shm") : 0;
+    return { engine: "SQLite", retention: "unlimited", databaseBytes, walBytes, sharedMemoryBytes, totalBytes: databaseBytes + walBytes + sharedMemoryBytes,
+      storedRecords, averageBytesPerRecord: storedRecords ? Math.round((databaseBytes + walBytes) / storedRecords) : null,
+      growth: storageGrowth(this.db, this.directory, now) };
   }
   close() { this.db.close(); }
 }

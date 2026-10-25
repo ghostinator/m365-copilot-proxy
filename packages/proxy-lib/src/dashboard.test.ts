@@ -28,6 +28,12 @@ it("renders chart data, request timelines and check comparisons safely and clear
   element("performance-metric").value = "successRate";
   element("performance-metric").listeners.change();
   expect(element("performance-chart").children[0].style.height).toBe("50%");
+  runInContext('renderStoragePlanning('+JSON.stringify({ growth: { freeBytes: 1_048_576, capacityBytes: 2_097_152, logicalBytes: 4096,
+    records: 40, bytesPerRecord: 102.4, status: "estimate", bytesPerDay: 2048, bytesPer30Days: 61440, bytesPer365Days: 747520,
+    recentRequests: 40, observedMs: 2 * 86400000, requestsPerDay: 20 } })+')', context);
+  expect(element("storage-capacity").textContent).toContain("1.00 MiB available");
+  expect(element("storage-growth").textContent).toContain("Estimated activity growth");
+  expect(element("storage-sample").textContent).toContain("20.0 requests/day");
   const observations = { total: 2, succeeded: 1, failed: 1, cancelled: 0, successRate: .5, averageDurationMs: 200, p95Ms: 300 };
   runInContext('renderReliability('+JSON.stringify({ current: observations, previous: null, from: null, to: Date.now(), routeLimit: 100, routeCount: 1,
     routes: [{ model: "<img src=x>", servedModel: null, current: observations, previous: null, changePoints: null }],
@@ -47,6 +53,7 @@ it("renders chart data, request timelines and check comparisons safely and clear
   runInContext("clearStatus('Unavailable')", context);
   expect(element("check-history-records").children).toHaveLength(0);
   expect(element("performance-chart").children).toHaveLength(0);
+  expect(element("storage-capacity").textContent).toBe("Storage planning unavailable");
   expect(element("reliability-chart").children).toHaveLength(0);
   expect(element("reliability-routes").children).toHaveLength(0);
   expect(element("source-history").children).toHaveLength(0);

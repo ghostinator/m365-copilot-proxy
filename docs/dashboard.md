@@ -278,3 +278,16 @@ checkedAt, error, running, intervalSeconds and retention). Operator actions
 issued, origin-bound grant. Invalid settings/unknown fields fail validation before
 mutation. Event paging uses offsets, newest insertion first; new events may shift
 pages. IDs protect acknowledgements against stale controls targeting a recurrence.
+
+## Storage planning and metrics (0.14.0)
+
+Overview → Storage planning shows logical activity size, sample coverage, shared
+filesystem capacity and estimated daily/30-day/yearly growth. Settings → Prometheus
+metrics reports opt-in endpoint state and host setup. Neither panel probes models
+or changes retention. See [observability](observability.md) for exact formulas,
+minimum samples, metric semantics and scraping configuration.
+
+The dashboard now uses up to 1720 CSS pixels on wide displays. Reliability column
+headings and longer route/rate cells wrap; narrow displays retain horizontal table
+scrolling. External notification provider choices are tracked in
+[notification delivery](notification-delivery.md), separately from local alerts.

@@ -5932,3 +5932,18 @@ unknown-vs-recovery, 32 durable events paged 20/12, settings validation and lock
 management. No M365 quality/availability conclusion or external delivery claim.
 
 Full Windows offline suite after alert integration: 519 passed, six live tests skipped.
+
+
+### Storage planning / metrics accounting — October 25, 2026
+
+H: logical-page density avoids WAL checkpoint inflation in planning estimates, and
+fixed-label metrics can expose observed failures/latency without turning scrapes
+into activity or leaking request identity. Falsification: checkpoint changes the
+estimate without logical data changing, future timestamps inflate observed rates,
+undersampled/in-memory data emits a forecast, repeated scrapes add history, SSE
+errors count as success, or labels include user input. Seven offline scenarios in
+observability.test.ts pass, plus dashboard rendering/clearing checks. Installed
+runtime validation separately tests file-config enablement, scrape exclusion and
+restart persistence. This validates accounting, not real future storage growth.
+
+Full Windows offline suite after storage/metrics integration: 526 passed, six live tests skipped.

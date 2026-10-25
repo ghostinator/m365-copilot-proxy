@@ -13,7 +13,7 @@ mkdirSync(destination, { recursive: true });
 for (const name of [".output", "bin", "windows"]) cpSync(join(root, "packages/proxy", name), join(destination, name), { recursive: true, dereference: true });
 for (const name of ["LICENSE", "README.md"]) copyFileSync(join(root, name), join(destination, name));
 copyFileSync(join(root, "docs/operations.md"), join(destination, "OPERATIONS.md"));
-for (const name of ["dashboard-operations.md", "api-keys.md", "history-management.md"]) copyFileSync(join(root, "packages/proxy", name), join(destination, name));
+for (const name of ["dashboard-operations.md", "api-keys.md", "history-management.md", "observability.md"]) copyFileSync(join(root, "packages/proxy", name), join(destination, name));
 const includeNode = process.argv.includes("--include-node");
 if (includeNode) copyFileSync(process.execPath, join(destination, process.platform === "win32" ? "node.exe" : "node"));
 if (includeNode) {

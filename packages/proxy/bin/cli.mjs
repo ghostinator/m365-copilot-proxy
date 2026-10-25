@@ -25,6 +25,8 @@ function settings() {
   const host = process.env.NITRO_HOST || process.env.HOST || config.host || "127.0.0.1";
   if (typeof host !== "string" || !host || /[\s/'";]/.test(host)) throw new Error("Invalid bind host");
   if (config.apiKey !== undefined && (typeof config.apiKey !== "string" || !config.apiKey.trim())) throw new Error("server.json apiKey must be a nonempty string");
+  if (config.metricsEnabled !== undefined && typeof config.metricsEnabled !== "boolean") throw new Error("server.json metricsEnabled must be a boolean");
+  if (process.env.M365_METRICS === undefined && config.metricsEnabled === true) process.env.M365_METRICS = "1";
   if (config.allowedOrigins !== undefined && (!Array.isArray(config.allowedOrigins) || !config.allowedOrigins.every(v => typeof v === "string" && /^https?:\/\//.test(v)))) throw new Error("server.json allowedOrigins must be an array of HTTP(S) origins");
   if (config.apiKey && !process.env.M365_API_KEY) process.env.M365_API_KEY = config.apiKey;
   if (config.allowedOrigins && !process.env.M365_ALLOWED_ORIGINS) process.env.M365_ALLOWED_ORIGINS = config.allowedOrigins.join(",");

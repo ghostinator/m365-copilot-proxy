@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.13.0. Source availability and portable
+The current source feature set is version 0.14.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.13.0 npm package. See [the README](../README.md) for current source/setup links.
+0.14.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -98,9 +98,9 @@ requested, serialized and quota-consuming. No automatic capability sweeps.
 - [ ] Managed updates with release notes, staging, draining, readiness and rollback
   (continues section 4).
 - [x] Consistent online SQLite backups, restore verification and CSV/JSON exports (0.11.0).
-- [ ] Storage growth estimates; unlimited retention continues, no automatic deletion.
+- [x] Storage growth planning estimates and filesystem capacity; unlimited retention, no automatic deletion (0.14.0).
 - [x] Opt-in background in-dashboard alerts for sustained failures, auth, throttling and storage errors (0.13.0).
-- [ ] Optional Prometheus metrics with bounded labels; detailed client data stays in SQLite.
+- [x] Optional Prometheus metrics with fixed bounded labels; detailed client data stays in SQLite (0.14.0).
 - [ ] Client profiles: separate default models, usage summaries and fair queue
   priorities for production, development and agent clients.
 - [ ] Linux systemd installer parity (continues section 5).
@@ -162,3 +162,27 @@ with rollback remain separate work. A stopped proxy is started from the host CLI
 - [x] Deduplicated incidents, acknowledgement, recovery and recurrence across restarts.
 - [ ] External notification delivery, per-model rules and process-outage monitoring.
 - [ ] Combined backup/restore of alert state (history backups cover activity only).
+
+## 13. Storage planning and optional metrics (0.14.0)
+
+- [x] Logical density and observed-rate growth estimates, with minimum sample/coverage rules.
+- [x] Shared filesystem availability, separate physical WAL/database usage; no deletion.
+- [x] Opt-in Prometheus endpoint, config/environment enablement and existing optional-key policy.
+- [x] Fixed counter/gauge/histogram labels; no client/model/key identifiers or request text.
+- [x] Scrape exclusion, explicit unavailable history, restart counter semantics and setup guide.
+- [ ] Measured historical growth series, backup/alert/log footprint inventory and low-capacity alerts.
+
+## 14. Notification delivery — queued next
+
+See [provider scope and delivery design](notification-delivery.md). Current alerts
+are dashboard-only; no real notification has been configured or sent.
+
+- [ ] Multiple named destinations, per-rule routing, preview and explicit send-test.
+- [ ] SMTP and generic HTTP webhook transports.
+- [ ] Teams Workflows and Slack webhook payload adapters.
+- [ ] Postal HTTP API and SendGrid v3 email adapters.
+- [ ] Twilio SMS/WhatsApp destinations, independently enabled.
+- [ ] ntfy push; evaluate Gotify, Discord, Telegram, Pushover and PagerDuty as needed.
+- [ ] Durable queue, bounded retry/backoff, deduplication and delivery/error history.
+- [ ] Private credential management and combined operational-state backups.
+- [ ] Alertmanager setup/examples and external whole-process outage detection.

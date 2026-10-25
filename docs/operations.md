@@ -226,3 +226,12 @@ the host with `service start` or `serve`.
 ## History management (0.11.0)
 
 [History management](history-management.md) covers full-history JSON/CSV exports, private online backups, integrity/checksum verification, explicit stopped-host restore, safety backups and maintenance recovery. Retention remains unlimited.
+
+## Storage planning and metrics (0.14.0)
+
+See [observability](observability.md) for disk-growth estimate semantics and optional
+Prometheus setup. Add metricsEnabled: true to the existing server.json without
+replacing other settings, or launch with M365_METRICS=1, then fresh stop/start.
+Environment overrides take precedence and detached restarts inherit them. Disabled
+by default; existing application-key/origin policy applies and keys stay optional.
+Scrapes are excluded from activity. Retention remains unlimited.
