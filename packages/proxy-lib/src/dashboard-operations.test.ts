@@ -64,3 +64,26 @@ it("clears notification credentials and ignores late configuration responses aft
   const before = pending.length; el("notification-test").listeners.click(); expect(pending.length).toBe(before);
   expect(el("notification-message").textContent).toContain("Preview this destination");
 });
+
+it("selects API email fields and clears provider credentials on lock", async () => {
+  const { el, context } = await dashboard();
+  runInContext("notificationAction=command=>globalThis.capturedNotification=command", context);
+  for (const type of ["postal", "sendgrid"]) {
+    el("notification-type").value = type; el("notification-type").listeners.change();
+    expect(el("notification-email-api").hidden).toBe(false);
+    expect(el("notification-"+type).hidden).toBe(false);
+    expect(el("notification-webhook").hidden).toBe(true); expect(el("notification-smtp").hidden).toBe(true);
+    el("notification-api-key").value = "private-provider-key"; el("notification-api-from").value = "private@example.com";
+    el("notification-api-to").value = "recipient@example.com"; el("notification-postal-url").value = "https://private.example.com";
+    el("notification-rules").value = "failures, storage"; el("notification-events").value = "opened";
+    el("notification-region").value = "eu"; el("notification-postal-http").checked = false;
+    el("notification-save").listeners.click();
+    const command = runInContext("capturedNotification", context);
+    expect(command.action).toBe("notifications-save");
+    expect(command.destination.config).toMatchObject({ type, apiKey: "private-provider-key", from: "private@example.com", to: ["recipient@example.com"] });
+    expect(command.destination.config).not.toHaveProperty("password");
+    expect(type === "postal" ? command.destination.config.url : command.destination.config.region).toBe(type === "postal" ? "https://private.example.com" : "eu");
+    runInContext("lockOperator()", context);
+    for (const id of ["api-key", "api-from", "api-to", "postal-url"]) expect(el("notification-"+id).value).toBe("");
+  }
+});

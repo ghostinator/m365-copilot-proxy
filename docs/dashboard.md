@@ -292,7 +292,7 @@ headings and longer route/rate cells wrap; narrow displays retain horizontal tab
 scrolling. External notification provider choices are tracked in
 [notification delivery](notification-delivery.md), separately from local alerts.
 
-## Notification delivery (0.15.0)
+## Notification delivery (0.16.0)
 
 Settings → Notification delivery manages named SMTP and generic/Slack/Teams webhook
 destinations, rule/event routing, preview, explicit enable/test and paged delivery
@@ -300,3 +300,7 @@ history. Saving is disabled and sends nothing. No production destination is
 configured by this update. Read [notification delivery](notification-delivery.md)
 for TLS, private credentials, retry/acknowledgement policy and acceptance limits.
 The earlier dashboard-only alert scope is extended by this separately enabled worker.
+
+Postal and SendGrid email APIs are also selectable transports. Postal takes a server
+origin/API credential; SendGrid selects Global or EU. Both require a verified or
+authorized From address and explicit recipients. See [notification setup](notification-delivery.md).

@@ -71,6 +71,17 @@ try {
   assert.equal(configuredAlerts.status, 200);
   assert.equal((await configuredAlerts.json()).settings.enabled, true);
   assert.equal((await operator({ action: "alerts-configure", settings: { ...alertSettings, webhook: "https://unrequested.invalid" } })).status, 400);
+  for (const type of ["postal", "sendgrid"]) {
+    const config = { type, apiKey: "synthetic-provider-key", from: "sender@example.invalid", to: ["recipient@example.invalid"], ...(type === "postal" ? { url: "https://postal.example.invalid" } : { region: "eu" }) };
+    const saved = await operator({ action: "notifications-save", destination: { label: "Offline " + type, config, rules: ["failures"], events: ["opened"] } });
+    assert.equal(saved.status, 200); const state = await saved.json(), item = state.destinations.find(d => d.type === type);
+    assert(item && !item.enabled && item.credentialConfigured); assert(!JSON.stringify(state).includes(config.apiKey)); assert(!JSON.stringify(state).includes("example.invalid"));
+    const preview = await operator({ action: "notifications-preview", id: item.id }); assert.equal(preview.status, 200); assert.equal((await preview.json()).type, type);
+    assert.equal((await operator({ action: "notifications-test", id: item.id, confirm: true })).status, 409);
+    assert.equal((await operator({ action: "notifications-remove", id: item.id, confirm: true })).status, 200);
+  }
+  assert.equal(receivedNotifications.length, 0);
+  console.log("PASS: Postal/SendGrid disabled save, private preview and test refusal without provider network I/O");
   const destination = { label: "Offline receiver", config: { type: "webhook", url: notificationUrl, format: "generic", allowHttp: true }, rules: ["failures"], events: ["opened", "resolved"] };
   const savedDestination = await (await operator({ action: "notifications-save", destination })).json();
   assert.equal(savedDestination.destinations[0].enabled, false);

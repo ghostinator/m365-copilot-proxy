@@ -235,3 +235,12 @@ replacing other settings, or launch with M365_METRICS=1, then fresh stop/start.
 Environment overrides take precedence and detached restarts inherit them. Disabled
 by default; existing application-key/origin policy applies and keys stay optional.
 Scrapes are excluded from activity. Retention remains unlimited.
+
+
+## Notification delivery (0.16.0)
+
+Settings supports named SMTP, Postal, SendGrid and generic/Slack/Teams destinations.
+See [notification delivery](notification-delivery.md) for private credential setup,
+explicit tests, durable queue/retry semantics and provider acceptance limits.
+All destinations save disabled; no provider account or recipient is provisioned.
+Notification/alert databases are separate from activity-only history backups.

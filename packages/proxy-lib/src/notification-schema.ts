@@ -2,6 +2,7 @@ import { z } from "zod/v4";
 
 const clean = (max: number) => z.string().max(max).refine(s => !/[\x00-\x1f\x7f]/.test(s));
 const email = clean(254).pipe(z.email());
+const apiKey = clean(2048).min(1).refine(s => !/\s/.test(s));
 export const notificationRule = z.enum(["failures", "throttling", "authentication", "storage"]);
 export const notificationEvent = z.enum(["opened", "resolved"]);
 export const notificationConfig = z.discriminatedUnion("type", [
@@ -10,11 +11,16 @@ export const notificationConfig = z.discriminatedUnion("type", [
   z.object({ type: z.literal("smtp"), host: z.string().min(1).max(253).regex(/^[a-zA-Z0-9.:[\]-]+$/),
     port: z.number().int().min(1).max(65535), security: z.enum(["tls", "starttls", "local"]),
     user: clean(254).default(""), password: clean(512).default(""), from: email, to: z.array(email).min(1).max(5) }).strict(),
+  z.object({ type: z.literal("postal"), url: z.url().max(1536), apiKey,
+    allowHttp: z.boolean().default(false), from: email, to: z.array(email).min(1).max(5) }).strict(),
+  z.object({ type: z.literal("sendgrid"), region: z.enum(["global", "eu"]).default("global"), apiKey,
+    from: email, to: z.array(email).min(1).max(5) }).strict(),
 ]).superRefine((c, ctx) => {
-  if (c.type === "webhook") {
+  if (c.type === "webhook" || c.type === "postal") {
     const u = new URL(c.url);
     if (!["http:", "https:"].includes(u.protocol) || u.username || u.password || u.hash || (u.protocol === "http:" && !c.allowHttp)) ctx.addIssue({ code: "custom", message: "Use HTTPS, or explicitly allow HTTP; URL credentials/fragments are not supported" });
-  } else {
+    if (c.type === "postal" && (u.pathname !== "/" || u.search)) ctx.addIssue({ code: "custom", message: "Postal URL must be the server origin without a path or query" });
+  } else if (c.type === "smtp") {
     if (!!c.user !== !!c.password) ctx.addIssue({ code: "custom", message: "SMTP username and password must both be supplied or both omitted" });
     if (c.security === "local" && (!["127.0.0.1", "::1", "localhost"].includes(c.host) || c.user || c.password)) ctx.addIssue({ code: "custom", message: "Unencrypted SMTP is restricted to a literal loopback relay without credentials" });
   }

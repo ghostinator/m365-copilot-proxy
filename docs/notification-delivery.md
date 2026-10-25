@@ -1,15 +1,15 @@
-# Notification delivery (0.15.0)
+# Notification delivery (0.16.0)
 
-Requested October 25, 2026. **Implemented: SMTP and generic/Slack/Teams webhooks, with
-a durable delivery queue.** No production destination is configured or enabled by
-this change. Only local fake receivers were used for validation. Postal/SendGrid
-direct HTTP APIs and Twilio messaging remain queued. Existing alerts and metrics
+Requested October 25, 2026. **Implemented: SMTP, Postal and SendGrid email APIs, plus generic/Slack/Teams
+webhooks with a durable delivery queue.** No production destination is configured or enabled by
+this change. Local fake receivers and mocked provider responses were used for validation.
+Twilio messaging remains queued. Existing alerts and metrics
 stay opt-in, and application keys stay optional.
 
 ## Configure from the dashboard
 
 Unlock operator access in Settings, then open **Notification delivery**. At most
-20 named destinations can be configured. Create a webhook or SMTP destination,
+20 named destinations can be configured. Create a webhook, SMTP or email API destination,
 choose the alert rules and opening/recovery events, then **Save disabled**. Saving
 never sends or verifies a remote endpoint. A replacement requires all configuration
 and credentials again, increments its revision, cancels queued work and disables it
@@ -25,7 +25,7 @@ by the operator; none is provisioned automatically.
 
 The dashboard reads back names, transport/payload type, revision, enablement, routing
 and a credential-present flag. It never reads back webhook URLs, bearer tokens,
-SMTP hosts, usernames, passwords or email addresses. These fields are cleared from
+Postal URLs, provider API keys, SMTP hosts, usernames, passwords or email addresses. These fields are cleared from
 the page when saved/locked. Reload/expiry clears operator access. Locking the page
 does not disable already-enabled server destinations. Use Disable to cancel queued
 work, or Remove to scrub the active configuration while retaining delivery history.
@@ -64,6 +64,40 @@ Partial recipient rejection is a permanent failed result: some recipients may ha
 accepted the message, so the worker does not automatically retry that whole group.
 Separate destinations per recipient make failures easier to isolate.
 
+### Postal email API
+
+Choose Postal, enter the server origin (for example `https://postal.example.com`),
+its server API credential, an authorized plain From address and one to five To
+addresses. Do not include a path/query in the origin. The adapter posts JSON to
+`/api/v1/send/message` using `X-Server-API-Key` and `plain_body`. HTTP requires an
+explicit allow-HTTP choice; it exposes the API key and message on the network.
+Private server origins are supported and redirects are refused.
+
+Postal returns application-level success/error inside its JSON response, including
+HTTP 200. Only `status: "success"` counts as accepted. `status: "error"` fails
+permanently as `postal_api_rejected`; inspect Postal's private server logs for the
+actual reason. Response parsing is capped at 16 KiB and the overall request at ten
+seconds. Missing, malformed, oversized or unknown-status responses get a bounded
+retry as `postal_invalid_response`; remote acceptance may be ambiguous.
+
+### SendGrid email API
+
+Choose SendGrid, select Global or EU (requires an appropriate EU regional subuser),
+provide a Mail Send API key, a verified plain From address and one to five To
+addresses. The adapter uses the fixed HTTPS `api.sendgrid.com` or
+`api.eu.sendgrid.com` endpoint `/v3/mail/send`, bearer authentication,
+`personalizations` and a `text/plain` content body. Only HTTP 202 counts as accepted;
+other successful HTTP statuses fail as `sendgrid_unexpected_response`. No custom
+endpoint, templates, attachments, account provisioning or sender verification is
+performed. The request times out after ten seconds.
+
+Both adapters share the existing disabled-save/preview/enable/test workflow,
+durable queue, bounded retries and metadata-only views. They send a stable
+`X-M365-Delivery-Id` and Message-ID, but provider deduplication is not guaranteed.
+Provider response bodies are never logged or stored; Postal's bounded status check
+is used only in memory. No email credentials or recipients are provisioned by the
+proxy. Application API keys remain optional and separate from provider credentials.
+
 ## Queue and incident behavior
 
 The worker processes one send at a time, on a five-second schedule, independently
@@ -94,7 +128,7 @@ retry; exactly-once delivery is not promised. Generic receivers can deduplicate 
 the X-M365-Delivery-Id header/body field; SMTP uses the stable Message-ID. Slack and
 Teams do not gain a deduplication guarantee from these IDs.
 
-**Sent means the webhook returned 2xx or SMTP accepted the message**, not confirmed
+**Sent means webhook 2xx, SMTP acceptance, Postal application success or SendGrid 202**, not confirmed
 inbox arrival, reading, or successful downstream Teams workflow execution. Delivery
 history shows state, attempts, next retry and fixed redacted error categories. It
 is paged 20 at a time; newly arriving jobs can shift offset pages. Retention is
@@ -105,7 +139,7 @@ unlimited and no automatic deletion occurs.
 Private **notifications.sqlite** stores destinations, credentials, cursor, queue
 and delivery history. Files inherit the private user data directory on Windows;
 Unix permissions are 0600/0700. Credentials are protected by file access, **not
-encrypted at rest**. No SMTP/webhook secret is returned in public status or operator
+encrypted at rest**. No SMTP/webhook/provider secret is returned in public status or operator
 metadata. Public status exposes only aggregate counts and worker availability.
 History backups/restores cover activity.sqlite, not this database or alerts.sqlite.
 Combined operational backup/encryption remains planned. Do not replace alert event
@@ -129,7 +163,7 @@ attachments are disabled in the SMTP library. Provider I/O is outside the chat p
    SMTP covers existing mail servers; generic webhooks cover automation platforms
    without writing a new transport for each destination. Teams should target the
    currently documented Workflows flow rather than depend on retiring connectors.
-2. **Postal HTTP API and SendGrid v3 Mail Send** for direct email delivery. These
+2. **Implemented: Postal HTTP API and SendGrid v3 Mail Send** for direct email delivery. These
    are independent choices alongside SMTP, not additional required services.
 3. **Twilio SMS/WhatsApp** for urgent phone delivery, separately opt-in because
    sender provisioning, templates, country restrictions and cost vary by channel.
@@ -139,9 +173,8 @@ attachments are disabled in the SMTP library. Provider I/O is outside the chat p
    monitoring stack. Its receivers cover SMTP, Slack and generic webhooks, and an
    external monitor can detect a stopped proxy that cannot report its own outage.
 
-Direct provider APIs above remain explicit backlog items. Postal and SendGrid may
-also be usable today through their SMTP interfaces with operator-supplied settings;
-no direct HTTP integration with those providers is bundled yet.
+Twilio and the push adapters above remain backlog items. Postal and SendGrid can
+also be configured through SMTP using operator-supplied settings.
 
 ## Shared delivery requirements
 
@@ -170,6 +203,7 @@ no direct HTTP integration with those providers is bundled yet.
 ## Primary references checked
 
 - [Postal API](https://docs.postalserver.io/developer/api/)
+- [Postal send-message request](https://apiv1.postalserver.io/controllers/send/message.html)
 - [SendGrid Mail Send](https://www.twilio.com/docs/sendgrid/api-reference/mail-send/mail-send)
 - [Twilio Message resource](https://www.twilio.com/docs/messaging/api/message-resource)
 - [Teams incoming webhooks / Workflows](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook)
@@ -179,8 +213,8 @@ no direct HTTP integration with those providers is bundled yet.
 - [Alertmanager notification integrations](https://prometheus.io/docs/alerting/latest/integrations/)
 
 Provider-specific requests, authentication and limits must be checked against the
-current primary docs when implementing each adapter. Version 0.15.0 bundles SMTP
-and generic/Slack/Teams webhook delivery only.
+current primary docs when implementing each adapter. Version 0.16.0 adds Postal and SendGrid APIs
+to the existing SMTP and generic/Slack/Teams transports.
 
 ## Screenshots
 

@@ -4,7 +4,7 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.15.0)
+## Dashboard and operations (0.16.0)
 
 New: export **all matching history** as streamed JSON/CSV, create verified online
 SQLite backups, and prepare an explicit offline restore with a safety snapshot.
@@ -854,6 +854,6 @@ Use synthetic/demo data; keep operator grants and application tokens out of view
 
 > **Screenshot to add — storage/metrics:** Capture Overview → Storage planning with sample coverage and estimated growth; capture Settings → Prometheus metrics status. No tokens.
 
-Settings → **Notification delivery** now supports multiple named SMTP and generic/Slack/Teams webhook destinations, preview, explicit tests and a durable bounded-retry queue. Saves are disabled; no production destination is configured by this release. See [setup, privacy and delivery guarantees](docs/notification-delivery.md). Postal/SendGrid direct APIs and Twilio remain queued.
+Settings → **Notification delivery** now supports multiple named SMTP, Postal, SendGrid and generic/Slack/Teams webhook destinations, preview, explicit tests and a durable bounded-retry queue. Saves are disabled; no production destination is configured by this release. See [setup, privacy and delivery guarantees](docs/notification-delivery.md). Postal and SendGrid direct APIs support private provider credentials and acceptance checks; Twilio remains queued.
 
 > **Screenshot to add — delivery:** Capture a synthetic disabled destination, preview and saved delivery history in Settings → Notification delivery. Clear all SMTP, recipient, URL and token inputs first.

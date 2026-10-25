@@ -22,6 +22,7 @@ export async function sendNotification(config: NotificationConfig, message: Deli
       return;
     } catch (error) { if (error instanceof DeliveryFailure) throw error; throw new DeliveryFailure("webhook_network_or_timeout", true); }
   }
+  if (config.type === "postal" || config.type === "sendgrid") return sendEmailApi(config, message);
   const transport = nodemailer.createTransport({ host: config.host, port: config.port, secure: config.security === "tls",
     requireTLS: config.security === "starttls", ignoreTLS: config.security === "local", tls: { rejectUnauthorized: true },
     ...(config.user ? { auth: { user: config.user, pass: config.password } } : {}),
@@ -37,4 +38,54 @@ export async function sendNotification(config: NotificationConfig, message: Deli
     const code = Number((error as { responseCode?: number })?.responseCode);
     throw new DeliveryFailure(Number.isInteger(code) && code >= 400 && code <= 599 ? "smtp_" + code : "smtp_network_or_tls", !code || code < 500);
   } finally { if (timer) clearTimeout(timer); transport.close(); }
+}
+
+/** Postal reports application errors inside HTTP 200; never retain its diagnostic body. */
+async function postalAccepted(response: Response): Promise<void> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new DeliveryFailure("postal_invalid_response", true);
+  try {
+    const chunks: Uint8Array[] = []; let size = 0;
+    while (true) {
+      const chunk = await reader.read(); if (chunk.done) break;
+      size += chunk.value.byteLength;
+      if (size > 16_384) throw new DeliveryFailure("postal_invalid_response", true);
+      chunks.push(chunk.value);
+    }
+    const bytes = new Uint8Array(size); let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    let payload: unknown;
+    try { payload = JSON.parse(new TextDecoder().decode(bytes)); }
+    catch { throw new DeliveryFailure("postal_invalid_response", true); }
+    const status = payload && typeof payload === "object" && "status" in payload ? payload.status : null;
+    if (status === "error") throw new DeliveryFailure("postal_api_rejected", false);
+    if (status !== "success") throw new DeliveryFailure("postal_invalid_response", true);
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+}
+
+async function sendEmailApi(config: Extract<NotificationConfig, { type: "postal" | "sendgrid" }>, message: DeliveryMessage): Promise<void> {
+  const postal = config.type === "postal";
+  const url = postal ? new URL("/api/v1/send/message", config.url).href
+    : "https://" + (config.region === "eu" ? "api.eu.sendgrid.com" : "api.sendgrid.com") + "/v3/mail/send";
+  const headers = { "Content-Type": "application/json", "X-M365-Delivery-Id": message.deliveryId,
+    ...(postal ? { "X-Server-API-Key": config.apiKey } : { Authorization: "Bearer " + config.apiKey }) };
+  const mailHeaders = { "X-M365-Delivery-Id": message.deliveryId, "Message-ID": `<${message.deliveryId}@m365-proxy.local>` };
+  const body = postal ? { from: config.from, to: config.to, subject: message.subject, plain_body: message.text, headers: mailHeaders }
+    : { from: { email: config.from }, personalizations: [{ to: config.to.map(email => ({ email })) }],
+      subject: message.subject, content: [{ type: "text/plain", value: message.text }], headers: mailHeaders };
+  try {
+    const response = await fetch(url, { method: "POST", redirect: "error", signal: AbortSignal.timeout(10_000), headers, body: JSON.stringify(body) });
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => {});
+      throw new DeliveryFailure(config.type + "_http_" + response.status, [408, 425, 429].includes(response.status) || response.status >= 500);
+    }
+    if (postal) await postalAccepted(response);
+    else {
+      await response.body?.cancel().catch(() => {});
+      if (response.status !== 202) throw new DeliveryFailure("sendgrid_unexpected_response", false);
+    }
+  } catch (error) {
+    if (error instanceof DeliveryFailure) throw error;
+    throw new DeliveryFailure(config.type + "_network_or_timeout", true);
+  }
 }

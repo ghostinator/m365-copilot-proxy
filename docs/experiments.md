@@ -384,3 +384,19 @@ fixture permits HTTP only to its one explicit random-port loopback receiver; all
 Microsoft/outbound HTTP remains blocked. Saves/previews send nothing; one explicitly
 confirmed local test exercises the worker. No production credentials, recipients,
 external Slack/Teams/email messages or M365 model quota are used.
+
+
+## Postal/SendGrid acceptance checks (offline, 0.16.0)
+
+```sh
+pnpm build
+pnpm exec vitest run packages/proxy-lib/src/notification-providers.test.ts packages/proxy-lib/src/notifications.test.ts packages/proxy-lib/src/dashboard-operations.test.ts
+```
+
+Mocked fetch checks authenticated Postal and global/EU SendGrid payloads, fixed
+endpoints, stable IDs, redirects/timeouts, retryable HTTP failures, permanent
+rejections, Postal HTTP-200 errors, malformed/oversized response cancellation,
+private metadata and two queued provider tests restored across restart through the
+real worker. Dashboard checks field visibility and clearing on lock. These fixtures
+send no email and use no real provider credentials or M365 quota. A provider setup
+still requires its own explicitly requested live acceptance/delivery test.

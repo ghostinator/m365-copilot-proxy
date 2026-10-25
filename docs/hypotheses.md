@@ -5962,3 +5962,29 @@ operator confirmation and local fake HTTP/SMTP acceptance. Actual provider deliv
 exactly-once remote acceptance, TLS account setup and forced-stop soak remain unproven.
 
 Full Windows offline suite after notification integration: 538 passed, six live tests skipped.
+
+
+### Postal/SendGrid adapter boundaries — October 25, 2026
+
+H: provider-specific acceptance checks can reuse the durable queue without treating
+Postal HTTP 200 application errors as successful delivery or exposing API secrets.
+Falsification: Postal status:error becomes sent, SendGrid non-202 becomes sent,
+response parsing exceeds 16 KiB, restart drops queued tests, or dashboard metadata
+returns keys/origins/recipients. Probe: notification-providers.test.ts with mocked
+HTTP responses and a persisted temporary SQLite store; dashboard-operations.test.ts
+checks provider field selection and credential clearing. No live provider delivery,
+mailbox arrival or provider-side deduplication is inferred from these checks.
+
+Result: all six new offline scenarios passed as part of the full Windows suite
+(544 passed, six live tests skipped). Provider request/response checks are bounded
+and restart delivered both persisted synthetic jobs; no live provider claim.
+
+
+Deployment preparation also reproduced a backup-worker startup failure when its
+caller used `node --input-type=module` on stdin: the inline CommonJS worker inherited
+that incompatible flag. Workers now use an explicit empty execArgv; a subprocess
+regression creates and verifies a real temporary backup from module stdin.
+
+Final Windows offline suite including backup-worker regression: 545 passed,
+six live tests skipped. The live host backup from module stdin also verified
+successfully after the fix; no M365 model request was made.
