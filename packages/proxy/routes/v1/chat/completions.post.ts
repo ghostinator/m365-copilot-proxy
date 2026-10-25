@@ -31,5 +31,5 @@ export default defineEventHandler(async (event) => {
 
   // handleChatCompletion returns a Web Response (JSON or an SSE ReadableStream
   // when stream:true). Returning it directly lets h3 forward it untouched.
-  return handleChatCompletion(body, pool, { signal: ac.signal, conversationId: getHeader(event, "x-conversation-id"), callerId: callerIdentity(new Headers(getRequestHeaders(event) as HeadersInit)) });
+  return handleChatCompletion(body, pool, { activity: event.context.proxyActivity ?? undefined, signal: ac.signal, conversationId: getHeader(event, "x-conversation-id"), callerId: callerIdentity(new Headers(getRequestHeaders(event) as HeadersInit)) });
 });

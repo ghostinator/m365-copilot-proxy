@@ -2,8 +2,10 @@ import { type ModelSessionOptions, getAvailableModels } from "@m365-copilot/core
 import { ChatCompletionRequest } from "./schemas.js";
 import { SessionPool, handleChatCompletion } from "./handler.js";
 import { dashboardResponse, operatorStatus } from "./dashboard.js";
-import { HttpActivity, trackHttpResponse } from "./http-activity.js";
-export { HttpActivity, httpActivity } from "./http-activity.js";
+import { HttpActivity, trackHttpResponse, type RequestTrace } from "./http-activity.js";
+export { HttpActivity, httpActivity, type RequestTrace } from "./http-activity.js";
+import { operatorChecks } from "./operator-checks.js";
+export { operatorChecks } from "./operator-checks.js";
 export { dashboardResponse, operatorStatus } from "./dashboard.js";
 export { setupPiClient, piProvider } from "./client-setup.js";
 export { setupOpenClawClient } from "./client-setup.js";
@@ -92,7 +94,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
   const pool = new SessionPool(sessionOptions);
   const activity = new HttpActivity();
 
-  async function fetch(req: Request): Promise<Response> {
+  async function fetch(req: Request, trace?: RequestTrace | null): Promise<Response> {
     const { pathname } = new URL(req.url);
     const method = req.method.toUpperCase();
 
@@ -103,6 +105,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
       const dashboard = dashboardResponse(pathname);
       if (dashboard) return dashboard;
       if (pathname === "/v1/proxy/status") return withCors(Response.json(operatorStatus(pool, activity), { headers: { "Cache-Control": "no-store" } }), req);
+      if (pathname === "/v1/proxy/checks") return withCors(Response.json({ ...await operatorChecks(), instance: activity.instance }, { headers: { "Cache-Control": "no-store" } }), req);
     }
 
     if (method === "GET" && ["/health", "/health/ready"].includes(pathname)) {
@@ -126,7 +129,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
         );
       }
       // req.signal aborts when the client disconnects → cancels the M365 turn.
-      return withCors(await handleChatCompletion(body, pool, { signal: req.signal, conversationId: req.headers.get("x-conversation-id") ?? undefined, callerId: callerIdentity(req.headers) }), req);
+      return withCors(await handleChatCompletion(body, pool, { activity: trace ?? undefined, signal: req.signal, conversationId: req.headers.get("x-conversation-id") ?? undefined, callerId: callerIdentity(req.headers) }), req);
     }
 
     return withCors(
@@ -135,8 +138,8 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
   }
 
   return { async fetch(req) {
-    const finish = activity.begin(req.method.toUpperCase(), new URL(req.url).pathname);
-    try { return trackHttpResponse(await fetch(req), finish); }
+    const finish = activity.begin(req.method.toUpperCase(), new URL(req.url).pathname, req.headers.get("x-m365-check") === "1");
+    try { const response = trackHttpResponse(await fetch(req, finish), finish); response.headers.set("X-M365-Proxy-Instance", activity.instance.id); response.headers.set("X-M365-Proxy-Version", activity.instance.version); return response; }
     catch (error) { finish?.(500); throw error; }
   }, close: () => pool.close() };
 }

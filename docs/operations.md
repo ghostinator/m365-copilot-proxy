@@ -45,17 +45,35 @@ provide allowance observations when Microsoft includes metering. The dashboard
 shows daily/weekly counts and their observation time; missing counts are unknown.
 A missing exhaustion record does not mean quota remains.
 
-The Activity card counts requests since the current process started, including
-model-list connectivity tests, health probes, invalid/rejected chat requests and
-unsupported routes. It separately shows in-flight, finished and failed requests,
-with model/chat/health/other totals. Dashboard status polls, its page/script and
-favicon are excluded. The latest 20 requests show bounded metadata: a known endpoint
-(unknown paths are masked), method, time, status and duration. Query strings,
-headers and bodies are never recorded in this activity view. Status 499 denotes
-a client disconnect, and 502 can denote a streaming transport failure. HTTP 200
-with an application-level error inside an SSE chunk is still an HTTP 200 here.
-The dashboard refreshes every five seconds. The separate chat-admission count
-drops to zero after a turn; it is not a lifetime count. Counts reset on restart.
+From version 0.4.0, HTTP activity includes model-list connectivity tests, health
+probes, rejected chats and unsupported routes. Dashboard assets, status polls and
+operator inspection are excluded. The latest 100 requests show request ID, known
+endpoint, method, time, HTTP/application status, phase, outcome, validated/served
+model, stream mode, queue/first-byte/total durations, HTTP body bytes and upstream
+attempts. Unknown paths/models are masked. Prompts, replies, tool arguments,
+headers and query strings are never retained. Bytes are not tokens.
+
+Chat totals distinguish validation, completion, failure, cancellation, stream mode,
+upstream attempts and retries. An HTTP-200 SSE error retains HTTP 200 but counts
+as a failed chat with a separate application status. Status 499 denotes a client
+disconnect. Filters select chats, errors/cancellations or explicit self-checks.
+The dashboard refreshes every five seconds. The separate chat-admission count is
+instantaneous; cumulative activity resets on restart.
+
+The instance panel shows version, PID, startup time, instance UUID and the client
+base URL for this page. Responses carry `X-M365-Proxy-Instance`,
+`X-M365-Proxy-Version` and, for tracked requests, `X-M365-Request-Id`. Compare these
+with the application's endpoint when requests appear missing. Two processes can
+listen on port 4141 at different local addresses; their counters are separate.
+The dashboard performs one local socket inspection and warns about other listener
+processes. OS inspection may be unavailable. `GET /v1/proxy/checks` uses the same
+API-key/origin policy as status and sends no chat.
+
+**Run local checks** sequentially tests liveness, readiness and model listing,
+verifying instance identity. These GET requests carry `X-M365-Check: 1` and count
+separately as self-checks. The label is diagnostic metadata, not an authorization
+exemption; other callers can set it too. Registered models and local checks do
+not establish upstream model availability.
 If a proxy API key is configured, enter it in the page to read status. The page
 holds it in memory only and never stores it in browser storage or the URL. Closing
 or reloading the page clears it. Up to 20 in-memory error summaries show fixed
@@ -152,6 +170,6 @@ node scripts/build-release.mjs --include-node
 node scripts/verify-release.mjs <release-directory>
 ```
 
-The installed-runtime tests use an explicitly loaded offline MSAL fixture and temporary state. It is never enabled by the production launcher. Release smoke tests copy the app into a temporary path containing spaces and run outside the repository. Manifests contain SHA-256 hashes of all shipped files; each archive has a separate checksum file. Verify a downloaded archive against a checksum obtained from a trusted release channel before extraction; an included manifest is an integrity check, not an authenticity signature.
+The installed-runtime tests use explicitly loaded offline MSAL/WebSocket fixtures and temporary state, with outbound HTTP disabled. Built-server tests cover successful and streamed chats, throttling inside HTTP-200 SSE, reconnects, cancellation, exact Unicode body-byte counts and request correlation. It is never enabled by the production launcher. Release smoke tests copy the app into a temporary path containing spaces and run outside the repository. Manifests contain SHA-256 hashes of all shipped files; each archive has a separate checksum file. Verify a downloaded archive against a checksum obtained from a trusted release channel before extraction; an included manifest is an integrity check, not an authenticity signature.
 
 Windows/Linux CI runs build/unit tests and built/isolated runtime checks. The Windows runner, task definition and versioned installer have offline checks. `scripts/test-windows-service.ps1` additionally registers a uniquely named temporary sign-in task with a local fake server, verifies failure/restart and stop, then removes it. Real M365/pi validation, actual account startup, reboot/logoff behavior and 24–72-hour soak tests remain separate account/host checks. `scripts/windows/Test-Proxy.ps1 -Tools` runs one isolated, real pi tool loop; `-Live` runs one plain completion instead. NixOS users can continue using the existing `services.m365-copilot-proxy` module and systemd unit.

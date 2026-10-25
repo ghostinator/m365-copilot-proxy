@@ -14,6 +14,7 @@ it("protects operator data with the API key and never injects credentials into t
     expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(await page.text()).not.toContain("secret-for-dashboard-test");
     expect((await app.fetch(new Request("http://localhost/v1/proxy/status"))).status).toBe(401);
+    expect((await app.fetch(new Request("http://localhost/v1/proxy/checks"))).status).toBe(401);
     expect((await app.fetch(new Request("http://localhost/v1/proxy/status", { headers: { authorization: "Bearer secret-for-dashboard-test", origin: "https://evil.example" } }))).status).toBe(403);
     const response = await app.fetch(new Request("http://localhost/v1/proxy/status", { headers: { authorization: "Bearer secret-for-dashboard-test" } }));
     const status = await response.json();

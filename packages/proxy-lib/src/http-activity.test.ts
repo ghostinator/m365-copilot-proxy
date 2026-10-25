@@ -39,15 +39,36 @@ it("counts authentication and origin rejection before reaching a route", async (
 
 it("bounds recent metadata, counts each finish once and keeps streams active until cancelled", async () => {
   const activity = new HttpActivity();
-  for (let i = 0; i < 25; i++) { const finish = activity.begin("GET", "/v1/models")!; finish(200); finish(500); }
-  expect(activity.snapshot()).toMatchObject({ total: 25, active: 0, failed: 0 });
-  expect(activity.snapshot().recent).toHaveLength(20);
+  for (let i = 0; i < 125; i++) { const finish = activity.begin("GET", "/v1/models")!; finish(200); finish(500); }
+  expect(activity.snapshot()).toMatchObject({ total: 125, active: 0, failed: 0 });
+  expect(activity.snapshot().recent).toHaveLength(100);
   const cancelled = vi.fn();
   const source = new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode("data: test\n\n")); }, cancel: cancelled });
   const response = trackHttpResponse(new Response(source), activity.begin("POST", "/v1/chat/completions"));
   expect(activity.snapshot().active).toBe(1);
   await response.body!.cancel();
   expect(cancelled).toHaveBeenCalledOnce();
-  expect(activity.snapshot()).toMatchObject({ total: 26, active: 0, completed: 26, failed: 1 });
+  expect(activity.snapshot()).toMatchObject({ total: 126, active: 0, completed: 126, failed: 1 });
   expect(activity.snapshot().recent[0].status).toBe(499);
+});
+
+it("distinguishes self-checks and application-level errors inside successful HTTP streams", () => {
+  const activity = new HttpActivity();
+  activity.begin("GET", "/v1/models", true)!(200);
+  const trace = activity.begin("POST", "/v1/chat/completions")!;
+  trace.chat("claude-sonnet", true); trace.phase("queued"); trace.admitted();
+  trace.upstream("claude-sonnet"); trace.upstreamFailed();
+  trace.upstream("claude-sonnet"); trace.output(64); trace.result(429);
+  expect(activity.snapshot().chats.active).toBe(1);
+  trace(200);
+  expect(activity.snapshot()).toMatchObject({ total: 2, selfChecks: 1, applicationRequests: 1, failed: 1, chats: { validated: 1, failed: 1, active: 0, streamed: 1, upstreamAttempts: 2, retries: 1 } });
+  expect(activity.snapshot().recent[0]).toMatchObject({ status: 200, applicationStatus: 429, outcome: "error", model: "claude-sonnet", servedModel: "claude-sonnet", responseBytes: 64 });
+});
+
+it("does not count a generated response as delivered after a client cancellation", () => {
+  const activity = new HttpActivity();
+  const trace = activity.begin("POST", "/v1/chat/completions")!;
+  trace.chat("private-model-text", true); trace.result(200); trace(499);
+  expect(activity.snapshot().chats).toMatchObject({ completed: 0, cancelled: 1, active: 0 });
+  expect(JSON.stringify(activity.snapshot())).not.toContain("private-model-text");
 });

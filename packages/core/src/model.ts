@@ -103,6 +103,8 @@ export class ModelSession {
     useAgent: boolean = true,
     images: string[] = [],
     waitForBudget: () => Promise<{ waitedMs: number }> = () => awaitTurnBudget({ signal }),
+    onAttempt?: () => void,
+    onAttemptFailure?: () => void,
   ): Promise<CopilotStream> {
     signal?.throwIfAborted();
     let token = await abortable(this.resolveToken(), signal);
@@ -153,10 +155,12 @@ export class ModelSession {
     const turnOpts = { generateImages: !agentForTurn && !process.env.M365_NO_IMAGE_GEN, images: annotations };
 
     try {
+      try { onAttempt?.(); } catch { /* Observability must not affect a turn. */ }
       return await this.copilotSession.chat(token, text, model, signal, turnOpts);
     } catch (err: any) {
       signal?.throwIfAborted();
       // Session might be stale — reconnect with same IDs
+      try { onAttemptFailure?.(); } catch { /* Metadata must not affect recovery. */ }
       log.info("Session error, reconnecting:", err.message);
       // The reconnect is one more upstream turn, so it waits on the budget too:
       // otherwise it skips the wait and its recordTurn takes the grant of a turn
@@ -165,6 +169,7 @@ export class ModelSession {
       if ((await waitForBudget()).waitedMs > 0) token = await this.resolveToken();
       this.copilotSession = this.createCopilotSession(agentForTurn);
       this.currentAgentId = agentForTurn;
+      try { onAttempt?.(); } catch { /* Observability must not affect a retry. */ }
       return await this.copilotSession.chat(token, text, model, signal, turnOpts);
     }
   }

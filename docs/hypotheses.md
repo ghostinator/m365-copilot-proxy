@@ -5722,3 +5722,30 @@ the connection on Nitro body-validation errors made the sequence pass for both
 keyed and unkeyed startup fixtures. This is a local HTTP lifecycle finding, not
 new Microsoft protocol behavior. The runnable probe is
 `node scripts/test-installed-runtime.mjs`.
+
+### Dashboard chat tracking and instance mismatch — Oct 25
+
+Hypothesis: successful application chats bypass the process shown by the local
+operator dashboard. Falsifier: a completed application request has the same
+instance ID and endpoint but no matching event. Local socket/process inspection
+found two listeners on port 4141: a legacy snapshot on a Tailnet address, and the
+0.3.1 dashboard runtime on 127.0.0.1. The latter had zero remembered conversations
+and only the previous day's two model probes. This establishes separate listeners,
+not which endpoint the user's application used; that endpoint still needs confirmation.
+Yesterday's model-only checks did not establish chat tracking for that application.
+
+Version 0.4.0 adds instance/request identity, listener inspection and explicit
+no-chat checks, separating those self-checks from application traffic. Chat
+metadata covers validation, admission/queue time, upstream attempts/reconnects,
+stream mode, HTTP body bytes and completion/error/cancellation. HTTP-200 SSE errors
+retain transport status but count as application failures. Metadata excludes
+prompts, replies, arguments, headers and query strings. History is bounded at 100
+and resets at startup. Operational semantics graduate to docs/operations.md.
+
+Falsifiable lifecycle tests use the built Nitro server with an explicit fake MSAL
+and WebSocket loader; outbound HTTP is disabled. Windows and Linux both passed
+success (keyed and unkeyed), upstream throttling, one reconnect and client
+cancellation; exact Unicode body-byte counts and correlation IDs are asserted.
+Unit suites: 453 passed, 6 live tests skipped on each OS. Commands:
+`pnpm test` and `node scripts/test-installed-runtime.mjs`.
+No additional Microsoft chat or model capability conclusion comes from fixtures.

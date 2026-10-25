@@ -1,5 +1,6 @@
 import { SessionPool } from "./session-pool.js";
 import { recordUsageObservation } from "./usage-observations.js";
+import type { RequestTrace } from "./http-activity.js";
 export { SessionPool } from "./session-pool.js";
 import {
   abortable,
@@ -238,23 +239,31 @@ export function formatDeltaMessages(messages: ParsedMessage[], history: ParsedMe
 export async function handleChatCompletion(
   body: ChatBody,
   pool: SessionPool,
-  opts: { signal?: AbortSignal; conversationId?: string; callerId?: string } = {},
+  opts: { signal?: AbortSignal; conversationId?: string; callerId?: string; activity?: RequestTrace } = {},
 ): Promise<Response> {
   const cancellation = new AbortController();
+  opts.activity?.chat(body.model, body.stream);
+  opts.activity?.phase("queued");
   opts = { ...opts, signal: AbortSignal.any([...(opts.signal ? [opts.signal] : []), pool.shutdown.signal, cancellation.signal]) };
   let release: () => void;
   try { release = await pool.acquire(opts.signal); }
-  catch (error: any) { return jsonResponse(opts.signal?.aborted ? 499 : 503, { error: { message: error.message, type: "proxy_busy" } }); }
+  catch (error: any) { opts.activity?.result(opts.signal?.aborted ? 499 : 503); return jsonResponse(opts.signal?.aborted ? 499 : 503, { error: { message: error.message, type: "proxy_busy" } }); }
+  opts.activity?.admitted();
   let streaming = false;
   try {
-    return await handleLocked(body, pool, { ...opts, ownStream: () => { streaming = true; }, release, cancel: () => cancellation.abort() });
+    const response = await handleLocked(body, pool, { ...opts, ownStream: () => { streaming = true; }, release, cancel: () => cancellation.abort() });
+    if (!streaming) opts.activity?.result(response.status);
+    return response;
+  } catch (error) {
+    opts.activity?.result(opts.signal?.aborted ? 499 : 500);
+    throw error;
   } finally { if (!streaming) release(); }
 }
 
 async function handleLocked(
   body: ChatBody,
   pool: SessionPool,
-  opts: { signal?: AbortSignal; conversationId?: string; callerId?: string; ownStream: () => void; release: () => void; cancel: () => void },
+  opts: { signal?: AbortSignal; conversationId?: string; callerId?: string; activity?: RequestTrace; ownStream: () => void; release: () => void; cancel: () => void },
 ): Promise<Response> {
   body = structuredClone(body);
   const conv = pool.resolve(body.messages, body.tools, JSON.stringify([opts.callerId ?? "local", opts.conversationId ?? body.conversation_id ?? "", body.tool_choice ?? "auto"]));
@@ -416,8 +425,9 @@ async function handleLocked(
         // The agent overrides `tone` (forces GPT-5), so tool-less requests must
         // skip it to reach the model the tone selects (e.g. Claude). See
         // ModelSession.run / docs H8.6.
-        copilotStream = await session.run(text, model, signal, useToolAgent, inputImages, waitForBudget);
+        copilotStream = await session.run(text, model, signal, useToolAgent, inputImages, waitForBudget, () => opts.activity?.upstream(model), () => opts.activity?.upstreamFailed());
       } catch (err: any) {
+        if (!(err instanceof TurnBudgetHold)) opts.activity?.upstreamFailed();
         if (err instanceof TurnBudgetHold) return { error: turnBudgetHoldResponse(err) };
         return { error: jsonResponse(502, { error: { message: err.message, type: "upstream_error" } }) };
       }
@@ -445,6 +455,7 @@ async function handleLocked(
           fullText = copilotStream.fullText;
         }
       } catch (err: any) {
+        opts.activity?.upstreamFailed();
         return { error: jsonResponse(502, { error: { message: err.message, type: "upstream_error" } }) };
       }
 
@@ -468,6 +479,7 @@ async function handleLocked(
       lastScores = copilotStream.scores;
       lastTurnCount = copilotStream.turnCount;
       lastMetering = copilotStream.metering;
+      if ((copilotStream.result && copilotStream.result.value !== "Success") || !fullText) opts.activity?.upstreamFailed();
       recordUsageObservation(requestedModel, model, lastMetering);
 
       // M365 SAYS when it throttles: the final item's result is `Throttled` /
@@ -863,7 +875,7 @@ async function handleLocked(
   // prose fallback) are emitted once at the end.
   opts.ownStream();
   return sseResponse(new ReadableStream({
-    cancel() { opts.cancel(); },
+    cancel() { opts.activity?.result(499); opts.cancel(); },
     async start(controller) {
       const enc = new TextEncoder();
       const send = (obj: unknown) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
@@ -905,6 +917,7 @@ async function handleLocked(
       let p: Produced;
       try { p = await produce(liveDelta); }
       catch (err: any) { p = { kind: "error", resp: jsonResponse(502, { error: { message: err?.message ?? "stream error", type: "upstream_error" } }) }; }
+      opts.activity?.result(opts.signal?.aborted ? 499 : p.kind === "error" ? p.resp.status : 200);
       if (p.kind !== "error") pool.acknowledge(conv, body.messages, p.kind === "tools" ? { role: "assistant", content: null, tool_calls: p.toolCalls } : { role: "assistant", content: p.text });
       clearInterval(hb);
       try {

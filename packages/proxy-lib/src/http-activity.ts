@@ -1,47 +1,95 @@
+import { randomUUID } from "node:crypto";
+import { getAvailableModels } from "@m365-copilot/core";
+import packageInfo from "../package.json" with { type: "json" };
+
 type Kind = "models" | "chat" | "health" | "other";
-interface Event { method: string; endpoint: string; receivedAt: string; status: number | null; durationMs: number | null }
-const ignored = new Set(["/dashboard", "/dashboard-script", "/v1/proxy/status", "/favicon.ico"]);
+type Phase = "received" | "queued" | "preparing" | "upstream" | "streaming" | "completed" | "failed" | "cancelled";
+export interface ActivityEvent {
+  id: string; method: string; endpoint: string; source: "application" | "self-check";
+  receivedAt: string; status: number | null; durationMs: number | null; phase: Phase;
+  outcome: "pending" | "success" | "error" | "cancelled";
+  model: string | null; servedModel: string | null; streamed: boolean | null;
+  applicationStatus: number | null; responseBytes: number; firstByteMs: number | null;
+  queueMs: number | null; upstreamAttempts: number; upstreamFailures: number;
+}
+export interface RequestTrace {
+  (status: number): void;
+  id: string;
+  chat(model: string, streamed: boolean): void;
+  phase(value: Phase): void;
+  admitted(): void;
+  upstream(model: string): void;
+  upstreamFailed(): void;
+  result(status: number): void;
+  output(bytes: number): void;
+}
+const ignored = new Set(["/dashboard", "/dashboard-script", "/v1/proxy/status", "/v1/proxy/checks", "/favicon.ico"]);
 const endpoints: Record<string, Kind> = { "/v1/models": "models", "/v1/chat/completions": "chat", "/health": "health", "/health/live": "health", "/health/ready": "health", "/v1/responses": "other", "/v1/messages": "other", "/messages": "other" };
 
-/** Bounded, credential-free HTTP metadata; includes rejected/invalid requests. */
+/** Bounded metadata only. No prompts, answers, headers, keys or query strings. */
 export class HttpActivity {
+  readonly instance = { id: randomUUID(), pid: process.pid, version: packageInfo.version, startedAt: new Date().toISOString() };
   private total = 0;
   private completed = 0;
   private failed = 0;
+  private selfChecks = 0;
+  private chat = { validated: 0, completed: 0, failed: 0, cancelled: 0, streamed: 0, nonStreamed: 0, upstreamAttempts: 0, upstreamFailures: 0, retries: 0 };
   private categories = { models: 0, chat: 0, health: 0, other: 0 };
-  private recent: Event[] = [];
+  private recent: ActivityEvent[] = [];
 
-  begin(method: string, pathname: string): ((status: number) => void) | null {
+  begin(method: string, pathname: string, selfCheck = false): RequestTrace | null {
     if (ignored.has(pathname)) return null;
     const started = Date.now();
     const known = Object.hasOwn(endpoints, pathname);
     const kind = known ? endpoints[pathname] : "other";
-    const event: Event = { method: /^(GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE)$/.test(method) ? method : "OTHER", endpoint: known ? pathname : "(other endpoint)", receivedAt: new Date(started).toISOString(), status: null, durationMs: null };
-    this.total++;
+    selfCheck = selfCheck && method === "GET" && (kind === "models" || kind === "health");
+    const event: ActivityEvent = { id: randomUUID(), method: /^(GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE)$/.test(method) ? method : "OTHER", endpoint: known ? pathname : "(other endpoint)", source: selfCheck ? "self-check" : "application", receivedAt: new Date(started).toISOString(), status: null, durationMs: null, phase: "received", outcome: "pending", model: null, servedModel: null, streamed: null, applicationStatus: null, responseBytes: 0, firstByteMs: null, queueMs: null, upstreamAttempts: 0, upstreamFailures: 0 };
+    this.total++; if (selfCheck) this.selfChecks++;
     this.categories[kind]++;
     this.recent.push(event);
-    if (this.recent.length > 20) this.recent.shift();
-    let finished = false;
-    return status => {
+    if (this.recent.length > 100) this.recent.shift();
+    let finished = false, validated = false, chatFinished = false, queuedAt = started;
+    const knownModel = (model: string) => getAvailableModels().includes(model) ? model : "(custom model)";
+    const finishChat = (status: number) => {
+      if (!validated || chatFinished) return;
+      chatFinished = true;
+      if (status === 499) this.chat.cancelled++;
+      else if (status >= 400) this.chat.failed++;
+      else this.chat.completed++;
+    };
+    const finish = (status: number) => {
       if (finished) return;
       finished = true;
       event.status = Number.isInteger(status) && status >= 100 && status <= 599 ? status : 500;
       event.durationMs = Math.max(0, Date.now() - started);
-      this.completed++;
-      if (event.status >= 400) this.failed++;
+      const result = event.status >= 400 ? event.status : event.applicationStatus ?? event.status;
+      finishChat(result);
+      event.outcome = result === 499 ? "cancelled" : result >= 400 ? "error" : "success";
+      event.phase = event.outcome === "cancelled" ? "cancelled" : event.outcome === "error" ? "failed" : "completed";
+      this.completed++; if (event.outcome !== "success") this.failed++;
     };
+    return Object.assign(finish, {
+      id: event.id,
+      chat: (model: string, streamed: boolean) => { if (finished || validated) return; validated = true; event.model = knownModel(model); event.streamed = streamed; this.chat.validated++; if (streamed) this.chat.streamed++; else this.chat.nonStreamed++; },
+      phase: (value: Phase) => { if (finished) return; event.phase = value; if (value === "queued") queuedAt = Date.now(); },
+      admitted: () => { if (finished) return; event.queueMs = Math.max(0, Date.now() - queuedAt); event.phase = "preparing"; },
+      upstream: (model: string) => { if (finished) return; event.phase = "upstream"; event.servedModel = knownModel(model); if (event.upstreamAttempts > 0) this.chat.retries++; event.upstreamAttempts++; this.chat.upstreamAttempts++; },
+      upstreamFailed: () => { if (finished) return; event.upstreamFailures++; this.chat.upstreamFailures++; },
+      result: (status: number) => { if (finished || event.applicationStatus === 499) return; event.applicationStatus = Number.isInteger(status) && status >= 100 && status <= 599 ? status : 500; },
+      output: (bytes: number) => { if (finished || !Number.isFinite(bytes) || bytes <= 0) return; event.responseBytes += bytes; event.firstByteMs ??= Math.max(0, Date.now() - started); if (event.streamed) event.phase = "streaming"; },
+    });
   }
 
   snapshot() {
-    return { total: this.total, active: this.total - this.completed, completed: this.completed, failed: this.failed, categories: { ...this.categories }, recent: this.recent.map(event => ({ ...event })).reverse() };
+    return { total: this.total, applicationRequests: this.total - this.selfChecks, selfChecks: this.selfChecks, active: this.total - this.completed, completed: this.completed, failed: this.failed, categories: { ...this.categories }, chats: { ...this.chat, active: this.chat.validated - this.chat.completed - this.chat.failed - this.chat.cancelled }, recent: this.recent.map(event => ({ ...event })).reverse() };
   }
 }
-
 export const httpActivity = new HttpActivity();
 
-/** Keep streamed requests active until EOF/cancel without consuming them early. */
-export function trackHttpResponse(response: Response, finish: ((status: number) => void) | null): Response {
+/** Preserve backpressure/cancellation; do not consume a streamed body early. */
+export function trackHttpResponse(response: Response, finish: RequestTrace | null): Response {
   if (!finish) return response;
+  response.headers.set("X-M365-Request-Id", finish.id);
   if (!response.body) { finish(response.status); return response; }
   const reader = response.body.getReader();
   return new Response(new ReadableStream({
@@ -49,7 +97,7 @@ export function trackHttpResponse(response: Response, finish: ((status: number) 
       try {
         const next = await reader.read();
         if (next.done) { finish(response.status); controller.close(); }
-        else controller.enqueue(next.value);
+        else { finish.output(next.value.byteLength); controller.enqueue(next.value); }
       } catch (error) { finish(502); controller.error(error); }
     },
     async cancel(reason) { finish(499); await reader.cancel(reason); },
