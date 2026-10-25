@@ -1,6 +1,6 @@
 import { backup, DatabaseSync } from "node:sqlite";
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream, closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync, chmodSync } from "node:fs";
+import { createReadStream, closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync, fstatSync, constants, chmodSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Worker } from "node:worker_threads";
 import { z } from "zod/v4";
@@ -59,6 +59,16 @@ export class HistoryBackups {
     const checked = await inspect(this.path(id));
     if (checked.requests !== info.requests || checked.modelReports !== info.modelReports) throw new Error("Backup row counts do not match its manifest");
     return { ...info, verified: true };
+  }
+  async openDownload(id: string) {
+    const info = await this.verify(id);
+    const fd = openSync(this.path(id), constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    try {
+      const hash = createHash("sha256");
+      for await (const chunk of createReadStream(this.path(id), { fd, autoClose: false, start: 0 })) hash.update(chunk);
+      if (fstatSync(fd).size !== info.bytes || hash.digest("hex") !== info.sha256) throw new Error("Backup changed before download");
+      return { fd, info };
+    } catch (error) { closeSync(fd); throw error; }
   }
   private async createUnlocked() {
     mkdirSync(this.folder, { recursive: true, mode: 0o700 });

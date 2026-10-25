@@ -8,7 +8,9 @@ stay opt-in, and application keys stay optional.
 
 ## Configure from the dashboard
 
-Unlock operator access in Settings, then open **Notification delivery**. At most
+Sign in to administrator management in Settings, then use the prominent
+**Add a notification destination** shortcut. The highlighted creation form appears
+before saved destinations and delivery results. At most
 20 named destinations can be configured. Create a webhook, SMTP, email API or ntfy destination,
 choose the alert rules and opening/recovery events, then **Save disabled**. Saving
 never sends or verifies a remote endpoint. A replacement requires all configuration

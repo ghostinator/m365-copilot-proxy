@@ -4,7 +4,7 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.18.0)
+## Dashboard and operations (0.19.0)
 
 New: export **all matching history** as streamed JSON/CSV, create verified online
 SQLite backups, and prepare an explicit offline restore with a safety snapshot.
@@ -861,3 +861,8 @@ Settings → **Notification delivery** now supports multiple named SMTP, Postal,
 Administrator password sign-in supports remote management after one-time setup.
 See [operator setup and recovery](docs/dashboard-operations.md#administrator-password-0180).
 Portable Windows archives include `m365-proxy.cmd`; no developer environment is required.
+
+Settings now highlights **Add a notification destination** at the top, with a
+separate creation form before saved-destination controls. **History backups &
+recovery** can download a selected verified SQLite snapshot directly to your browser.
+See [backup download scope](docs/history-management.md#download-a-verified-backup-0190).

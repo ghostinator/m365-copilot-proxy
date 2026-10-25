@@ -1,3 +1,4 @@
+import { backupDownloads } from "./backup-downloads.js";
 import { administratorPassword } from "./operator-password.js";
 import { diagnosticText } from "./error-diagnostics.js";
 import { activityQuery } from "./activity-schema.js";
@@ -31,6 +32,7 @@ const command = z.discriminatedUnion("action", [
   z.object({ action: z.literal("export-create"), format: z.enum(["json", "csv"]), query: activityQuery.partial().strict() }).strict(),
   z.object({ action: z.literal("backup-list"), offset: z.number().int().min(0).max(1000000).default(0) }).strict(),
   z.object({ action: z.literal("backup-create") }).strict(),
+  z.object({ action: z.literal("backup-download"), id: z.uuid() }).strict(),
   z.object({ action: z.literal("backup-verify"), id: z.uuid() }).strict(),
   z.object({ action: z.literal("key-create"), label: z.string().min(1).max(100) }).strict(),
   z.object({ action: z.literal("key-rename"), id: z.uuid(), label: z.string().min(1).max(100) }).strict(),
@@ -60,6 +62,7 @@ export async function operatorAction(req: Request, activity: HttpActivity, acces
     if (value.action === "admin-revoke") { access.password.revokeAll(); return Response.json({ sessionsRevoked: true }, { headers }); }
     if (value.action === "export-create") return Response.json(historyDownloads.create(activity.sources.exportCursor(value.query), value.format), { headers });
     if (value.action === "backup-list") return Response.json(activity.sources.backupStore().list(value.offset), { headers });
+    if (value.action === "backup-download") return Response.json(await backupDownloads.create(activity.sources.backupStore(), value.id), { headers });
     if (value.action === "backup-create") return Response.json(await activity.sources.backupStore().create(), { status: 201, headers });
     if (value.action === "backup-verify") return Response.json(await activity.sources.backupStore().restore(value.id), { headers });
     if (value.action === "unlock") return Response.json({ unlocked: true }, { headers });

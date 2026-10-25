@@ -6022,3 +6022,21 @@ actual server routing and session revocation after a real process restart.
 Result: all six new administrator scenarios passed. Full Windows offline suite:
 557 passed, six live M365 tests skipped. Production password setup is left to the
 operator; only synthetic passwords in isolated temporary stores were tested.
+
+
+### Verified backup download — October 25, 2026
+
+H: a one-use capability bound to a verified file descriptor can let an administrator
+copy a managed snapshot without exposing host paths, buffering the entire database
+or allowing unauthenticated ticket creation. Falsification: corrupt backups download,
+foreign origins spend a ticket, a ticket is reusable, more than four preparations
+are admitted, descriptors survive expiry/cancellation, or downloaded bytes differ
+from the verified checksum. Unit probes cover exact bytes, rejection, bounded
+preparation and cleanup; installed runtime checks the binary response and checksum.
+Destination setup now has a visible Settings entry and a separate highlighted form;
+VM checks cover locked access and a clean new draft without any outbound request.
+
+Result: six new UI/download scenarios passed. Full Windows offline suite: 563
+passed, six live tests skipped. The companion manifest omits internal verified
+flags and retains exactly the restore metadata fields; lock clears its page state.
+No actual production history download or restoration was performed by tests.

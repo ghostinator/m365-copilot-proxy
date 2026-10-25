@@ -304,3 +304,7 @@ The earlier dashboard-only alert scope is extended by this separately enabled wo
 Postal and SendGrid email APIs are also selectable transports. Postal takes a server
 origin/API credential; SendGrid selects Global or EU. Both require a verified or
 authorized From address and explicit recipients. See [notification setup](notification-delivery.md).
+
+Settings offers a prominent **Add a notification destination** shortcut and a
+highlighted creation form, followed by saved-destination management and delivery
+results. History backups can be downloaded after verification (0.19.0).

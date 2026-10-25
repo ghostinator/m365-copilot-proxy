@@ -1,3 +1,4 @@
+import { backupDownloads } from "./backup-downloads.js";
 import { randomBytes } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { setImmediate } from "node:timers/promises";
@@ -65,6 +66,7 @@ export class HistoryDownloads {
     return { url: "/v1/proxy/download/" + ticket, expiresAt: new Date(expiresAt).toISOString(), snapshot: cursor.snapshot };
   }
   consume(req: Request): Response {
+    if (new URL(req.url).pathname.split("/").at(-1)?.startsWith("b_")) return backupDownloads.consume(req);
     const ticket = new URL(req.url).pathname.split("/").at(-1) ?? "";
     if (req.method !== "GET" || req.headers.has("origin") && req.headers.get("origin") !== new URL(req.url).origin) return new Response("Download unavailable", { status: 404, headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
     const job = this.tickets.get(ticket);

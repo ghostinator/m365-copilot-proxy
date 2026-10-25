@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.18.0. Source availability and portable
+The current source feature set is version 0.19.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.18.0 npm package. See [the README](../README.md) for current source/setup links.
+0.19.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -141,7 +141,8 @@ with rollback remain separate work. A stopped proxy is started from the host CLI
 - [x] Online SQLite backups with private checksums/manifests and worker integrity checks.
 - [x] Paged backup inventory and dashboard verification/restore preparation.
 - [x] Explicit stopped-host CLI restore, staged validation, safety backup and startup interlock.
-- [ ] Download backup files / encrypted off-host destinations, scheduled backups and automated crash recovery.
+- [x] Download verified backup files with bounded one-use capabilities (0.19.0).
+- [ ] Encrypted off-host destinations, scheduled backups and automated crash recovery.
 - [ ] Configurable retention remains queued.
 
 ## 11. Observed model reliability (0.12.0)
@@ -197,3 +198,8 @@ support optional configured SMTP/Postal/SendGrid/ntfy/webhook delivery; only loc
 - [x] Separate 12-hour sessions, password rotation, logout and global revocation.
 - [x] Portable Windows command launcher using bundled Node, no development shell.
 - [ ] Optional trusted-browser persistence and additional administrator identities.
+
+## 16. Destination setup clarity (0.19.0)
+
+- [x] Top-of-Settings shortcut, highlighted creation form and setup steps.
+- [x] Saved destinations and delivery results separated from creation.

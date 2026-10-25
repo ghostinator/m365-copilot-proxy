@@ -1,5 +1,6 @@
 // Offline installed-runtime test. Isolated data, loopback listener, no Microsoft traffic.
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createServer } from "node:net";
@@ -139,6 +140,17 @@ try {
   const csv = await fetch(base + csvJob.url); assert.match(csv.headers.get("content-type"), /text\/csv/); assert.match(await csv.text(), /receivedAt/);
   const backup = await operator({ action: "backup-create" }); assert.equal(backup.status, 201);
   const saved = await backup.json(); backupId = saved.id; assert(saved.verified);
+  const downloadJob = await operator({ action: "backup-download", id: backupId }); assert.equal(downloadJob.status, 200);
+  const backupDownload = await downloadJob.json(); assert.match(backupDownload.url, /^\/v1\/proxy\/download\/b_[A-Za-z0-9_-]{43}$/);
+  assert.equal((await fetch(base + backupDownload.url, { headers: { origin: "https://foreign.example" } })).status, 404);
+  const downloaded = await fetch(base + backupDownload.url); assert.equal(downloaded.status, 200); assert.match(downloaded.headers.get("content-type"), /sqlite/);
+  const matchingManifest = Object.fromEntries(["version","id","createdAt","bytes","sha256","schema","requests","modelReports"].map(key=>[key,backupDownload.backup[key]]));
+  assert.deepEqual(matchingManifest, JSON.parse(readFileSync(join(data,"history-backups",backupId+".json"),"utf8")));
+  assert.equal(backupDownload.backup.id, backupId); assert.equal(backupDownload.backup.sha256, saved.sha256);
+  assert.equal(downloaded.headers.get("content-disposition"), `attachment; filename="${backupId}.sqlite"`);
+  const backupBytes = Buffer.from(await downloaded.arrayBuffer()); assert.equal(createHash("sha256").update(backupBytes).digest("hex"), saved.sha256);
+  assert.equal(downloaded.headers.get("x-checksum-sha256"), saved.sha256); assert.equal((await fetch(base + backupDownload.url)).status, 404);
+  console.log("PASS: verified binary backup download, exact checksum, foreign-origin refusal and one-use capability");
   const plan = await (await operator({ action: "backup-verify", id: backupId })).json(); assert.equal(plan.applied, false); assert.equal(plan.backup.verified, true);
   await assert.rejects(command("history", "restore", backupId, "--apply", "--confirm", backupId), /Stop the proxy/);
   console.log("PASS: complete JSON/CSV downloads, one-use capabilities, verified online backups and live-restore refusal (offline)");

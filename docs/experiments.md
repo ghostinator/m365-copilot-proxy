@@ -432,3 +432,18 @@ initial setup, optional application keys, exact origin, hashed credentials/sessi
 12-hour expiry, password rotation, logout/global revocation, five attempts/minute,
 one verifier at a time and late-response clearing. Installed runtime checks password
 login and immediate revocation after restart. No production password is chosen.
+
+
+## Verified backup downloads (offline, 0.19.0)
+
+```sh
+pnpm build
+pnpm exec vitest run packages/proxy-lib/src/backup-downloads.test.ts packages/proxy-lib/src/history.test.ts packages/proxy-lib/src/dashboard-operations.test.ts
+node scripts/test-operator-runtime.mjs
+```
+
+Creates synthetic activity snapshots in temporary stores, checks exact downloaded
+bytes/SHA-256, corruption/path rejection, one-use/foreign-origin behavior,
+concurrent-preparation limits, expiry and cancellation. Installed runtime exercises
+the actual operator/download routes and binary response. No production history is
+exported, restored or removed by these tests.

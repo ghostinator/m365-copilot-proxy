@@ -2,13 +2,13 @@ import { createContext, runInContext } from "node:vm";
 import { expect, it } from "vitest";
 import { dashboardResponse } from "./dashboard.js";
 async function dashboard() {
-  const elements = new Map<string, any>();
-  const node = () => ({ textContent: "", value: "", hidden: false, disabled: false, children: [] as any[], dataset: {}, style: {}, listeners: {} as Record<string, Function>, setAttribute() {}, querySelectorAll: () => [], addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(...children: any[]) { this.children.push(...children); }, focus() {} });
+  const elements = new Map<string, any>(), blobs: Blob[] = [];
+  const node = () => ({ textContent: "", value: "", hidden: false, disabled: false, children: [] as any[], dataset: {}, style: {}, listeners: {} as Record<string, Function>, setAttribute() {}, querySelectorAll: () => [], addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(...children: any[]) { this.children.push(...children); }, click() {}, focus() {} });
   const el = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
   const pending: { resolve: (value: any) => void; url: string }[] = [];
-  const context = createContext({ document: { getElementById: el, createElement: node }, fetch: (url: string) => new Promise(resolve => pending.push({ resolve, url })), AbortController, AbortSignal, URLSearchParams, setInterval: () => 0, clearTimeout: () => {}, setTimeout: () => 0 });
+  const context = createContext({ document: { getElementById: el, createElement: node }, fetch: (url: string) => new Promise(resolve => pending.push({ resolve, url })), AbortController, AbortSignal, URLSearchParams, Blob, URL: { createObjectURL(blob: Blob) { blobs.push(blob); return "blob:synthetic"; }, revokeObjectURL() {} }, setInterval: () => 0, clearTimeout: () => {}, setTimeout: () => 0 });
   runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
-  return { el, context, pending };
+  return { el, context, pending, blobs };
 }
 it("exports only saved-page metadata and redacts diagnostics without leaking operator/application credentials", async () => {
   const { context } = await dashboard();
@@ -105,4 +105,22 @@ it("ignores a password-login result arriving after Lock and clears password fiel
   expect(el("admin-password").value).toBe(""); runInContext("lockOperator()", context);
   pending[1].resolve({ ok: true, json: async () => ({ token: "must-not-activate", expiresAt: new Date(Date.now()+60_000).toISOString() }) });
   await submit; expect(runInContext("operatorToken", context)).toBe(""); expect(el("admin-settings").disabled).toBe(true);
+});
+
+it("starts a clean destination draft without sending a request and requires sign-in before creation", async () => {
+  const { el, context, pending } = await dashboard(); const requests = pending.length;
+  el("notification-add").listeners.click(); expect(el("operator-message").textContent).toContain("Sign in");
+  runInContext("operatorToken='grant'",context); el("notification-replace").checked=true; el("notification-url").value="private-draft";
+  el("notification-add").listeners.click(); expect(el("notification-replace").checked).toBe(false); expect(el("notification-url").value).toBe("");
+  expect(el("notification-type").value).toBe("webhook"); expect(pending.length).toBe(requests);
+});
+
+it("saves a restore-compatible manifest without internal fields and clears it on lock", async () => {
+  const { el, context, blobs } = await dashboard(), id="12345678-1234-4234-8234-123456789abc";
+  const backup={version:1,id,createdAt:"2026-10-25T00:00:00.000Z",bytes:4096,sha256:"a".repeat(64),schema:5,requests:2,modelReports:0,verified:true};
+  el("backup-choice").value=id;
+  await runInContext("operatorToken='grant';operatorCommand=async()=>("+JSON.stringify({url:"/v1/proxy/download/b_"+"a".repeat(43),backup})+");historyAction('download')",context);
+  expect(el("backup-manifest").disabled).toBe(false); el("backup-manifest").listeners.click();
+  const manifest=JSON.parse(await blobs[0].text()); expect(manifest.id).toBe(id); expect(manifest.sha256).toBe(backup.sha256); expect(manifest).not.toHaveProperty("verified");
+  runInContext("lockOperator()",context); expect(el("backup-manifest").disabled).toBe(true); expect(runInContext("backupManifest",context)).toBeNull();
 });

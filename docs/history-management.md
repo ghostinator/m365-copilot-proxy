@@ -57,8 +57,8 @@ activity backups do not contain or restore that file.
 Backups include requests, diagnostics, timings, application attribution, model-test
 reports and rollups. They do **not** include Microsoft credentials, API-key stores,
 server settings or browser profiles. They contain saved operational data and should
-be treated as private. Backup files are not downloadable through the dashboard yet;
-copy them from the host if you need off-host disaster recovery, preserving the
+be treated as private. Use **Download verified backup** in the dashboard to copy a snapshot to your
+browser for off-host disaster recovery. When manually copying from the host, preserve the
 matching `.json` manifest. SHA-256 detects corruption, not a malicious replacement
 of both files; use trusted storage.
 
@@ -112,3 +112,30 @@ Synthetic, isolated preview. No production credentials, history or restores.
 ![Verified backup and restore preview](images/dashboard-history-backups.jpg)
 
 ![Full-history export](images/dashboard-history-export.jpg)
+
+
+## Download a verified backup (0.19.0)
+
+Sign in to administrator management, open Settings → History backups & recovery,
+refresh the list and select a snapshot. **Download verified backup** checks its
+manifest checksum, schema, integrity and foreign keys, then hashes the opened file
+again before issuing a one-use URL. The browser downloads a `.sqlite` file and the
+dashboard shows its SHA-256. Click **Save matching verification manifest** too.
+Keep both `<backup-id>.sqlite` and `<backup-id>.json` with their original names;
+the existing CLI verification/restore needs this pair in `history-backups`.
+Check your browser downloads for completion. On Windows,
+compare it with `Get-FileHash -Algorithm SHA256 -LiteralPath <downloaded-file>`.
+
+The URL expires after 60 seconds, accepts only GET, rejects a foreign Origin, and
+is never an application/admin key or filesystem path. At most four backup downloads
+can be preparing, pending or active. Transfer uses a verified file descriptor and
+64 KiB streaming, with cancellation and a ten-minute limit; no whole-file buffering
+on the server. Pending descriptors close on expiry. The managed source snapshot is
+left intact; no retention/deletion or off-host upload runs automatically.
+
+Downloads contain activity only, including saved client IPs, labels, diagnostic
+records, timings, rollups and model reports. They exclude account secrets, API keys,
+administrator credentials/sessions, server configuration, alerts and notification
+state. They are not encrypted archives. Review before sharing. Restoring remains an
+explicit stopped-host action; downloading never restores anything. Scheduled,
+encrypted and combined operational-state backups remain planned.

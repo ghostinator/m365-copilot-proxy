@@ -11,12 +11,12 @@ let operatorToken='',operatorExpiry=0,operatorBusy=false,operatorTimer=null,oper
 function dismissCreatedKey(){el('created-key-token').value='';el('created-key').hidden=true}
 function lockOperator(message='Management locked. Application access is unchanged.'){
   operatorLoginGeneration++;for(const id of ['admin-password','admin-new-password','admin-confirm-password'])el(id).value='';el('admin-settings').disabled=true;el('admin-revoke-confirm').checked=false;
-  operatorToken='';notificationAccess(false);alertAccess(false);operatorExpiry=0;clearTimeout(operatorTimer);operatorTimer=null;el('operator-token').value='';
+  backupManifest=null;el('backup-manifest').disabled=true;operatorToken='';notificationAccess(false);alertAccess(false);operatorExpiry=0;clearTimeout(operatorTimer);operatorTimer=null;el('operator-token').value='';
   el('backup-rows').replaceChildren();el('backup-choice').replaceChildren();el('backup-status').textContent='Unlock operator access to manage backups.';el('history-controls').disabled=true;el('history-export').disabled=true;el('restore-plan').textContent='';el('key-management').disabled=true;el('service-controls').disabled=true;dismissCreatedKey();el('operator-message').textContent=message;
 }
 async function operatorCommand(command){
   if(!operatorToken||Date.now()>=operatorExpiry){lockOperator('Operator access expired. Sign in again.');throw Error('Management is locked.')}
-  const grant=operatorToken;const response=await fetch('/v1/proxy/operator',{method:'POST',headers:{'Content-Type':'application/json','X-M365-Operator':operatorToken},body:JSON.stringify(command),cache:'no-store',signal:AbortSignal.timeout(command.action==='backup-create'||command.action==='backup-verify'?120000:35000)});
+  const grant=operatorToken;const response=await fetch('/v1/proxy/operator',{method:'POST',headers:{'Content-Type':'application/json','X-M365-Operator':operatorToken},body:JSON.stringify(command),cache:'no-store',signal:AbortSignal.timeout(command.action==='backup-create'||command.action==='backup-verify'||command.action==='backup-download'?120000:35000)});
   const result=await response.json();if(grant!==operatorToken)throw Error('Management was locked while the operation was running.');if(!response.ok){if(response.status===403)lockOperator();throw Error(result.error?.message||'Operator command failed (HTTP '+response.status+').')}return result;
 }
 function renderService(s){if(!s)return;el('service-drain').textContent=s.phase==='running'?(s.message||''):s.phase+': '+s.message;if(s.startup)el('service-state').textContent=s.startup.supported?(s.startup.installed?'Windows sign-in startup: '+(s.startup.enabled?'enabled':'disabled')+' · '+s.startup.state:'Windows sign-in startup: not installed'):'Sign-in startup controls are currently supported on Windows. Restart is available through the standalone launcher.'}
