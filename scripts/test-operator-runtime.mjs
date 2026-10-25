@@ -142,7 +142,7 @@ try {
   const saved = await backup.json(); backupId = saved.id; assert(saved.verified);
   const downloadJob = await operator({ action: "backup-download", id: backupId }); assert.equal(downloadJob.status, 200);
   const backupDownload = await downloadJob.json(); assert.match(backupDownload.url, /^\/v1\/proxy\/download\/b_[A-Za-z0-9_-]{43}$/);
-  assert.equal((await fetch(base + backupDownload.url, { headers: { origin: "https://foreign.example" } })).status, 404);
+  assert.equal((await fetch(base + backupDownload.url, { headers: { origin: "https://foreign.example" } })).status, 403);
   const downloaded = await fetch(base + backupDownload.url); assert.equal(downloaded.status, 200); assert.match(downloaded.headers.get("content-type"), /sqlite/);
   const matchingManifest = Object.fromEntries(["version","id","createdAt","bytes","sha256","schema","requests","modelReports"].map(key=>[key,backupDownload.backup[key]]));
   assert.deepEqual(matchingManifest, JSON.parse(readFileSync(join(data,"history-backups",backupId+".json"),"utf8")));

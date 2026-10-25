@@ -6040,3 +6040,10 @@ Result: six new UI/download scenarios passed. Full Windows offline suite: 563
 passed, six live tests skipped. The companion manifest omits internal verified
 flags and retains exactly the restore metadata fields; lock clears its page state.
 No actual production history download or restoration was performed by tests.
+
+A download-routing regression test confirms 43-character normal export tokens
+starting with b_ are not mistaken for 45-character backup capabilities. The real
+HTTP middleware rejects foreign origins with 403 before the download handler; its
+fixture now checks that entry-point behavior (the direct handler uses 404).
+
+Final suite after capability-prefix regression: 564 passed, six live tests skipped.
