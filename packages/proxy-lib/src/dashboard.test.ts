@@ -125,7 +125,7 @@ it("loads history without probing models, then sends only the explicitly selecte
   const status = await (await app.fetch(new Request("http://localhost/v1/proxy/status"))).json();
   app.close();
   status.models = ["claude-sonnet", "claude-opus"];
-  status.sources.labels["100.119.206.22"] = "debiandev · ai-hedge-fund-crypto (prod)";
+  status.sources.labels["192.0.2.30"] = "Production host · example-app (prod)";
   const elements = new Map<string, any>();
   const node = () => ({ textContent: "", value: "", disabled: false, checked: false, children: [] as any[], listeners: {} as Record<string, Function>, setAttribute() {}, focus() {}, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, dataset: {} as Record<string, string>, querySelectorAll() { return []; }, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
   const element = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };

@@ -1,5 +1,6 @@
 # Request sources and pagination validation â€” October 25, 2026
 
+> Publication note: host names, addresses and local paths are anonymized; validation counts and outcomes are unchanged.
 Version 0.5.0; source commit 4751407.
 
 Windows and WSL Ubuntu each passed 460 unit tests (six live tests skipped).
@@ -15,7 +16,7 @@ corrupt data and storage failure. The UI test checks default 20-row pagination,
 page boundaries, page-size changes and filter resets.
 
 No incoming proxy API key is configured. The deployment keeps the existing
-100.102.206.65:4141 endpoint. Source collection starts when the new build is
+192.0.2.10:4141 endpoint. Source collection starts when the new build is
 activated; earlier versions did not retain source addresses and cannot reconstruct
 them. No existing request is assigned an inferred client address.
 Activated the verified Windows portable runtime on the existing keyless Tailnet
@@ -24,7 +25,7 @@ Live browser verification: 20 displayed rows by default, Next shows records 21â€
 50-row mode shows all 27, and the scroll container stays 480 pixels high while
 its content exceeds that height. Restored the default to 20.
 
-Live source telemetry observed successful application chats from 100.119.206.22.
+Live source telemetry observed successful application chats from 192.0.2.30.
 This host's 25 sequential no-chat health probes were explicitly labeled self-checks
 and did not increase its application ranking. The saved file contains both source
 rows and completed request records. No source identity was inferred from headers.

@@ -16,6 +16,9 @@ not completion of the entire feature group.
 - [x] Unlimited SQLite history, rolling summary windows, storage usage and JSON migration (0.6.0).
 - [x] User-defined system labels, local-device identification and model/client breakdowns (0.6.0).
 - [x] Explicit selected-model identity checks with persisted reports and sequential cooldown (0.6.0).
+- [x] Persistent verbose HTTP/SSE errors, cancellation diagnostics and filtered error paging (0.6.1).
+- [x] Six accessible tabs with shared filters and direct links (0.7.0).
+- [x] Eight opt-in capability checks, exact grading, safe synthetic tool results and per-model/check evidence (0.7.0).
 - [ ] Start/stop/restart and sign-in recovery controls with explicit local authorization.
 - [ ] Optional Windows tray icon, including offline/stopped status.
 
@@ -55,12 +58,16 @@ not completion of the entire feature group.
 
 ## Validation
 
-- [x] WSL Ubuntu build, offline unit tests and installed-package tests (439 passed).
+- [x] WSL Ubuntu build, offline unit tests and installed-package tests (477 passed; 6 live tests skipped).
 - [x] WSL Linux portable-release manifest/startup verification (baseline fixes).
 - [ ] Actual-account sign-in/reboot and 24–72-hour soak (separate host checks).
 
 Native MCP/Dataverse tool calling remains out of scope per AGENTS.md.
 
-Evidence: [Linux validation](linux-validation-2026-10-24.md). The dashboard/client
-features are included in local version 0.3.0 archives. Version 0.2.1 remains the
-preceding release; nothing has been published remotely.
+Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
+[SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
+[error diagnostics](error-history-validation-2026-10-25.md), and
+[tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
+The current source feature set is version 0.7.0. Source availability and portable
+builds are separate from npm publication; this fork does not claim a published
+0.7.0 npm package. See [the README](../README.md) for current source/setup links.

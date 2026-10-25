@@ -20,7 +20,7 @@ describe("HTTP boundary", () => {
   it("allows keyless network binding and derives reasoning from the resolved tone", () => {
     vi.stubEnv("M365_API_KEY", "");
     expect(() => validateBind("0.0.0.0")).not.toThrow();
-    expect(() => validateBind("100.102.206.65")).not.toThrow();
+    expect(() => validateBind("192.0.2.10")).not.toThrow();
     expect(() => validateBind("127.0.0.1")).not.toThrow();
     expect(modelCapabilities("gpt-5.5-think-deeper").reasoning).toBe(true);
     expect(modelCapabilities("gpt-5.5-quick").reasoning).toBe(false);
@@ -29,7 +29,7 @@ describe("HTTP boundary", () => {
     vi.stubEnv("M365_API_KEY", "");
     const app = createApp();
     try {
-      const response = await app.fetch(new Request("http://100.102.206.65:4141/v1/models"));
+      const response = await app.fetch(new Request("http://192.0.2.10:4141/v1/models"));
       expect(response.status).toBe(200);
     } finally { app.close(); }
   });

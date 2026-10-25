@@ -1,5 +1,6 @@
 # Dashboard tabs and capability checks — 2026-10-25
 
+> Publication note: host names, addresses and local paths are anonymized; validation counts and outcomes are unchanged.
 Version 0.7.0 is deployed on the existing Tailnet listener. Source commits: b1e5ec5 (tabs/probes), 559c9f8 (streaming grading).
 
 ## Validation
@@ -13,10 +14,10 @@ Version 0.7.0 is deployed on the existing Tailnet listener. Source commits: b1e5
 
 ## Live deployment
 
-The previous proxy was idle and stopped gracefully. SQLite was backed up using its backup API before the additive v3 migration. The live v0.7.0 process is PID 16752 at `100.102.206.65:4141`; readiness is ready and incoming API-key authentication remains optional.
+The previous proxy was idle and stopped gracefully. SQLite was backed up using its backup API before the additive v3 migration. The live v0.7.0 process is PID 16752 at `192.0.2.10:4141`; readiness is ready and incoming API-key authentication remains optional.
 
 All 190 pre-upgrade request IDs and all 12 prior model reports were preserved. The live database passed integrity_check at schema version 3; it had 191 requests at verification, no storage error, and 17 saved failures (four with new detailed diagnostics; earlier records explicitly lack details). The new process had zero chat checks at verification: the agent sent no Microsoft capability test or model sweep. The live UI exposes eight checks and defaults to identity only, with no model selected and the run button disabled.
 
-Client labels verified: pueblo-agent (`100.67.127.67`), debiandev / ai-hedge-fund-crypto (prod) (`100.119.206.22`), MacBook Pro / ai-hedge-fund-crypto (dev) (`100.96.238.91`). This device remains identified from its local interfaces.
+Client labels verified: build-agent (`192.0.2.20`), Production host / example-app (prod) (`192.0.2.30`), Development laptop / example-app (dev) (`192.0.2.40`). This device remains identified from its local interfaces.
 
 Screenshots are in the ignored release directory: `dashboard-tabs-0.7.0-live.png` and `dashboard-model-tests-0.7.0-live.png`. The temporary offline preview was closed after validation. No claim about any real model's capability is inferred from these synthetic tests; users can run selected checks explicitly from Models.

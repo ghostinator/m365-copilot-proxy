@@ -35,114 +35,72 @@ The task uses the current user's interactive identity, stays attached to a watch
 
 ## Local dashboard and client setup
 
-These features are included in version 0.3.0 and later.
+Version 0.7.0 includes a six-tab dashboard at `http://127.0.0.1:4141/dashboard`
+(or your configured listener). [The dashboard guide](dashboard.md) explains every
+panel, filter, check type and result column. [Logging](logging.md) covers saved
+errors, operational summaries, debug/frame logs and their different retention.
 
-Visit `http://127.0.0.1:4141/dashboard` while the proxy runs. The first dashboard
-version is read-only: readiness, authentication expiry, uptime, HTTP request totals,
-remembered conversations, advertised models, known priority-access exhaustion and
-configured fallback routes. It sends no Microsoft requests. Normal upstream turns
-provide allowance observations when Microsoft includes metering. The dashboard
-shows daily/weekly counts and their observation time; missing counts are unknown.
-A missing exhaustion record does not mean quota remains.
+Overview shows process/readiness/instance information, current counters, saved
+summaries and last-observed budgets. Requests provides scrollable current and
+saved history. Clients ranks systems and model/client use. Models contains
+registered IDs and eight explicitly selected capability checks. Errors shows
+persistent HTTP/application failures and cancellations with expandable details.
+Settings contains the optional-key form and recovery instructions.
 
-From version 0.4.0, HTTP activity includes model-list connectivity tests, health
-probes, rejected chats and unsupported routes. Dashboard assets, status polls and
-operator inspection are excluded. The latest 100 requests show request ID, known
-endpoint, method, time, HTTP/application status, phase, outcome, validated/served
-model, stream mode, queue/first-byte/total durations, HTTP body bytes and upstream
-attempts. Unknown paths/models are masked. Prompts, replies, tool arguments,
-headers and query strings are never retained. Bytes are not tokens.
+The shared rolling time, model and System filters apply to saved data. Current
+counters and the latest-100 request buffer remain instance-wide; those reset on
+restart, while SQLite history persists. The dashboard polls every five seconds
+while visible. Polls/asset loads/operator inspection are excluded from activity.
+Run local checks sends only sequential health/model-list GETs labeled self-checks.
+These checks, readiness and registered model IDs do not prove upstream availability.
 
-Chat totals distinguish validation, completion, failure, cancellation, stream mode,
-upstream attempts and retries. An HTTP-200 SSE error retains HTTP 200 but counts
-as a failed chat with a separate application status. Status 499 denotes a client
-disconnect. Filters select chats, errors/cancellations or explicit self-checks.
-The dashboard refreshes every five seconds. The separate chat-admission count is
-instantaneous; cumulative activity resets on restart.
+Response headers include `X-M365-Proxy-Instance`, `X-M365-Proxy-Version` and, for
+tracked requests, `X-M365-Request-Id`. Compare them with Overview if traffic seems
+missing. Separate addresses can belong to different proxy processes.
 
-The instance panel shows version, PID, startup time, instance UUID and the client
-base URL for this page. Responses carry `X-M365-Proxy-Instance`,
-`X-M365-Proxy-Version` and, for tracked requests, `X-M365-Request-Id`. Compare these
-with the application's endpoint when requests appear missing. Two processes can
-listen on port 4141 at different local addresses; their counters are separate.
-The dashboard performs one local socket inspection and warns about other listener
-processes. OS inspection may be unavailable. `GET /v1/proxy/checks` uses the same
-API-key/origin policy as status and sends no chat.
+SQLite stores completed request metadata, requested/served model, recognized
+client software, source IP, status, duration, bytes, error diagnostics and explicit
+check reports. Retention is unlimited. Display limits are top-50 rankings,
+latest-100 current requests and 20/50/100-row saved/error pages. The emergency
+outage buffer is 10,000 records; it is not a retention limit. Writes batch for up
+to 500 ms/100 records. Normal chat content/headers/queries are excluded; bounded
+error diagnostics and explicitly requested synthetic test evidence are retained.
+See [storage and backup rules](activity-database.md) before copying an active DB.
 
-**Run local checks** sequentially tests liveness, readiness and model listing,
-verifying instance identity. These GET requests carry `X-M365-Check: 1` and count
-separately as self-checks. The label is diagnostic metadata, not an authorization
-exemption; other callers can set it too. Registered models and local checks do
-not establish upstream model availability.
-If a proxy API key is configured, enter it in the page to read status. The page
-holds it in memory only and never stores it in browser storage or the URL. Closing
-or reloading the page clears it. Up to 20 in-memory error summaries show fixed
-categories instead of raw log messages. Tray controls and browser-managed
-start/stop remain tracked in [the roadmap](roadmap.md).
+Old `request-sources.json` data migrates transactionally and is preserved. Undated
+aggregate remainder appears only in All time; earlier model IDs/reasons are not
+invented. Model/client details and diagnostic reasons begin when their respective
+instrumented versions first recorded them.
 
-Version 0.6.0 saves completed activity in private `activity.sqlite` under the data
-directory, using Node's bundled SQLite. Requests, sources, requested/served models,
-recognized client software, status, duration and body-byte counts persist across
-restarts. Normal prompts, replies, tool arguments, raw headers and queries are
-excluded. SQLite stores compact identifiers, indexed request history, hourly
-summaries and all-time aggregates. No database installation is needed.
-
-**Activity history** offers rolling 24-hour, 7-day, 30-day, 90-day, 1-year and
-all-time summaries. Select a model to narrow the summary and client/model tables.
-**Most active systems** and **Models by client** show the top 50 combinations for
-the selected window. **Saved request history** supports system filtering and
-20/50/100-row pages over the database; the 100-request current-process view remains
-separate and scrollable. Status queries accept `range`, `model`, `address`,
-`offset` and `limit`. Invalid queries return 400; dashboard polls are not recorded.
-
-Retention is unlimited: no request, system or old model-test report is automatically
-deleted. The dashboard shows data-file/WAL/shared-memory size, timestamped row
-count and current bytes per row including indexes/rollups. WAL space is reused;
-this measure includes allocation overhead and is not a forecast of future growth.
-Writes are batched for at most 500 ms or 100 records and committed atomically;
-graceful shutdown flushes pending records. An abrupt process exit may lose the
-pending batch. Storage failures remain diagnostic errors, with pending/lost counts,
-while chat serving continues. The emergency in-memory outage buffer is limited to
-10,000 records; this is not a database-retention limit.
-
-The old `request-sources.json` is migrated transactionally once and preserved
-unchanged. Timestamped records are imported with their IDs, preventing duplicates.
-Aggregate totals older than its retained request list are preserved only in
-**All time**, explicitly labeled as undated; no dates or model IDs are invented.
-Earlier versions did not save per-model information in that source file, so it
-starts accumulating with this version. For backups, stop the proxy before copying
-the database, or use SQLite's online backup API; copying only a live main file
-omits changes still in its WAL. Database details: [activity storage](activity-database.md).
-
-Sources use actual connection addresses, ignoring forwarded-IP headers. Shared
-proxies/gateways appear as one system. User-Agent is reduced to recognized client
-products; unknown stays unknown, and it is a software hint rather than identity.
-Local interface addresses are marked **This device**. Persist friendly names in
-`server.json`, then restart:
+Sources use socket addresses and ignore forwarded-IP headers. Shared gateways
+appear as one system. Client software is a recognized-product hint, not identity.
+Local interfaces are labeled This device. Add friendly names to `server.json`
+and restart; the addresses below are illustrative and must be replaced:
 
 ```json
-{ "host": "100.102.206.65", "port": 4141,
-  "sourceLabels": { "100.67.127.67": "pueblo-agent",
-    "100.119.206.22": "debiandev · ai-hedge-fund-crypto (prod)",
-    "100.96.238.91": "MacBook Pro · ai-hedge-fund-crypto (dev)" } }
+{ "host": "127.0.0.1", "port": 4141,
+  "sourceLabels": { "192.0.2.20": "Build agent",
+    "192.0.2.30": "Production host · example-app",
+    "192.0.2.40": "Development laptop · example-app" } }
 ```
 
-The standalone server supplies socket addresses. Embedded `createApp` adapters may
-pass trusted `{ remoteAddress }` context; their default activity database is in
-memory. Neither forwarding headers nor source labels authorize requests.
+Standalone routes supply connection metadata. Embedded `createApp` adapters can
+pass trusted `{ remoteAddress }`; their default activity store is in-memory.
+Labels/forwarded headers do not authorize callers.
 
-**Model availability tests** run only after selecting models and clicking
-**Test selected models**. No startup, refresh, health check or timer starts a test.
-Each sends a short version-identification chat, sequentially, with a 30-second
-cooldown. Stop after current prevents further queued tests. Account/model quotas,
-automatic retries and configured fallback routes apply; upstream throttling stops
-the batch. The served proxy model ID is shown separately from the requested model.
-Reported identity is unverified text, not proof of model version, tool capability
-or continuing availability. These explicit self-reports (up to 1,000 characters)
-are the exception to normal reply exclusion: all test reports are retained in the
-database while the listing shows the latest result per model. `POST
-/v1/proxy/model-check` shares the normal optional-key/origin policy and accepts a
-single registered `model`. Tests are labeled self-checks in activity statistics.
+Model checks run only after selecting model rows and check types in Models and
+clicking Test selected models. **Latest checks / served route** and **Evidence /
+identity** show results independently per model/check; prior reports stay stored.
+`POST /v1/proxy/model-check` accepts a registered `model` and optional `kind`
+(default `identity`). Cooldown is 30 seconds; deadline is four minutes per check.
+Tool commands are never executed, identity is unverified and JSON is prompt-based.
+Checks consume quota; configured retries/fallbacks apply. Stop after current test
+prevents subsequent checks. Ordinary page loads/status polling never start a chat.
+
+Status queries accept `range`, `model`, `address`, `offset`, `limit`,
+`errorOffset` and `errorLimit`; invalid queries return 400. Saved errors include
+HTTP-200 SSE failures via separate application status and client disconnects (499).
+Older failures may lack reasons; failures that never reach the proxy are invisible.
 
 Quota observations persist atomically in private `quota-observations-<hash>.json`
 files under the data directory. The hash scopes them to the authenticated tenant
@@ -237,11 +195,3 @@ node scripts/verify-release.mjs <release-directory>
 The installed-runtime tests use explicitly loaded offline MSAL/WebSocket fixtures and temporary state, with outbound HTTP disabled. Built-server tests cover successful and streamed chats, throttling inside HTTP-200 SSE, reconnects, cancellation, exact Unicode body-byte counts and request correlation. It is never enabled by the production launcher. Release smoke tests copy the app into a temporary path containing spaces and run outside the repository. Manifests contain SHA-256 hashes of all shipped files; each archive has a separate checksum file. Verify a downloaded archive against a checksum obtained from a trusted release channel before extraction; an included manifest is an integrity check, not an authenticity signature.
 
 Windows/Linux CI runs build/unit tests and built/isolated runtime checks. The Windows runner, task definition and versioned installer have offline checks. `scripts/test-windows-service.ps1` additionally registers a uniquely named temporary sign-in task with a local fake server, verifies failure/restart and stop, then removes it. Real M365/pi validation, actual account startup, reboot/logoff behavior and 24–72-hour soak tests remain separate account/host checks. `scripts/windows/Test-Proxy.ps1 -Tools` runs one isolated, real pi tool loop; `-Live` runs one plain completion instead. NixOS users can continue using the existing `services.m365-copilot-proxy` module and systemd unit.
-
-### Dashboard tabs and capability checks (0.7.0)
-
-Overview contains readiness, counters, saved summaries and budget observations. Requests contains current and saved request history. Clients contains system rankings and model/client usage. Models contains the registered identifiers and explicit capability checks. Errors contains persisted HTTP/application failures and internal operational summaries. Settings contains optional connection authentication and recovery instructions. Shared time, model and System filters apply to saved summaries, client usage, history and errors; current-process counters remain instance-wide. Tabs support arrow/Home/End navigation and URL fragments such as `/dashboard#models`.
-
-Select model checkboxes and check types in Models, then click Test selected models. Identity is selected by default; opening the dashboard or changing tabs never starts a chat. Checks cover model identity, a function tool call, a shell tool call, tool-result round trip, SSE streaming, strict prompted JSON, system instruction following and multi-turn recall. The two round-trip checks use two messages in one conversation; other checks use one. There is a 30-second cooldown between checks and a four-minute limit per check. Existing retries/fallbacks still apply. Stop after current test prevents subsequent checks; it lets the active check finish.
-
-Tool probes inspect exact names/arguments and supply a synthetic result. **They never execute model-generated commands or access files.** JSON tests measure prompted output, not an unsupported native JSON-schema feature. Each result records passed/failed/error/reported, actual served route, duration, turns, timestamp and bounded evidence in SQLite. An HTTP-200 prose reply fails a tool check; a valid tool call without correct result consumption fails the round trip. Identity remains self-reported. These are single-sample observations, not proof of general reliability or a substitute for the real pi/OpenClaw harness. Results are retained per model/check, including prior runs.

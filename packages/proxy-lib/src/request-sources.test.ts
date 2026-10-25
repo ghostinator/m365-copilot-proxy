@@ -98,17 +98,17 @@ it("computes exact rolling boundaries using raw edge hours plus full hourly buck
 
 it("supports model/client breakdowns, system labels, deduplication and deep history pages", () => {
   const dir = mkdtempSync(join(tmpdir(), "m365-db-labels-"));
-  writeFileSync(join(dir, "server.json"), JSON.stringify({ sourceLabels: { "100.67.127.67": "pueblo-agent", "100.119.206.22": "debiandev · ai-hedge-fund-crypto (prod)" } }));
-  const store = new RequestSources(dir), first = event(Date.now(), "100.67.127.67");
+  writeFileSync(join(dir, "server.json"), JSON.stringify({ sourceLabels: { "192.0.2.20": "build-agent", "192.0.2.30": "Production host · example-app (prod)" } }));
+  const store = new RequestSources(dir), first = event(Date.now(), "192.0.2.20");
   store.record(first); store.record(first);
-  for (let i = 0; i < 55; i++) store.record(event(Date.now(), "100.119.206.22", "claude-opus"));
+  for (let i = 0; i < 55; i++) store.record(event(Date.now(), "192.0.2.30", "claude-opus"));
   expect(store.snapshot().summary.total).toBe(56);
-  expect(store.snapshot().labels["100.67.127.67"]).toBe("pueblo-agent");
+  expect(store.snapshot().labels["192.0.2.20"]).toBe("build-agent");
   expect(store.snapshot().labels["127.0.0.1"]).toBe("This device");
   expect(store.snapshot({ model: "claude-opus", offset: 20, limit: 20 }).history).toEqual({ total: 55, offset: 20, limit: 20 });
   expect(store.snapshot({ model: "claude-opus" }).summary.total).toBe(55);
-  expect(store.snapshot({ model: "claude-opus" }).modelActivity[0]).toMatchObject({ model: "claude-opus", address: "100.119.206.22", clientSoftware: "OpenAI Python", applicationRequests: 55 });
-  expect(store.snapshot({ address: "100.67.127.67" }).recent).toHaveLength(1);
+  expect(store.snapshot({ model: "claude-opus" }).modelActivity[0]).toMatchObject({ model: "claude-opus", address: "192.0.2.30", clientSoftware: "OpenAI Python", applicationRequests: 55 });
+  expect(store.snapshot({ address: "192.0.2.20" }).recent).toHaveLength(1);
   expect(store.snapshot().storage.totalBytes).toBeGreaterThan(0);
   store.close();
   if (process.platform !== "win32") expect(statSync(join(dir, "activity.sqlite")).mode & 0o777).toBe(0o600);

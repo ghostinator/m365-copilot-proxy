@@ -1,6 +1,6 @@
 # Activity storage
 
-Version 0.6.0 uses Node 24's built-in SQLite: no native addon or separate server.
+Version 0.7.0 (schema 3) uses Node 24's built-in SQLite: no native addon or separate server.
 `activity.sqlite` lives with existing private account state; credentials are not
 copied into it. `request-sources.json` is a preserved migration input.
 
@@ -17,8 +17,10 @@ copied into it. `request-sources.json` is a preserved migration input.
   all-time summaries do not scan every request or hour.
 - `legacy_totals`: undated remainder of the old JSON counters after subtracting
   imported detailed records. Included only in all-time views, with a UI notice.
-- `model_checks`: append-only explicit identity-test reports. The listing selects
-  the newest report per model; previous reports remain stored.
+- `model_checks`: append-only explicit capability/identity reports. The listing
+  selects the newest report per model and check kind; previous reports remain stored.
+- `request_errors`: sparse bounded diagnostics for failed/cancelled requests,
+  joined by request UUID; older request rows can have no detail.
 - `metadata`: schema version, collection start and atomic migration marker.
 
 Indexes cover time, system/time and model/time. Queries use bound parameters and
