@@ -79,3 +79,5 @@ packages/proxy/observability.md
 packages/proxy/notification-delivery.md
 
 operator-password.json
+
+backup-schedule.sqlite*

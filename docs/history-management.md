@@ -71,7 +71,7 @@ m365-proxy history verify <backup-id>
 ```
 
 CLI online backup captures committed database rows; recent process-buffered records
-may not yet have flushed. No scheduled backup, model request, retention limit or
+may not yet have flushed. No model request, retention limit or
 automatic deletion is enabled. Requests **and backups** retain data indefinitely.
 Monitor disk use and keep sufficient free space for snapshots and a restore stage.
 Very large databases may exceed the current 30-second verification-worker deadline.
@@ -137,5 +137,43 @@ Downloads contain activity only, including saved client IPs, labels, diagnostic
 records, timings, rollups and model reports. They exclude account secrets, API keys,
 administrator credentials/sessions, server configuration, alerts and notification
 state. They are not encrypted archives. Review before sharing. Restoring remains an
-explicit stopped-host action; downloading never restores anything. Scheduled,
-encrypted and combined operational-state backups remain planned.
+explicit stopped-host action; downloading never restores anything. Encrypted and combined operational-state backups remain planned.
+
+
+## Scheduled backups (0.20.0)
+
+Sign in to administrator management, then open Settings → Scheduled history backups.
+Choose every hour, 6/12/24 hours or 7 days, check Enable and save. Scheduling is off
+by default. Saving does not create a backup immediately: the first attempt is due
+one full interval later. An unchanged save preserves the current due time; an actual
+setting change starts a new interval. Manual backup creation does not change it.
+
+A background worker checks every 30 seconds while the proxy is running. It flushes
+pending activity, then uses the same online SQLite snapshot, checksum and integrity
+verification as manual backups. It creates no model/chat request and sends nothing
+off-host. After downtime it performs at most one overdue attempt, then schedules
+the next attempt a full interval after completion. It does not replay every missed
+interval. Failed attempts are recorded with a fixed diagnostic and wait until the
+next interval; there is no rapid retry loop. Refresh run history to inspect paged
+success, failure or interruption records and the corresponding backup ID.
+
+Private backup-schedule.sqlite stores settings, due time, claims and unlimited run
+history (schema 1). Public status exposes aggregate scheduling state, not backup
+IDs. It is created only after explicit configuration. Activity-only backups and
+restores exclude this database and do not roll back the schedule. Only the activity
+snapshot and matching manifest can be downloaded through the existing controls.
+
+Disabling scheduling stops future attempts; an in-progress copy may finish. Normal
+shutdown attempts to drain its active scheduled run within the server’s graceful
+shutdown timeout; expiry of that timeout can interrupt the copy. Dashboard restart also waits for backup
+operations, including the existing manual backup lock, and cancels after two minutes
+if still busy. Forced process termination can leave a partial snapshot/backup lock.
+A 15-minute renewable schedule lease fences competing schedulers and marks abandoned
+runs interrupted after expiry; it never deletes a backup, partial file or stale
+backup/maintenance lock automatically. Inspect the host inventory/locks after a crash
+before recovery. A completed copy whose result could not be committed may appear in
+the backup inventory even when its schedule run is marked interrupted.
+
+Retention remains unlimited. No snapshot cleanup, automatic restore, encryption,
+off-host destination or whole-account backup is enabled. Monitor disk usage and
+copy verified snapshots/manifests off-host as needed.

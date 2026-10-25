@@ -1,5 +1,6 @@
 // Offline installed-runtime test. Isolated data, loopback listener, no Microsoft traffic.
 import assert from "node:assert/strict";
+import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -155,9 +156,21 @@ try {
   await assert.rejects(command("history", "restore", backupId, "--apply", "--confirm", backupId), /Stop the proxy/);
   console.log("PASS: complete JSON/CSV downloads, one-use capabilities, verified online backups and live-restore refusal (offline)");
   // Exercise the actual detached handoff and watchdog, using the inherited offline fixture.
+  assert.equal(before.backupSchedule.settings.enabled, false); assert.equal(existsSync(join(data,"backup-schedule.sqlite")), false);
+  const schedule = await operator({ action:"backup-schedule-configure",settings:{enabled:true,intervalHours:1} }); assert.equal(schedule.status,200);
+  const scheduled = await schedule.json(); assert(Date.parse(scheduled.nextAt)>Date.now()+3500_000); assert.equal(scheduled.total,0);
+  // Only this isolated fixture advances the persisted due time; production has no test override.
+  const scheduleDb=new DatabaseSync(join(data,"backup-schedule.sqlite")); scheduleDb.prepare("UPDATE settings SET next_ms=? WHERE id=1").run(Date.now()-1); scheduleDb.close();
   const restart = await operator({ action: "restart" }); assert.equal(restart.status, 202); await restart.text();
   const after = await ready(before.instance.pid); assert.notEqual(after.instance.id, before.instance.id);
   assert.equal(after.apiKeys.required, false); assert.equal(after.apiKeys.keys[0].label, "Renamed"); assert(after.apiKeys.keys[0].revokedAt);
+  let scheduledRuns;
+  for(let i=0;i<80;i++){scheduledRuns=await(await operator({action:"backup-schedule-status",offset:0})).json();if(scheduledRuns.runs[0]?.status==="succeeded")break;await delay(100)}
+  assert.equal(scheduledRuns.total,1); assert.equal(scheduledRuns.runs[0].status,"succeeded");
+  const checkedScheduled=await(await operator({action:"backup-verify",id:scheduledRuns.runs[0].backup_id})).json(); assert.equal(checkedScheduled.backup.verified,true);
+  assert.equal((await operator({action:"backup-schedule-configure",settings:{enabled:false,intervalHours:1}})).status,200);
+  const disabledSchedule=await(await operator({action:"backup-schedule-status",offset:0})).json(); assert.equal(disabledSchedule.settings.enabled,false);assert.equal(disabledSchedule.total,1);
+  console.log("PASS: scheduled backup opt-in, persisted due time, one verified overdue run across restart and disable without deletion");
   assert.equal(after.alerts.settings.enabled, true, "alert settings survive detached restart");
   assert.equal(after.alerts.running, true);
   assert.equal((await operator({ action: "unlock" }, { "x-m365-operator": adminSession.token })).status, 200);

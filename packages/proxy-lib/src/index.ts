@@ -111,6 +111,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
   const pool = new SessionPool(sessionOptions);
   const activity = new HttpActivity();
   activity.sources.alerts.start();
+  activity.sources.backups.start();
 
   async function fetch(req: Request, trace?: RequestTrace | null): Promise<Response> {
     const { pathname } = new URL(req.url);

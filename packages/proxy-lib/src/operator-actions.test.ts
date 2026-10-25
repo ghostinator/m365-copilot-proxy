@@ -1,4 +1,5 @@
-import { mkdtempSync, readFileSync } from "node:fs";
+import { RequestSources } from "./request-sources.js";
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, expect, it, vi } from "vitest";
@@ -83,4 +84,11 @@ it("serializes startup changes and refuses a restart while startup is being upda
   await expect(serviceCommand("startup-disable", activity)).rejects.toThrow("Another service setting");
   await expect(serviceCommand("restart", activity)).rejects.toThrow("startup setting");
   finish(); await pending; expect(serviceState().phase).toBe("running"); activity.sources.close();
+});
+
+it("waits for a manual backup lock before handing off a dashboard restart",async()=>{
+ vi.useFakeTimers();const dir=mkdtempSync(join(tmpdir(),"m365-backup-restart-")),activity=new HttpActivity(new RequestSources(dir)),restart=vi.fn(async()=>{});
+ registerServiceController({status:async()=>({}),startup:async()=>{},restart});
+ writeFileSync(join(dir,"history-backups.lock"),"offline fixture");await serviceCommand("restart",activity);await vi.advanceTimersByTimeAsync(500);expect(restart).not.toHaveBeenCalled();
+ rmSync(join(dir,"history-backups.lock"));await vi.advanceTimersByTimeAsync(500);expect(restart).toHaveBeenCalledOnce();activity.sources.close();
 });

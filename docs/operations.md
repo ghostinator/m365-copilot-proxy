@@ -248,3 +248,7 @@ Notification/alert databases are separate from activity-only history backups.
 For remote administrator password setup and host recovery, see
 [operator setup](dashboard-operations.md#administrator-password-0180). Portable
 Windows archives include a bundled-runtime m365-proxy.cmd launcher.
+
+[Scheduled backups](history-management.md#scheduled-backups-0200) are opt-in and
+require a running proxy. Normal shutdown drains a scheduled copy; forced exit may
+leave a backup lock. No automatic lock deletion or history retention is enabled.

@@ -308,3 +308,6 @@ authorized From address and explicit recipients. See [notification setup](notifi
 Settings offers a prominent **Add a notification destination** shortcut and a
 highlighted creation form, followed by saved-destination management and delivery
 results. History backups can be downloaded after verification (0.19.0).
+
+Settings → Scheduled history backups (0.20.0) provides explicit enablement, interval
+selection, next-attempt status and paged run history. It is disabled by default.

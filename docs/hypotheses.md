@@ -6047,3 +6047,20 @@ HTTP middleware rejects foreign origins with 403 before the download handler; it
 fixture now checks that entry-point behavior (the direct handler uses 404).
 
 Final suite after capability-prefix regression: 564 passed, six live tests skipped.
+
+
+### Durable backup scheduling — October 25, 2026
+
+H: a persisted due time plus a renewable/fenced claim can run one verified snapshot
+per configured interval without opening model conversations, overlapping schedulers,
+replaying missed intervals or deleting data. Falsification: startup/status creates
+files while unconfigured, save runs immediately, unchanged save postpones a backup,
+restart duplicates an attempt, stale completion overwrites interrupted state,
+disable prevents the active job recording its result, or failure retries every tick.
+Unit probes cover these boundaries, paging, unsupported storage and private errors;
+the installed fixture advances only its isolated database due time and verifies one
+real scheduled snapshot across restart. Production scheduling stays disabled.
+
+Result: full Windows offline suite passed 573 tests, with six live M365 tests
+skipped. Nine new cases cover scheduler state, UI drafts and manual-backup restart
+draining. Packaged runtime validation separately exercises real snapshot creation.

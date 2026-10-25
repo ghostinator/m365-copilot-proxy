@@ -31,12 +31,13 @@ export async function serviceCommand(action: string, activity: HttpActivity) {
   if (action !== "restart") throw new Error("Unknown service action.");
   if (state.changing) throw new Error("Wait for the startup setting update before restarting.");
   if (state.phase !== "running") return serviceState();
-  state.phase = "draining"; state.message = "Waiting for admitted chats and model tests to finish. New chats receive a retryable 503.";
+  state.phase = "draining"; state.message = "Waiting for admitted chats, model tests and backup operations to finish. New chats receive a retryable 503.";
   const deadline = Date.now() + 120_000;
   const check = async () => {
-    const busy = activity.snapshot().live.some(item => item.endpoint === "/v1/chat/completions" || item.endpoint === "/v1/proxy/model-check") || !!modelCheckState().runningModel;
+    const backup = activity.sources.backups.summary();
+    const busy = activity.snapshot().live.some(item => item.endpoint === "/v1/chat/completions" || item.endpoint === "/v1/proxy/model-check") || !!modelCheckState().runningModel || backup.inProgress || backup.backupLocked;
     if (busy && Date.now() < deadline) { state.timer = setTimeout(check, 500); state.timer.unref(); return; }
-    if (busy) { state.phase = "running"; state.message = "Restart cancelled after two minutes: active requests were preserved."; return; }
+    if (busy) { state.phase = "running"; state.message = "Restart cancelled after two minutes: active requests or backup work were preserved. Inspect backup locks if no backup is running."; return; }
     try { await adapter.restart(); state.phase = "restarting"; state.message = "Restarting; the dashboard will reconnect."; }
     catch { state.phase = "running"; state.message = "Restart could not be staged. Check service logs on the host."; }
   };

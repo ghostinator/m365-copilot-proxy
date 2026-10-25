@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.19.0. Source availability and portable
+The current source feature set is version 0.20.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.19.0 npm package. See [the README](../README.md) for current source/setup links.
+0.20.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -142,7 +142,8 @@ with rollback remain separate work. A stopped proxy is started from the host CLI
 - [x] Paged backup inventory and dashboard verification/restore preparation.
 - [x] Explicit stopped-host CLI restore, staged validation, safety backup and startup interlock.
 - [x] Download verified backup files with bounded one-use capabilities (0.19.0).
-- [ ] Encrypted off-host destinations, scheduled backups and automated crash recovery.
+- [x] Opt-in interval scheduling, persisted due times and paged run history (0.20.0).
+- [ ] Encrypted off-host destinations and automated crash recovery.
 - [ ] Configurable retention remains queued.
 
 ## 11. Observed model reliability (0.12.0)

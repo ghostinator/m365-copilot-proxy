@@ -447,3 +447,19 @@ bytes/SHA-256, corruption/path rejection, one-use/foreign-origin behavior,
 concurrent-preparation limits, expiry and cancellation. Installed runtime exercises
 the actual operator/download routes and binary response. No production history is
 exported, restored or removed by these tests.
+
+
+## Scheduled backups (offline, 0.20.0)
+
+```sh
+pnpm build
+pnpm exec vitest run packages/proxy-lib/src/backup-scheduler.test.ts packages/proxy-lib/src/dashboard-operations.test.ts
+node scripts/test-operator-runtime.mjs
+```
+
+Fake clocks and injected backup creation test disabled/no-file defaults, interval
+boundaries, unchanged settings, one overdue run, persisted audit history, failures,
+exclusive leases, late-result fencing, disable/close during a run and paging.
+Installed runtime explicitly enables a temporary schedule, advances only its private
+due time, restarts and verifies the resulting snapshot, then disables scheduling.
+There is no production due-time override, automatic enablement or M365 request.
