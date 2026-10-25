@@ -43,7 +43,7 @@ export class ActivityDatabase {
     try {
       this.db.exec("PRAGMA busy_timeout=1000; PRAGMA foreign_keys=ON;");
       const version = Number(this.statement("PRAGMA user_version").get()!.user_version);
-      if (version > 2) throw new Error("Unsupported activity database version");
+      if (version > 3) throw new Error("Unsupported activity database version");
       this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA wal_autocheckpoint=1000;
         CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL) WITHOUT ROWID;
         CREATE TABLE IF NOT EXISTS systems(id INTEGER PRIMARY KEY, address TEXT NOT NULL UNIQUE);
@@ -62,7 +62,8 @@ export class ActivityDatabase {
         CREATE INDEX IF NOT EXISTS model_checks_latest ON model_checks(model,seq DESC);
         CREATE TABLE IF NOT EXISTS request_errors(request_id BLOB PRIMARY KEY REFERENCES requests(request_id), detail TEXT NOT NULL) WITHOUT ROWID;
         CREATE INDEX IF NOT EXISTS requests_errors_time ON requests(received_ms DESC,seq DESC) WHERE outcome<>0;
-        PRAGMA user_version=2;`);
+        `);
+      if (version < 3) this.db.exec("BEGIN IMMEDIATE; ALTER TABLE model_checks ADD COLUMN kind TEXT NOT NULL DEFAULT 'identity'; ALTER TABLE model_checks ADD COLUMN verdict TEXT NOT NULL DEFAULT 'unknown'; ALTER TABLE model_checks ADD COLUMN evidence TEXT NOT NULL DEFAULT ''; ALTER TABLE model_checks ADD COLUMN turns INTEGER NOT NULL DEFAULT 1; CREATE INDEX model_checks_kind_latest ON model_checks(model,kind,seq DESC); PRAGMA user_version=3; COMMIT;");
       this.statement("INSERT OR IGNORE INTO metadata VALUES('startedAt',?)").run(new Date().toISOString());
       for (const interfaces of Object.values(networkInterfaces())) for (const iface of interfaces ?? []) this.local.add(sourceAddress(iface.address));
       if (directory) {
@@ -136,8 +137,10 @@ export class ActivityDatabase {
   private aggregate(query: ActivityQuery, now: number, byModel = false) {
     const sum = counters.map(field => `SUM(${field}) AS ${field}`).join(",");
     const dimensions = `system_id${byModel ? ",model,servedModel,clientSoftware" : ""}`;
-    const grouped = `SELECT ${dimensions},${sum},MIN(firstSeen) AS firstSeen,MAX(lastSeen) AS lastSeen FROM parts${query.model ? " WHERE model=?" : ""} GROUP BY ${dimensions}`;
-    if (query.range === "all") return { sql: `WITH parts AS(SELECT * FROM system_totals UNION ALL SELECT * FROM legacy_totals), grouped AS(${grouped})`, bindings: (query.model ? [query.model] : []) as Bind[], since: null };
+    const conditions = [...(query.model ? ["model=?"] : []), ...(query.address ? ["system_id=(SELECT id FROM systems WHERE address=?)"] : [])];
+    const filterBindings: Bind[] = [...(query.model ? [query.model] : []), ...(query.address ? [query.address] : [])];
+    const grouped = `SELECT ${dimensions},${sum},MIN(firstSeen) AS firstSeen,MAX(lastSeen) AS lastSeen FROM parts${conditions.length ? " WHERE " + conditions.join(" AND ") : ""} GROUP BY ${dimensions}`;
+    if (query.range === "all") return { sql: `WITH parts AS(SELECT * FROM system_totals UNION ALL SELECT * FROM legacy_totals), grouped AS(${grouped})`, bindings: filterBindings, since: null };
     const since = now - windows[query.range], low = Math.ceil(since / hour) * hour, high = Math.floor(now / hour) * hour;
     const raw = `SELECT system_id,model,servedModel,clientSoftware,COUNT(*) AS total,SUM(self_check=0) AS applicationRequests,SUM(self_check=1) AS selfChecks,
       SUM(endpoint IN(${endpoints.indexOf("/v1/chat/completions")},${endpoints.indexOf("/v1/proxy/model-check")})) AS chats,SUM(endpoint=${endpoints.indexOf("/v1/models")}) AS models,
@@ -145,7 +148,7 @@ export class ActivityDatabase {
       SUM(endpoint IN(${["/v1/responses", "/v1/messages", "/messages", "(other endpoint)"].map(path => endpoints.indexOf(path as typeof endpoints[number])).join(",")})) AS other,
       SUM(outcome=1) AS failed,SUM(outcome=2) AS cancelled,SUM(bytes) AS responseBytes,SUM(duration_ms) AS durationSum,COUNT(*) AS durationSamples,
       MIN(received_ms) AS firstSeen,MAX(received_ms) AS lastSeen FROM requests WHERE (received_ms>=? AND received_ms<?) OR (received_ms>=? AND received_ms<=?) GROUP BY system_id,model,servedModel,clientSoftware`;
-    return { sql: `WITH parts AS(SELECT system_id,model,servedModel,clientSoftware,${fields.join(",")} FROM hourly WHERE hour_ms>=? AND hour_ms<? UNION ALL ${raw}), grouped AS(${grouped})`, bindings: [low, high, since, low, high, now, ...(query.model ? [query.model] : [])] as Bind[], since };
+    return { sql: `WITH parts AS(SELECT system_id,model,servedModel,clientSoftware,${fields.join(",")} FROM hourly WHERE hour_ms>=? AND hour_ms<? UNION ALL ${raw}), grouped AS(${grouped})`, bindings: [low, high, since, low, high, now, ...filterBindings] as Bind[], since };
   }
   snapshot(query: ActivityQuery, now = Date.now()) {
     const aggregate = this.aggregate(query, now);
@@ -171,10 +174,10 @@ export class ActivityDatabase {
     const storedRecords = Number(this.statement("SELECT COALESCE(SUM(total),0) AS count FROM system_totals").get()!.count);
     const bytes = (suffix: string) => { try { return statSync(this.path + suffix).size; } catch { return 0; } };
     const databaseBytes = this.directory ? bytes("") : 0, walBytes = this.directory ? bytes("-wal") : 0, sharedMemoryBytes = this.directory ? bytes("-shm") : 0;
-    return { errors, errorHistory: { total: errorTotal, offset: errorOffset, limit: query.errorLimit }, startedAt: String(this.statement("SELECT value FROM metadata WHERE key='startedAt'").get()!.value), systems, recent, labels, modelActivity, modelChecks: this.statement("SELECT model,checked_ms AS checkedAt,status,identity,served_model AS servedModel,duration_ms AS durationMs FROM model_checks WHERE seq IN(SELECT MAX(seq) FROM model_checks GROUP BY model) ORDER BY checked_ms DESC").all(), range: query.range, from: aggregate.since === null ? null : new Date(aggregate.since).toISOString(), to: new Date(now).toISOString(), summary: { ...summary, averageDurationMs: Number(summary.durationSamples) ? Number(summary.durationSum) / Number(summary.durationSamples) : null }, history: { total: totalRecords, limit: query.limit, offset }, legacyUndated, storage: { engine: "SQLite", retention: "unlimited", databaseBytes, walBytes, sharedMemoryBytes, totalBytes: databaseBytes + walBytes + sharedMemoryBytes, storedRecords, averageBytesPerRecord: storedRecords ? Math.round((databaseBytes + walBytes) / storedRecords) : null } };
+    return { errors, errorHistory: { total: errorTotal, offset: errorOffset, limit: query.errorLimit }, startedAt: String(this.statement("SELECT value FROM metadata WHERE key='startedAt'").get()!.value), systems, recent, labels, modelActivity, modelChecks: this.statement("SELECT model,kind,verdict,evidence,turns,checked_ms AS checkedAt,status,identity,served_model AS servedModel,duration_ms AS durationMs FROM model_checks WHERE seq IN(SELECT MAX(seq) FROM model_checks GROUP BY model,kind) ORDER BY checked_ms DESC").all(), range: query.range, from: aggregate.since === null ? null : new Date(aggregate.since).toISOString(), to: new Date(now).toISOString(), summary: { ...summary, averageDurationMs: Number(summary.durationSamples) ? Number(summary.durationSum) / Number(summary.durationSamples) : null }, history: { total: totalRecords, limit: query.limit, offset }, legacyUndated, storage: { engine: "SQLite", retention: "unlimited", databaseBytes, walBytes, sharedMemoryBytes, totalBytes: databaseBytes + walBytes + sharedMemoryBytes, storedRecords, averageBytesPerRecord: storedRecords ? Math.round((databaseBytes + walBytes) / storedRecords) : null } };
   }
-  saveModelCheck(model: string, status: number, identity: string, durationMs: number, servedModel: string | null = null) {
-    this.statement("INSERT INTO model_checks(model,checked_ms,status,identity,duration_ms,served_model) VALUES(?,?,?,?,?,?)").run(model, Date.now(), status, identity.slice(0, 1000), durationMs, servedModel);
+  saveModelCheck(model: string, status: number, identity: string, durationMs: number, servedModel: string | null = null, kind = "identity", verdict = "unknown", evidence = "", turns = 1) {
+    this.statement("INSERT INTO model_checks(model,checked_ms,status,identity,duration_ms,served_model,kind,verdict,evidence,turns) VALUES(?,?,?,?,?,?,?,?,?,?)").run(model, Date.now(), status, identity.slice(0, 1000), durationMs, servedModel, kind, verdict, evidence.slice(0,2000), turns);
   }
   close() { this.db.close(); }
 }

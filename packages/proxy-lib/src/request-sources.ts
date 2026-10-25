@@ -42,8 +42,8 @@ export class RequestSources {
       log.error(this.error);
     }
   }
-  saveModelCheck(model: string, status: number, identity: string, durationMs: number, servedModel: string | null = null) {
-    try { this.open().saveModelCheck(model, status, identity, durationMs, servedModel); }
+  saveModelCheck(model: string, status: number, identity: string, durationMs: number, servedModel: string | null = null, kind = "identity", verdict = "unknown", evidence = "", turns = 1) {
+    try { this.open().saveModelCheck(model, status, identity, durationMs, servedModel, kind, verdict, evidence, turns); }
     catch { this.error = "Model check result could not be saved."; }
   }
   snapshot(options: Partial<ActivityQuery> = {}, now = Date.now()) {

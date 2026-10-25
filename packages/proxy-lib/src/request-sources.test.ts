@@ -98,7 +98,7 @@ it("computes exact rolling boundaries using raw edge hours plus full hourly buck
 
 it("supports model/client breakdowns, system labels, deduplication and deep history pages", () => {
   const dir = mkdtempSync(join(tmpdir(), "m365-db-labels-"));
-  writeFileSync(join(dir, "server.json"), JSON.stringify({ sourceLabels: { "100.67.127.67": "pueblo-agent", "100.119.206.22": "MacBook · ai-hedge-fund-crypto" } }));
+  writeFileSync(join(dir, "server.json"), JSON.stringify({ sourceLabels: { "100.67.127.67": "pueblo-agent", "100.119.206.22": "debiandev · ai-hedge-fund-crypto (prod)" } }));
   const store = new RequestSources(dir), first = event(Date.now(), "100.67.127.67");
   store.record(first); store.record(first);
   for (let i = 0; i < 55; i++) store.record(event(Date.now(), "100.119.206.22", "claude-opus"));

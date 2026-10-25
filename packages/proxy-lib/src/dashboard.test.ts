@@ -6,9 +6,36 @@ import { dashboardResponse } from "./dashboard.js";
 
 afterEach(() => { vi.unstubAllEnvs(); resetPriorityAccessState(); });
 
+it("organizes unique controls into accessible tabs and preserves filters when switching with keyboard or deep links", async () => {
+  const page = await dashboardResponse("/dashboard")!.text();
+  const ids = [...page.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
+  expect(new Set(ids).size).toBe(ids.length);
+  for (const tab of ["models", "requests", "errors"]) expect(ids).not.toContain(tab);
+  expect(page).toContain('role="tablist"');
+  const elements = new Map<string, any>();
+  const element = (id: string) => {
+    if (!elements.has(id)) elements.set(id, { value: "", hidden: false, attributes: {} as Record<string, string>, listeners: {} as Record<string, Function>, setAttribute(key: string, value: string) { this.attributes[key] = value; }, addEventListener(key: string, callback: Function) { this.listeners[key] = callback; }, focus: vi.fn() });
+    return elements.get(id);
+  };
+  const location = { hash: "#errors" };
+  const context = createContext({ document: { getElementById: element }, fetch: () => new Promise(() => {}), location, AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
+  runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
+  expect(element("panel-errors").hidden).toBe(false);
+  expect(element("panel-models").hidden).toBe(true);
+  element("activity-range").value = "7d";
+  element("tab-models").listeners.click();
+  expect(location.hash).toBe("models");
+  expect(element("panel-errors").hidden).toBe(true);
+  expect(element("panel-models").hidden).toBe(false);
+  element("tab-models").listeners.keydown({ key: "ArrowRight", preventDefault() {} });
+  expect(element("tab-errors").focus).toHaveBeenCalledOnce();
+  expect(element("tab-errors").attributes["aria-selected"]).toBe("true");
+  expect(element("activity-range").value).toBe("7d");
+});
+
 it("pages recent requests in groups of 20 and resets pagination when the size or filter changes", async () => {
   const elements = new Map<string, any>();
-  const node = () => ({ textContent: "", value: "", disabled: false, children: [] as any[], listeners: {} as Record<string, Function>, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
+  const node = () => ({ textContent: "", value: "", disabled: false, children: [] as any[], listeners: {} as Record<string, Function>, setAttribute() {}, focus() {}, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
   const element = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
   element("activity-page-size").value = "20"; element("activity-filter").value = "all";
   const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch: () => new Promise(() => {}), AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
@@ -70,7 +97,7 @@ it("reports an observed budget wall and fallback without the upstream refusal te
 it("forgets protected data immediately and discards a late response from the previous key", async () => {
   const elements = new Map<string, any>();
   const element = (id: string) => {
-    if (!elements.has(id)) elements.set(id, { textContent: "", value: "", listeners: {} as Record<string, Function>, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren() {}, append() {} });
+    if (!elements.has(id)) elements.set(id, { textContent: "", value: "", listeners: {} as Record<string, Function>, setAttribute() {}, focus() {}, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren() {}, append() {} });
     return elements.get(id);
   };
   const pending: { resolve: (value: any) => void; signal: AbortSignal }[] = [];
@@ -98,9 +125,9 @@ it("loads history without probing models, then sends only the explicitly selecte
   const status = await (await app.fetch(new Request("http://localhost/v1/proxy/status"))).json();
   app.close();
   status.models = ["claude-sonnet", "claude-opus"];
-  status.sources.labels["100.119.206.22"] = "MacBook · ai-hedge-fund-crypto";
+  status.sources.labels["100.119.206.22"] = "debiandev · ai-hedge-fund-crypto (prod)";
   const elements = new Map<string, any>();
-  const node = () => ({ textContent: "", value: "", disabled: false, checked: false, children: [] as any[], listeners: {} as Record<string, Function>, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, dataset: {} as Record<string, string>, querySelectorAll() { return []; }, setAttribute() {}, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
+  const node = () => ({ textContent: "", value: "", disabled: false, checked: false, children: [] as any[], listeners: {} as Record<string, Function>, setAttribute() {}, focus() {}, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, dataset: {} as Record<string, string>, querySelectorAll() { return []; }, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
   const element = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
   element("activity-range").value = "24h"; element("activity-page-size").value = "20"; element("activity-filter").value = "all";
   const calls: { url: string; options: any }[] = [];
@@ -121,6 +148,6 @@ it("loads history without probing models, then sends only the explicitly selecte
   await element("test-models").listeners.click();
   const posted = calls.filter(call => call.options.method === "POST");
   expect(posted).toHaveLength(1);
-  expect(JSON.parse(posted[0].options.body)).toEqual({ model: "claude-sonnet" });
+  expect(JSON.parse(posted[0].options.body)).toEqual({ model: "claude-sonnet", kind: "identity" });
   expect(element("model-test-status").textContent).toContain("Unknown version");
 });

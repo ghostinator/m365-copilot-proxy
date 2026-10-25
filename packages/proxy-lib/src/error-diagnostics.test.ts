@@ -35,7 +35,7 @@ it("upgrades an existing v1 database without losing earlier failed requests", ()
   activity.begin("POST", "/v1/responses", false, "100.67.127.67")!(404);
   sources.close();
   const db = new DatabaseSync(join(directory, "activity.sqlite"));
-  db.exec("DROP TABLE request_errors; DROP INDEX requests_errors_time; PRAGMA user_version=1;"); db.close();
+  db.exec("DROP TABLE request_errors; DROP INDEX requests_errors_time; DROP TABLE model_checks; CREATE TABLE model_checks(seq INTEGER PRIMARY KEY, model TEXT NOT NULL, checked_ms INTEGER NOT NULL, status INTEGER NOT NULL, identity TEXT NOT NULL, duration_ms INTEGER NOT NULL, served_model TEXT); PRAGMA user_version=1;"); db.close();
   const upgraded = new RequestSources(directory), result = upgraded.snapshot();
   expect(result.error).toBeNull();
   expect(result.summary.total).toBe(1);
@@ -62,4 +62,22 @@ it("bounds error diagnostics and redacts common credentials and URL secrets", ()
   const value = diagnosticText('Bearer abcdefg sk-123456 eyJabc.def.ghi password="hunter2" https://u:p@example.test/path?token=123');
   expect(value).not.toMatch(/abcdefg|sk-123456|eyJabc|hunter2|u:p|token=123/);
   expect(diagnosticText("x".repeat(40000))).toHaveLength(12000);
+});
+
+it("upgrades v2 model reports and retains independent capability history for each model and check", () => {
+  const directory = mkdtempSync(join(tmpdir(), "m365-checks-v2-"));
+  const initial = new RequestSources(directory); initial.snapshot(); initial.close();
+  const db = new DatabaseSync(join(directory, "activity.sqlite"));
+  db.exec("DROP TABLE model_checks; CREATE TABLE model_checks(seq INTEGER PRIMARY KEY, model TEXT NOT NULL, checked_ms INTEGER NOT NULL, status INTEGER NOT NULL, identity TEXT NOT NULL, duration_ms INTEGER NOT NULL, served_model TEXT); INSERT INTO model_checks VALUES(1,'claude-sonnet',1,200,'Earlier identity',10,'claude-sonnet'); PRAGMA user_version=2;"); db.close();
+  const upgraded = new RequestSources(directory);
+  expect(upgraded.snapshot().modelChecks[0]).toMatchObject({ kind: "identity", identity: "Earlier identity", verdict: "unknown" });
+  upgraded.saveModelCheck("claude-sonnet", 200, "", 15, "claude-sonnet", "json", "failed", "Wrong JSON", 1);
+  upgraded.saveModelCheck("claude-sonnet", 200, "", 20, "claude-sonnet", "json", "passed", "Exact JSON", 1);
+  const snapshot = upgraded.snapshot();
+  expect(snapshot.modelChecks).toHaveLength(2);
+  expect(snapshot.modelChecks.find(check => check.kind === "json")).toMatchObject({ verdict: "passed", evidence: "Exact JSON" });
+  upgraded.close();
+  const check = new DatabaseSync(join(directory, "activity.sqlite"), { readOnly: true });
+  expect(check.prepare("SELECT COUNT(*) AS count FROM model_checks").get()!.count).toBe(3);
+  expect(check.prepare("PRAGMA integrity_check").get()!.integrity_check).toBe("ok"); check.close();
 });

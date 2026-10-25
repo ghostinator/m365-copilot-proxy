@@ -123,7 +123,8 @@ Local interface addresses are marked **This device**. Persist friendly names in
 ```json
 { "host": "100.102.206.65", "port": 4141,
   "sourceLabels": { "100.67.127.67": "pueblo-agent",
-    "100.119.206.22": "MacBook · ai-hedge-fund-crypto" } }
+    "100.119.206.22": "debiandev · ai-hedge-fund-crypto (prod)",
+    "100.96.238.91": "MacBook Pro · ai-hedge-fund-crypto (dev)" } }
 ```
 
 The standalone server supplies socket addresses. Embedded `createApp` adapters may
@@ -236,3 +237,11 @@ node scripts/verify-release.mjs <release-directory>
 The installed-runtime tests use explicitly loaded offline MSAL/WebSocket fixtures and temporary state, with outbound HTTP disabled. Built-server tests cover successful and streamed chats, throttling inside HTTP-200 SSE, reconnects, cancellation, exact Unicode body-byte counts and request correlation. It is never enabled by the production launcher. Release smoke tests copy the app into a temporary path containing spaces and run outside the repository. Manifests contain SHA-256 hashes of all shipped files; each archive has a separate checksum file. Verify a downloaded archive against a checksum obtained from a trusted release channel before extraction; an included manifest is an integrity check, not an authenticity signature.
 
 Windows/Linux CI runs build/unit tests and built/isolated runtime checks. The Windows runner, task definition and versioned installer have offline checks. `scripts/test-windows-service.ps1` additionally registers a uniquely named temporary sign-in task with a local fake server, verifies failure/restart and stop, then removes it. Real M365/pi validation, actual account startup, reboot/logoff behavior and 24–72-hour soak tests remain separate account/host checks. `scripts/windows/Test-Proxy.ps1 -Tools` runs one isolated, real pi tool loop; `-Live` runs one plain completion instead. NixOS users can continue using the existing `services.m365-copilot-proxy` module and systemd unit.
+
+### Dashboard tabs and capability checks (0.7.0)
+
+Overview contains readiness, counters, saved summaries and budget observations. Requests contains current and saved request history. Clients contains system rankings and model/client usage. Models contains the registered identifiers and explicit capability checks. Errors contains persisted HTTP/application failures and internal operational summaries. Settings contains optional connection authentication and recovery instructions. Shared time, model and System filters apply to saved summaries, client usage, history and errors; current-process counters remain instance-wide. Tabs support arrow/Home/End navigation and URL fragments such as `/dashboard#models`.
+
+Select model checkboxes and check types in Models, then click Test selected models. Identity is selected by default; opening the dashboard or changing tabs never starts a chat. Checks cover model identity, a function tool call, a shell tool call, tool-result round trip, SSE streaming, strict prompted JSON, system instruction following and multi-turn recall. The two round-trip checks use two messages in one conversation; other checks use one. There is a 30-second cooldown between checks and a four-minute limit per check. Existing retries/fallbacks still apply. Stop after current test prevents subsequent checks; it lets the active check finish.
+
+Tool probes inspect exact names/arguments and supply a synthetic result. **They never execute model-generated commands or access files.** JSON tests measure prompted output, not an unsupported native JSON-schema feature. Each result records passed/failed/error/reported, actual served route, duration, turns, timestamp and bounded evidence in SQLite. An HTTP-200 prose reply fails a tool check; a valid tool call without correct result consumption fails the round trip. Identity remains self-reported. These are single-sample observations, not proof of general reliability or a substitute for the real pi/OpenClaw harness. Results are retained per model/check, including prior runs.

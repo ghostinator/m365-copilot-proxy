@@ -161,6 +161,15 @@ async function start(authenticated, extra = {}) {
       assert.equal(checked.sources.modelChecks.length, 1);
       assert(checked.sources.modelActivity.some(row => row.model === "claude-sonnet" && row.address === "127.0.0.1"));
     }
+    if (mode === "success" && extra.M365_API_KEY) {
+      assert.equal(history.modelCheck.tests.length, 8);
+      const check = await statusJson(await fetch(base + "/v1/proxy/model-check", { method: "POST", headers, body: JSON.stringify({ model: "claude-sonnet", kind: "function-tool" }) }));
+      assert.equal(check.kind, "function-tool");
+      assert.equal(check.verdict, "failed", "plain prose must not pass a tool capability check");
+      assert.equal(check.turns, 1);
+      const saved = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
+      assert(saved.sources.modelChecks.some(row => row.kind === "function-tool" && row.verdict === "failed"));
+    }
     console.log(`PASS: offline ${mode} chat activity and streaming lifecycle`);
     const instance = JSON.parse(readFileSync(join(dir, "instance.json"), "utf8"));
     writeFileSync(join(dir, `shutdown-${instance.nonce}`), "stop");

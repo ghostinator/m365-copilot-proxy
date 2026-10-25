@@ -29,6 +29,7 @@ export interface RequestTrace {
   phase(value: Phase): void;
   admitted(): void;
   upstream(model: string): void;
+  nextTurn(): void;
   upstreamFailed(): void;
   result(status: number): void;
   output(bytes: number): void;
@@ -59,7 +60,7 @@ export class HttpActivity {
     this.categories[kind]++;
     this.recent.push(event);
     if (this.recent.length > 100) this.recent.shift();
-    let finished = false, validated = false, chatFinished = false, queuedAt = started;
+    let finished = false, validated = false, chatFinished = false, queuedAt = started, turnAttempts = 0;
     const knownModel = (model: string) => getAvailableModels().includes(model) ? model : "(custom model)";
     const finishChat = (status: number) => {
       if (!validated || chatFinished) return;
@@ -90,7 +91,8 @@ export class HttpActivity {
       chat: (model: string, streamed: boolean) => { if (finished || validated) return; validated = true; event.model = knownModel(model); event.streamed = streamed; this.chat.validated++; if (streamed) this.chat.streamed++; else this.chat.nonStreamed++; },
       phase: (value: Phase) => { if (finished) return; event.phase = value; if (value === "queued") queuedAt = Date.now(); },
       admitted: () => { if (finished) return; event.queueMs = Math.max(0, Date.now() - queuedAt); event.phase = "preparing"; },
-      upstream: (model: string) => { if (finished) return; event.phase = "upstream"; event.servedModel = knownModel(model); if (event.upstreamAttempts > 0) this.chat.retries++; event.upstreamAttempts++; this.chat.upstreamAttempts++; },
+      nextTurn: () => { turnAttempts = 0; },
+      upstream: (model: string) => { if (finished) return; event.phase = "upstream"; event.servedModel = knownModel(model); if (turnAttempts++ > 0) this.chat.retries++; event.upstreamAttempts++; this.chat.upstreamAttempts++; },
       upstreamFailed: () => { if (finished) return; event.upstreamFailures++; this.chat.upstreamFailures++; },
       result: (status: number) => { if (finished || event.applicationStatus === 499) return; event.applicationStatus = Number.isInteger(status) && status >= 100 && status <= 599 ? status : 500; },
       output: (bytes: number) => { if (finished || !Number.isFinite(bytes) || bytes <= 0) return; event.responseBytes += bytes; event.firstByteMs ??= Math.max(0, Date.now() - started); if (event.streamed) event.phase = "streaming"; },
