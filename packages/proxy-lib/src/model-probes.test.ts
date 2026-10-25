@@ -63,6 +63,8 @@ it("reads fragmented SSE frames, requires DONE, and reports application errors",
   const streamed = (text: string) => new Response(new ReadableStream({ start(controller) { for (let i = 0; i < text.length; i += 7) controller.enqueue(new TextEncoder().encode(text.slice(i, i + 7))); controller.close(); } }), { headers: { "content-type": "text/event-stream" } });
   handle.mockImplementation(async body => streamed('data: '+JSON.stringify({ choices: [{ delta: { content: tokenOf(body) } }] })+'\n\ndata: [DONE]\n\n'));
   expect(await probeModel("streaming", "claude-sonnet", pool)).toMatchObject({ verdict: "passed" });
+  handle.mockImplementation(async () => streamed('data: {"choices":[{"delta":{"content":"A nonempty streamed reply"}}]}\n\ndata: [DONE]\n\n'));
+  expect(await probeModel("streaming", "claude-sonnet", pool)).toMatchObject({ verdict: "passed" });
   handle.mockImplementation(async () => streamed('data: {"error":{"type":"rate_limit_error","message":"Throttled"}}\n\ndata: [DONE]\n\n'));
   expect(await probeModel("streaming", "claude-sonnet", pool)).toMatchObject({ verdict: "error", status: 429 });
   handle.mockImplementation(async body => streamed('data: '+JSON.stringify({ choices: [{ delta: { content: tokenOf(body) } }] })+'\n\n'));

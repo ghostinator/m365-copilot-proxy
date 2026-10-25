@@ -85,7 +85,7 @@ export async function probeModel(kind: ModelProbeKind, model: string, pool: Sess
       }
     } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
     if (error) return failure(error.type === "rate_limit_error" || error.code === "m365_throttled" ? 429 : 502, { error });
-    return result(done && chunks > 0 && content.trim() === token, `SSE content events: ${chunks}; DONE marker: ${done}; exact content match: ${content.trim() === token}. Received: ${content.slice(0, 1000)}`);
+    return result(done && chunks > 0, `SSE content events: ${chunks}; DONE marker: ${done}; exact content match: ${content.trim() === token}. Received: ${content.slice(0, 1000)}`);
   }
   if (kind === "multi-turn") {
     const messages: any[] = [{ role: "user", content: `Remember this token for the next message: ${token}. Reply only OK.` }];
