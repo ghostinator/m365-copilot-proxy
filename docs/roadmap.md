@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.17.0. Source availability and portable
+The current source feature set is version 0.18.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.17.0 npm package. See [the README](../README.md) for current source/setup links.
+0.18.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -188,3 +188,12 @@ support optional configured SMTP/Postal/SendGrid/ntfy/webhook delivery; only loc
 - [x] Private credential configuration with metadata-only views and no read-back.
 - [ ] Combined operational-state backups/encryption.
 - [ ] Alertmanager setup/examples and external whole-process outage detection.
+
+
+## 15. Remote administrator sign-in (0.18.0)
+
+- [x] Dashboard administrator password after one-time host-authorized setup.
+- [x] Salted scrypt hash, bounded login work and exact-origin checks.
+- [x] Separate 12-hour sessions, password rotation, logout and global revocation.
+- [x] Portable Windows command launcher using bundled Node, no development shell.
+- [ ] Optional trusted-browser persistence and additional administrator identities.

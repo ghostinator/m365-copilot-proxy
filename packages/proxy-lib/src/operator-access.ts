@@ -1,3 +1,4 @@
+import { OperatorPassword } from "./operator-password.js";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -5,7 +6,8 @@ import { CONFIG_DIR, atomicWritePrivate } from "@m365-copilot/core";
 
 /** Separate, deliberately short-lived host authorization. Application keys never grant management. */
 export class OperatorAccess {
-  constructor(private directory = CONFIG_DIR, private now = () => Date.now()) {}
+  readonly password: OperatorPassword;
+  constructor(private directory = CONFIG_DIR, private now = () => Date.now()) { this.password = new OperatorPassword(directory, now); }
   grant() {
     const token = "m365_operator_" + randomBytes(32).toString("base64url");
     const expiresAt = this.now() + 15 * 60_000;
@@ -17,6 +19,7 @@ export class OperatorAccess {
     // Require exact origin, independent of configured application CORS origins.
     if (req.headers.get("origin") !== new URL(req.url).origin) return false;
     const token = req.headers.get("x-m365-operator") ?? "";
+    if (this.password.allows(token)) return true;
     if (!/^m365_operator_[A-Za-z0-9_-]{43}$/.test(token)) return false;
     try {
       const state = JSON.parse(readFileSync(join(this.directory, "operator-access.json"), "utf8"));

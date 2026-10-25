@@ -2,8 +2,11 @@
 
 ## Unlock management
 
-On the proxy host, run `m365-proxy operator authorize`. Paste the generated token
-in **Settings → Operator access**. The grant expires 15 minutes after generation;
+Use **Settings → Operator access** to sign in with the administrator password
+after [one-time setup](#administrator-password-0180). For initial setup or recovery,
+run `.\m365-proxy.cmd operator authorize` in the portable release folder on the host
+and paste the generated token in First-time setup. No development environment is
+needed. The host grant expires 15 minutes after generation;
 issuing a new one invalidates the previous grant. Only a SHA-256 digest and expiry
 are stored in private `operator-access.json`. Treat the grant as a management
 credential: it permits application-key and service changes.
@@ -122,3 +125,30 @@ Synthetic data, isolated preview; no production credentials or model claims.
 ![Request filters and page export](images/dashboard-troubleshooting.jpg)
 
 ![Grouped errors](images/dashboard-error-groups.jpg)
+
+
+## Administrator password (0.18.0)
+
+After one-time setup, sign in directly in Settings → Operator access. Set the
+administrator password using a valid host grant in First-time setup, enter matching
+12–256 character passwords, then sign in. Passwords are salted and hashed with
+scrypt in private operator-password.json; neither plaintext passwords nor raw
+session tokens are stored there. Sessions last up to 12 hours and survive proxy
+restart. The page holds its session only in memory: reload requires password
+sign-in, and Lock/sign out revokes that session. Nothing goes in localStorage.
+
+Change password or explicitly Revoke all sessions to invalidate every administrator
+session. Application API keys remain optional and never authorize management.
+Requests require the dashboard's exact Origin; login is limited globally to five
+attempts per minute with one hash operation at a time. Rate-limit counters reset
+on process restart. Use a trusted network or HTTPS for management; the current
+Tailnet listener's network encryption is provided by Tailscale, not HTTP itself.
+
+First-time setup/recovery still requires host authority once. In an extracted
+Windows archive containing its bundled Node runtime, open PowerShell in that folder
+and run `.\m365-proxy.cmd operator authorize`. No pnpm, Nix, activation or developer
+shell is needed. Installed copies have m365-proxy.cmd in the installation folder.
+Paste the 15-minute grant into First-time setup, then set/reset your password.
+A new host grant replaces the prior host grant but does not revoke administrator
+sessions; password changes and Revoke all sessions do. Keep the private data folder.
+Activity backups exclude administrator credentials and sessions.

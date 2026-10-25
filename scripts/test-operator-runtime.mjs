@@ -55,6 +55,14 @@ try {
   const grant = JSON.parse(await command("operator", "authorize"));
   assert(!readFileSync(join(data, "operator-access.json"), "utf8").includes(grant.token));
   const operator = async (value, headers = {}) => fetch(base + "/v1/proxy/operator", { method: "POST", headers: { origin: base, "content-type": "application/json", "x-m365-operator": grant.token, ...headers }, body: JSON.stringify(value) });
+  const administratorPassword = "offline administrator password";
+  assert.equal((await operator({ action: "admin-password", password: administratorPassword })).status, 200);
+  const adminResponse = await operator({ action: "admin-login", password: administratorPassword }, { "x-m365-operator": "" });
+  assert.equal(adminResponse.status, 200); const adminSession = await adminResponse.json();
+  assert.equal((await operator({ action: "unlock" }, { "x-m365-operator": adminSession.token })).status, 200);
+  assert.equal((await operator({ action: "admin-login", password: administratorPassword }, { origin: "https://foreign.example", "x-m365-operator": "" })).status, 403);
+  assert(!readFileSync(join(data, "operator-password.json"), "utf8").includes(administratorPassword));
+  console.log("PASS: administrator password setup, remote login, hashed storage and origin isolation");
   assert.equal((await operator({ action: "key-create", label: "rejected" }, { origin: "https://untrusted.example" })).status, 403);
   assert.equal((await operator({ action: "unlock" }, { "x-m365-operator": "" })).status, 403);
   const created = await operator({ action: "key-create", label: "Dashboard app" }); assert.equal(created.status, 201);
@@ -140,6 +148,10 @@ try {
   assert.equal(after.apiKeys.required, false); assert.equal(after.apiKeys.keys[0].label, "Renamed"); assert(after.apiKeys.keys[0].revokedAt);
   assert.equal(after.alerts.settings.enabled, true, "alert settings survive detached restart");
   assert.equal(after.alerts.running, true);
+  assert.equal((await operator({ action: "unlock" }, { "x-m365-operator": adminSession.token })).status, 200);
+  assert.equal((await operator({ action: "admin-revoke" }, { "x-m365-operator": adminSession.token })).status, 200);
+  assert.equal((await operator({ action: "unlock" }, { "x-m365-operator": adminSession.token })).status, 403);
+  console.log("PASS: administrator session survives restart and revokes immediately");
   assert.equal(after.notifications.configured, 2);
   assert.equal(after.notifications.enabled, 0);
   assert.equal(after.notifications.counts.sent, 2);

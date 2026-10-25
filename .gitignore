@@ -77,3 +77,5 @@ packages/proxy/observability.md
 
 /notifications.sqlite*
 packages/proxy/notification-delivery.md
+
+operator-password.json

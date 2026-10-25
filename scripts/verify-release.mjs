@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { cpSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 const supplied = process.argv[2];
 if (!supplied) throw new Error("Usage: node scripts/verify-release.mjs <release-directory>");
 const source = resolve(supplied);
@@ -20,9 +20,13 @@ delete env.NODE_PATH;
 const launcher = join(app, "bin/m365-proxy.mjs");
 const executable = manifest.bundledNode ? join(app, process.platform === "win32" ? "node.exe" : "node") : process.execPath;
 execFileSync(executable, [launcher, "--help"], { cwd: temp, env, windowsHide: true });
+if (process.platform === "win32" && manifest.bundledNode) {
+  const result = spawnSync(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", `""${join(app, "m365-proxy.cmd")}" --help"`], { cwd: temp, env, windowsHide: true, windowsVerbatimArguments: true, encoding: "utf8" });
+  if (result.status !== 0 || !result.stdout.includes("operator authorize")) throw new Error("Portable command launcher failed without a developer environment");
+}
+
 execFileSync(executable, [launcher, "setup", "--skip-browser"], { cwd: temp, env, windowsHide: true });
 // doctor deliberately exits 1 if Chromium is absent on the clean runner.
-const { spawnSync } = await import("node:child_process");
 const doctor = spawnSync(executable, [launcher, "doctor"], { cwd: temp, env, encoding: "utf8", windowsHide: true });
 const status = JSON.parse(doctor.stdout);
 if (!status.builtServer || ![0, 1].includes(doctor.status)) throw new Error("The installed doctor failed");

@@ -3,7 +3,7 @@ export function diagnosticText(value: unknown, limit = 12000): string {
   return String(value ?? "").slice(0, limit * 2)
     .replace(/(?:Bearer|Basic)\s+[A-Za-z0-9._~+\/=:-]+/gi, "[redacted authorization]")
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)?/g, "[redacted token]")
-    .replace(/\bm365_operator_[A-Za-z0-9_-]+/g, "[redacted operator credential]")
+    .replace(/\bm365_(?:operator|admin)_[A-Za-z0-9_-]+/g, "[redacted operator credential]")
     .replace(/\bm365_[A-Za-z0-9_-]{20,}/g, "[redacted application key]")
     .replace(/\bsk-[A-Za-z0-9_-]+/g, "[redacted key]")
     .replace(/((?:api[-_]?key|access[-_]?token|refresh[-_]?token|password|secret|cookie|authorization)[\s"']*[:=][\s"']*)[^\s,"';}]+/gi, "$1[redacted]")

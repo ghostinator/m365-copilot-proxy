@@ -15,6 +15,7 @@ for (const name of ["LICENSE", "README.md"]) copyFileSync(join(root, name), join
 copyFileSync(join(root, "docs/operations.md"), join(destination, "OPERATIONS.md"));
 for (const name of ["dashboard-operations.md", "api-keys.md", "history-management.md", "observability.md", "notification-delivery.md"]) copyFileSync(join(root, "packages/proxy", name), join(destination, name));
 const includeNode = process.argv.includes("--include-node");
+if (process.platform === "win32" && includeNode) writeFileSync(join(destination, "m365-proxy.cmd"), '@echo off\r\n"%~dp0node.exe" "%~dp0bin\\m365-proxy.mjs" %*\r\nexit /b %errorlevel%\r\n');
 if (includeNode) copyFileSync(process.execPath, join(destination, process.platform === "win32" ? "node.exe" : "node"));
 if (includeNode) {
   const candidates = [process.env.NODE_LICENSE_FILE, join(dirname(process.execPath), "LICENSE"), join(dirname(process.execPath), "..", "LICENSE")].filter(Boolean);

@@ -417,3 +417,18 @@ verify transport-specific fields, save payloads and clearing private fields on l
 The installed fixture allows only its one fixed loopback receiver; its explicitly
 queued ntfy test never contacts ntfy.sh or sends a device notification. Disabled
 saves/previews send nothing. No M365 model quota or production destination is used.
+
+
+## Administrator sign-in (offline, 0.18.0)
+
+```sh
+pnpm build
+pnpm exec vitest run packages/proxy-lib/src/operator-password.test.ts packages/proxy-lib/src/operator-actions.test.ts packages/proxy-lib/src/dashboard-operations.test.ts
+node scripts/test-operator-runtime.mjs
+```
+
+Uses a synthetic password in a temporary private data directory. Asserts host-only
+initial setup, optional application keys, exact origin, hashed credentials/sessions,
+12-hour expiry, password rotation, logout/global revocation, five attempts/minute,
+one verifier at a time and late-response clearing. Installed runtime checks password
+login and immediate revocation after restart. No production password is chosen.

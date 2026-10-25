@@ -1,3 +1,4 @@
+import { administratorPassword } from "./operator-password.js";
 import { diagnosticText } from "./error-diagnostics.js";
 import { activityQuery } from "./activity-schema.js";
 import { alertSettings } from "./alert-store.js";
@@ -13,6 +14,11 @@ import type { HttpActivity } from "./http-activity.js";
 const historyLog = createLogger("operator-history");
 const command = z.discriminatedUnion("action", [
   z.object({ action: z.literal("unlock") }).strict(),
+  z.object({ action: z.literal("admin-status") }).strict(),
+  z.object({ action: z.literal("admin-login"), password: z.string().min(1).max(256) }).strict(),
+  z.object({ action: z.literal("admin-password"), password: administratorPassword }).strict(),
+  z.object({ action: z.literal("admin-logout") }).strict(),
+  z.object({ action: z.literal("admin-revoke") }).strict(),
   z.object({ action: z.literal("notifications-status"), offset: z.number().int().min(0).max(10000000).default(0) }).strict(),
   z.object({ action: z.literal("notifications-save"), id: z.uuid().optional(), destination: notificationDestination }).strict(),
   z.object({ action: z.literal("notifications-enable"), id: z.uuid(), enabled: z.boolean() }).strict(),
@@ -34,7 +40,7 @@ const command = z.discriminatedUnion("action", [
 export async function operatorAction(req: Request, activity: HttpActivity, access: OperatorAccess = operatorAccess, keys: ApiKeyStore = proxyApiKeys): Promise<Response> {
   const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
   if (req.method !== "POST") return Response.json({ error: { message: "Use POST." } }, { status: 405, headers });
-  if (!access.allows(req)) return Response.json({ error: { message: "Operator access is locked or expired. Run m365-proxy operator authorize on the host." } }, { status: 403, headers });
+  if (req.headers.get("origin") !== new URL(req.url).origin) return Response.json({ error: { message: "Same-origin management requests are required." } }, { status: 403, headers });
   if (!req.headers.get("content-type")?.startsWith("application/json")) return Response.json({ error: { message: "Expected application/json." } }, { status: 415, headers });
   let value: z.infer<typeof command>;
   try {
@@ -42,6 +48,16 @@ export async function operatorAction(req: Request, activity: HttpActivity, acces
     value = command.parse(JSON.parse(bytes.toString("utf8")));
   } catch { return Response.json({ error: { message: "Invalid operator command (maximum 4096 bytes)." } }, { status: 400, headers: { ...headers, Connection: "close" } }); }
   try {
+    if (value.action === "admin-status") return Response.json({ configured: access.password.configured() }, { headers });
+    if (value.action === "admin-login") {
+      const result = await access.password.login(value.password);
+      if (result && "limited" in result) return Response.json({ error: { message: "Too many administrator sign-in attempts. Retry in one minute." } }, { status: 429, headers: { ...headers, "Retry-After": "60" } });
+      return result ? Response.json(result, { headers }) : Response.json({ error: { message: "Administrator sign-in failed." } }, { status: 403, headers });
+    }
+    if (!access.allows(req)) return Response.json({ error: { message: "Management is locked. Sign in with the administrator password, or use a host grant for first-time setup/recovery." } }, { status: 403, headers });
+    if (value.action === "admin-password") { await access.password.set(value.password); return Response.json({ updated: true, sessionsRevoked: true }, { headers }); }
+    if (value.action === "admin-logout") { access.password.logout(req.headers.get("x-m365-operator") ?? ""); return Response.json({ locked: true }, { headers }); }
+    if (value.action === "admin-revoke") { access.password.revokeAll(); return Response.json({ sessionsRevoked: true }, { headers }); }
     if (value.action === "export-create") return Response.json(historyDownloads.create(activity.sources.exportCursor(value.query), value.format), { headers });
     if (value.action === "backup-list") return Response.json(activity.sources.backupStore().list(value.offset), { headers });
     if (value.action === "backup-create") return Response.json(await activity.sources.backupStore().create(), { status: 201, headers });

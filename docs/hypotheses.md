@@ -6006,3 +6006,19 @@ Result: all six ntfy/UI scenarios passed; full Windows offline suite: 551 passed
 six live tests skipped. ntfy acceptance additionally requires a message event,
 selected topic and bounded message ID; wrong-topic/HTML/oversized responses fail
 without recording provider content. No live mobile delivery is claimed.
+
+
+### Remote administrator password — October 25, 2026
+
+H: host-authorized password setup can replace repeated host grants for normal
+remote management without giving application credentials administrative scope.
+Falsification: an unauthenticated/application-key caller sets a password, foreign
+Origin logs in, plaintext credentials persist, locked-page late responses unlock,
+or revoked/expired sessions retain access. Tests cover setup boundaries, salted
+hashes, multiple sessions, restart persistence, expiry, password rotation, revocation,
+rate limiting and dashboard lock races. Installed fixture additionally verifies
+actual server routing and session revocation after a real process restart.
+
+Result: all six new administrator scenarios passed. Full Windows offline suite:
+557 passed, six live M365 tests skipped. Production password setup is left to the
+operator; only synthetic passwords in isolated temporary stores were tested.

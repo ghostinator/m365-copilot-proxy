@@ -98,3 +98,11 @@ it("saves ntfy fields separately from email/webhook settings and clears private 
   runInContext("lockOperator()", context);
   for (const id of ["ntfy-url", "topic", "ntfy-token"]) expect(el("notification-"+id).value).toBe("");
 });
+
+it("ignores a password-login result arriving after Lock and clears password fields", async () => {
+  const { el, context, pending } = await dashboard(); el("admin-password").value = "private administrator password";
+  const submit = el("admin-login").listeners.submit({ preventDefault() {} });
+  expect(el("admin-password").value).toBe(""); runInContext("lockOperator()", context);
+  pending[1].resolve({ ok: true, json: async () => ({ token: "must-not-activate", expiresAt: new Date(Date.now()+60_000).toISOString() }) });
+  await submit; expect(runInContext("operatorToken", context)).toBe(""); expect(el("admin-settings").disabled).toBe(true);
+});

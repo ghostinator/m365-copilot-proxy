@@ -170,7 +170,7 @@ the standalone server persists it. Existing sign-in, listener, application-key m
 retention and model-probe behavior are unchanged.
 
 Operator actions are notifications-status/save/enable/remove/preview/test. Mutations
-require the existing expiring host-issued, exact-origin grant. Test and removal
+require an expiring administrator session or host grant with exact-origin checks. Test and removal
 require explicit confirm:true; invalid/unknown fields fail boundary validation.
 Operator commands remain capped at 4096 bytes, including credentials. File/URL
 attachments are disabled in the SMTP library. Provider I/O is outside the chat path.

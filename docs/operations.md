@@ -244,3 +244,7 @@ See [notification delivery](notification-delivery.md) for private credential set
 explicit tests, durable queue/retry semantics and provider acceptance limits.
 All destinations save disabled; no provider account or recipient is provisioned.
 Notification/alert databases are separate from activity-only history backups.
+
+For remote administrator password setup and host recovery, see
+[operator setup](dashboard-operations.md#administrator-password-0180). Portable
+Windows archives include a bundled-runtime m365-proxy.cmd launcher.

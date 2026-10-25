@@ -57,8 +57,8 @@ supported; request history still has unlimited retention.
 ## Dashboard and storage
 
 Settings lists key metadata and offers create/rename/revoke controls after a
-short-lived operator unlock. Run `m365-proxy operator authorize` on the host, then
-paste the generated token in Settings. See [dashboard management](dashboard-operations.md)
+administrator password sign-in. First-time setup/recovery uses a host grant from
+`.\m365-proxy.cmd operator authorize` in the portable release folder. See [dashboard management](dashboard-operations.md)
 for expiry, origin checks and one-time token display. CLI management remains
 available. There is no unauthenticated remote key-management
 endpoint. These keys identify applications; they do not implement tenant-specific
