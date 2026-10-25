@@ -13,6 +13,9 @@ not completion of the entire feature group.
 - [x] Instance identity, detection of other local listeners, request filters and separate no-chat self-checks (0.4.0).
 - [x] Persist request-source IPs, per-system rankings and bounded source history (0.5.0).
 - [x] Scrollable recent requests with 20/50/100 page sizes and pagination (0.5.0).
+- [x] Unlimited SQLite history, rolling summary windows, storage usage and JSON migration (0.6.0).
+- [x] User-defined system labels, local-device identification and model/client breakdowns (0.6.0).
+- [x] Explicit selected-model identity checks with persisted reports and sequential cooldown (0.6.0).
 - [ ] Start/stop/restart and sign-in recovery controls with explicit local authorization.
 - [ ] Optional Windows tray icon, including offline/stopped status.
 

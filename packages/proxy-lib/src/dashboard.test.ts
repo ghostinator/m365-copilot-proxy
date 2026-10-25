@@ -11,7 +11,7 @@ it("pages recent requests in groups of 20 and resets pagination when the size or
   const node = () => ({ textContent: "", value: "", disabled: false, children: [] as any[], listeners: {} as Record<string, Function>, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
   const element = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
   element("activity-page-size").value = "20"; element("activity-filter").value = "all";
-  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch: () => new Promise(() => {}), AbortController, AbortSignal, setInterval: () => 0 });
+  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch: () => new Promise(() => {}), AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
   const page = await dashboardResponse("/dashboard")!.text();
   expect(page).toContain('class="request-box"');
   expect(page).toContain('max-height:480px;overflow:auto');
@@ -74,7 +74,7 @@ it("forgets protected data immediately and discards a late response from the pre
     return elements.get(id);
   };
   const pending: { resolve: (value: any) => void; signal: AbortSignal }[] = [];
-  const context = createContext({ document: { getElementById: element, hidden: false, createElement: () => ({}) }, fetch: (_url: string, options: { signal: AbortSignal }) => new Promise(resolve => pending.push({ resolve, signal: options.signal })), AbortController, AbortSignal, setInterval: () => 0 });
+  const context = createContext({ document: { getElementById: element, hidden: false, createElement: () => ({}) }, fetch: (_url: string, options: { signal: AbortSignal }) => new Promise(resolve => pending.push({ resolve, signal: options.signal })), AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
   runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
   element("key").value = "old-key";
   element("connect").listeners.submit({ preventDefault() {} });
@@ -90,4 +90,37 @@ it("forgets protected data immediately and discards a late response from the pre
   pending[2].resolve({ ok: false, status: 401 });
   await new Promise(resolve => setImmediate(resolve));
   expect(element("message").textContent).toContain("Enter your proxy API key");
+});
+
+it("loads history without probing models, then sends only the explicitly selected model", async () => {
+  vi.stubEnv("M365_API_KEY", "");
+  const app = createApp();
+  const status = await (await app.fetch(new Request("http://localhost/v1/proxy/status"))).json();
+  app.close();
+  status.models = ["claude-sonnet", "claude-opus"];
+  status.sources.labels["100.119.206.22"] = "MacBook · ai-hedge-fund-crypto";
+  const elements = new Map<string, any>();
+  const node = () => ({ textContent: "", value: "", disabled: false, checked: false, children: [] as any[], listeners: {} as Record<string, Function>, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, setAttribute() {}, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
+  const element = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
+  element("activity-range").value = "24h"; element("activity-page-size").value = "20"; element("activity-filter").value = "all";
+  const calls: { url: string; options: any }[] = [];
+  const fetch = async (url: string, options: any) => {
+    calls.push({ url, options });
+    if (url.startsWith("/v1/proxy/status")) return { ok: true, json: async () => status };
+    if (url === "/v1/proxy/checks") return { ok: true, json: async () => ({ listeners: [], listenerInspection: "unavailable", registeredModels: 2, authentication: { status: "starting" } }) };
+    if (url === "/v1/proxy/model-check") return { ok: true, status: 200, json: async () => ({ model: "claude-sonnet", servedModel: "claude-sonnet", identity: "Unknown version", status: 200 }) };
+    throw new Error("Unexpected URL");
+  };
+  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch, AbortController, AbortSignal, URLSearchParams, setInterval: () => 0, setTimeout });
+  runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
+  await new Promise(resolve => setImmediate(resolve));
+  expect(calls.every(call => call.options.method !== "POST")).toBe(true);
+  expect(element("database-size").textContent).toContain("retention unlimited");
+  const checkbox = element("model-check-rows").children[0].children[0].children[0];
+  checkbox.checked = true; checkbox.listeners.change();
+  await element("test-models").listeners.click();
+  const posted = calls.filter(call => call.options.method === "POST");
+  expect(posted).toHaveLength(1);
+  expect(JSON.parse(posted[0].options.body)).toEqual({ model: "claude-sonnet" });
+  expect(element("model-test-status").textContent).toContain("Unknown version");
 });

@@ -4,7 +4,10 @@ import { SessionPool, handleChatCompletion } from "./handler.js";
 import { dashboardResponse, operatorStatus } from "./dashboard.js";
 import { HttpActivity, trackHttpResponse, type RequestTrace } from "./http-activity.js";
 export { HttpActivity, httpActivity, type RequestTrace } from "./http-activity.js";
-export { RequestSources, sourceAddress } from "./request-sources.js";
+export { RequestSources, sourceAddress, parseActivityQuery } from "./request-sources.js";
+import { parseActivityQuery } from "./request-sources.js";
+import { runModelCheck } from "./model-checks.js";
+export { runModelCheck } from "./model-checks.js";
 import { operatorChecks } from "./operator-checks.js";
 export { operatorChecks } from "./operator-checks.js";
 export { dashboardResponse, operatorStatus } from "./dashboard.js";
@@ -101,11 +104,20 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
 
     const gate = requestGate(req);
     if (gate) return gate;
+    if (method === "POST" && pathname === "/v1/proxy/model-check") {
+      let value: unknown;
+      try { value = await readJsonBody(req.body, req.headers.get("content-length"), req.signal); }
+      catch { return json(400, { error: { type: "invalid_request", message: "Expected a model selection" } }); }
+      return runModelCheck(value, pool, activity, trace ?? undefined, req.signal);
+    }
 
     if (method === "GET") {
       const dashboard = dashboardResponse(pathname);
       if (dashboard) return dashboard;
-      if (pathname === "/v1/proxy/status") return withCors(Response.json(operatorStatus(pool, activity), { headers: { "Cache-Control": "no-store" } }), req);
+      if (pathname === "/v1/proxy/status") {
+        try { return withCors(Response.json(operatorStatus(pool, activity, parseActivityQuery(new URL(req.url).searchParams)), { headers: { "Cache-Control": "no-store" } }), req); }
+        catch { return withCors(json(400, { error: { type: "invalid_activity_query", message: "Invalid activity range or pagination" } }), req); }
+      }
       if (pathname === "/v1/proxy/checks") return withCors(Response.json({ ...await operatorChecks(), instance: activity.instance }, { headers: { "Cache-Control": "no-store" } }), req);
     }
 
@@ -139,8 +151,8 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
   }
 
   return { async fetch(req, connection) {
-    const finish = activity.begin(req.method.toUpperCase(), new URL(req.url).pathname, req.headers.get("x-m365-check") === "1", connection?.remoteAddress);
+    const finish = activity.begin(req.method.toUpperCase(), new URL(req.url).pathname, (req.headers.get("x-m365-check") === "1" || new URL(req.url).pathname === "/v1/proxy/model-check"), connection?.remoteAddress, req.headers.get("user-agent") ?? undefined);
     try { const response = trackHttpResponse(await fetch(req, finish), finish); response.headers.set("X-M365-Proxy-Instance", activity.instance.id); response.headers.set("X-M365-Proxy-Version", activity.instance.version); return response; }
     catch (error) { finish?.(500); throw error; }
-  }, close: () => { pool.close(); activity.sources.flush(); } };
+  }, close: () => { pool.close(); activity.sources.close(); } };
 }

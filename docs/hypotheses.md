@@ -5776,3 +5776,26 @@ semantics and limits are documented in operations.md. No chat quota is required.
 The Recent requests UI defaults to 20 entries in a scrollable box with 20/50/100
 page sizes and Previous/Next controls. dashboard.test.ts exercises page boundaries,
 size changes and filter resets; it also keeps the forgotten-key regression check.
+
+### Unlimited SQLite history, model/client accounting and explicit model checks — Oct 25
+
+User-directed expansion: retain activity indefinitely and summarize rolling time
+windows, identify configured systems/local interfaces, and offer model self-ID
+checks only on explicit dashboard selection. Hypothesis: normalized SQLite rows
+plus hourly/all-time rollups produce exact range statistics without repeatedly
+scanning the full log. Falsifiers: boundary errors, duplicate migration counts,
+missing flushed records after reopen, or a model POST caused by page refresh.
+
+Deterministic tests cover cutoff milliseconds, partial-hour edges, >512 systems,
+>500 requests, unlimited age, migration/remainder handling, replay deduplication,
+model/client filters, named devices, private database mode and integrity checks.
+The browser-script test confirms polling only performs reads, and posts only the
+explicitly selected model. Model-check tests use a mocked handler; built-server
+checks use the offline MSAL/WebSocket fixture with outbound HTTP disabled.
+
+Synthetic 10,000-row Windows sample: 3,379,200 committed bytes including indexes
+and rollups (337.92 bytes/row), 1.25 s ingest, 2.06 ms all-time query and 6.35 ms
+24-hour query; one sample, not a throughput guarantee. Runnable evidence:
+`node scripts/activity-db-bench.mjs`. Model self-reports remain unverified, and no
+live identity conclusion comes from fixtures. Reference: operations.md and
+activity-database.md. No model sweep is automatically run on deployment.

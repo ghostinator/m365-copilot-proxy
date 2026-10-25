@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { CONFIG_DIR, getAvailableModels } from "@m365-copilot/core";
 import { RequestSources, sourceAddress } from "./request-sources.js";
+import { clientSoftware } from "./activity-schema.js";
 import packageInfo from "../package.json" with { type: "json" };
 
 type Kind = "models" | "chat" | "health" | "other";
 type Phase = "received" | "queued" | "preparing" | "upstream" | "streaming" | "completed" | "failed" | "cancelled";
 export interface ActivityEvent {
   clientAddress: string;
+  clientSoftware: string;
   id: string; method: string; endpoint: string; source: "application" | "self-check";
   receivedAt: string; status: number | null; durationMs: number | null; phase: Phase;
   outcome: "pending" | "success" | "error" | "cancelled";
@@ -17,6 +19,7 @@ export interface ActivityEvent {
 export interface RequestTrace {
   (status: number): void;
   id: string;
+  route(): string | null;
   chat(model: string, streamed: boolean): void;
   phase(value: Phase): void;
   admitted(): void;
@@ -26,7 +29,7 @@ export interface RequestTrace {
   output(bytes: number): void;
 }
 const ignored = new Set(["/dashboard", "/dashboard-script", "/v1/proxy/status", "/v1/proxy/checks", "/favicon.ico"]);
-const endpoints: Record<string, Kind> = { "/v1/models": "models", "/v1/chat/completions": "chat", "/health": "health", "/health/live": "health", "/health/ready": "health", "/v1/responses": "other", "/v1/messages": "other", "/messages": "other" };
+const endpoints: Record<string, Kind> = { "/v1/models": "models", "/v1/chat/completions": "chat", "/health": "health", "/health/live": "health", "/health/ready": "health", "/v1/proxy/model-check": "other", "/v1/responses": "other", "/v1/messages": "other", "/messages": "other" };
 
 /** Bounded metadata only. No prompts, answers, headers, keys or query strings. */
 export class HttpActivity {
@@ -40,13 +43,13 @@ export class HttpActivity {
   private categories = { models: 0, chat: 0, health: 0, other: 0 };
   private recent: ActivityEvent[] = [];
 
-  begin(method: string, pathname: string, selfCheck = false, remoteAddress?: string): RequestTrace | null {
+  begin(method: string, pathname: string, selfCheck = false, remoteAddress?: string, userAgent?: string): RequestTrace | null {
     if (ignored.has(pathname)) return null;
     const started = Date.now();
     const known = Object.hasOwn(endpoints, pathname);
     const kind = known ? endpoints[pathname] : "other";
-    selfCheck = selfCheck && method === "GET" && (kind === "models" || kind === "health");
-    const event: ActivityEvent = { clientAddress: sourceAddress(remoteAddress), id: randomUUID(), method: /^(GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE)$/.test(method) ? method : "OTHER", endpoint: known ? pathname : "(other endpoint)", source: selfCheck ? "self-check" : "application", receivedAt: new Date(started).toISOString(), status: null, durationMs: null, phase: "received", outcome: "pending", model: null, servedModel: null, streamed: null, applicationStatus: null, responseBytes: 0, firstByteMs: null, queueMs: null, upstreamAttempts: 0, upstreamFailures: 0 };
+    selfCheck = selfCheck && ((method === "GET" && (kind === "models" || kind === "health")) || (method === "POST" && pathname === "/v1/proxy/model-check"));
+    const event: ActivityEvent = { clientSoftware: clientSoftware(userAgent), clientAddress: sourceAddress(remoteAddress), id: randomUUID(), method: /^(GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE)$/.test(method) ? method : "OTHER", endpoint: known ? pathname : "(other endpoint)", source: selfCheck ? "self-check" : "application", receivedAt: new Date(started).toISOString(), status: null, durationMs: null, phase: "received", outcome: "pending", model: null, servedModel: null, streamed: null, applicationStatus: null, responseBytes: 0, firstByteMs: null, queueMs: null, upstreamAttempts: 0, upstreamFailures: 0 };
     this.total++; if (selfCheck) this.selfChecks++;
     this.categories[kind]++;
     this.recent.push(event);
@@ -74,6 +77,7 @@ export class HttpActivity {
     };
     return Object.assign(finish, {
       id: event.id,
+      route: () => event.servedModel,
       chat: (model: string, streamed: boolean) => { if (finished || validated) return; validated = true; event.model = knownModel(model); event.streamed = streamed; this.chat.validated++; if (streamed) this.chat.streamed++; else this.chat.nonStreamed++; },
       phase: (value: Phase) => { if (finished) return; event.phase = value; if (value === "queued") queuedAt = Date.now(); },
       admitted: () => { if (finished) return; event.queueMs = Math.max(0, Date.now() - queuedAt); event.phase = "preparing"; },

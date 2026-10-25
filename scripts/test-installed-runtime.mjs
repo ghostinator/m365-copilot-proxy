@@ -1,3 +1,4 @@
+import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawn, execFileSync } from "node:child_process";
@@ -132,15 +133,32 @@ async function start(authenticated, extra = {}) {
       assert(!JSON.stringify(afterChat).includes("private-offline-prompt"));
       assert(!JSON.stringify(afterChat).includes("Offline fixture reply"));
     }
+    const history = await statusJson(await fetch(base + "/v1/proxy/status?range=24h&limit=1", { headers }));
+    assert.equal(history.sources.storage.engine, "SQLite");
+    assert.equal(history.sources.storage.retention, "unlimited");
+    assert.equal(history.sources.recent.length, 1);
+    assert.equal((await fetch(base + "/v1/proxy/status?range=invalid", { headers })).status, 400);
+    if (mode === "success" && !extra.M365_API_KEY) {
+      assert.equal(history.sources.modelChecks.length, 0, "status polling must never run a model check");
+      const check = await statusJson(await fetch(base + "/v1/proxy/model-check", { method: "POST", headers, body: JSON.stringify({ model: "claude-sonnet" }) }));
+      assert.equal(check.selfReported, true);
+      assert(check.identity.includes("Offline fixture reply"));
+      assert.equal(check.servedModel, "claude-sonnet");
+      assert.equal((await fetch(base + "/v1/proxy/model-check", { method: "POST", headers, body: JSON.stringify({ model: "claude-sonnet" }) })).status, 429);
+      const checked = await statusJson(await fetch(base + "/v1/proxy/status?range=24h", { headers }));
+      assert.equal(checked.sources.modelChecks.length, 1);
+      assert(checked.sources.modelActivity.some(row => row.model === "claude-sonnet" && row.address === "127.0.0.1"));
+    }
     console.log(`PASS: offline ${mode} chat activity and streaming lifecycle`);
     const instance = JSON.parse(readFileSync(join(dir, "instance.json"), "utf8"));
     writeFileSync(join(dir, `shutdown-${instance.nonce}`), "stop");
     assert.notEqual(await Promise.race([exit, delay(10_000).then(() => "timeout")]), "timeout", logs);
-    const sourceHistory = JSON.parse(readFileSync(join(dir, "request-sources.json"), "utf8"));
-    assert.equal(sourceHistory.systems[0].address, "127.0.0.1");
-    assert(sourceHistory.systems[0].total > 0);
-    assert(sourceHistory.recent.length > 0);
-    assert(!JSON.stringify(sourceHistory).includes("private-offline-prompt"));
+    const sourceHistory = new DatabaseSync(join(dir, "activity.sqlite"), { readOnly: true });
+    assert.equal(sourceHistory.prepare("SELECT address FROM systems LIMIT 1").get().address, "127.0.0.1");
+    assert(sourceHistory.prepare("SELECT COUNT(*) AS count FROM requests").get().count > 0);
+    assert.equal(sourceHistory.prepare("PRAGMA integrity_check").get().integrity_check, "ok");
+    assert(!JSON.stringify(sourceHistory.prepare("SELECT * FROM requests").all()).includes("private-offline-prompt"));
+    sourceHistory.close();
     console.log("PASS: loopback listener, readiness, origin/key policy, and graceful stop");
   } finally { if (child.exitCode === null) child.kill(); await Promise.race([exit, delay(1000)]); }
 }

@@ -5,7 +5,7 @@ export default defineEventHandler((event) => {
   const request = new Request(getRequestURL(event), { method: event.method, headers: getRequestHeaders(event) as HeadersInit });
   setResponseHeader(event, "X-M365-Proxy-Instance", httpActivity.instance.id);
   setResponseHeader(event, "X-M365-Proxy-Version", httpActivity.instance.version);
-  const finish = httpActivity.begin(request.method, new URL(request.url).pathname, request.headers.get("x-m365-check") === "1", event.node.req.socket.remoteAddress);
+  const finish = httpActivity.begin(request.method, new URL(request.url).pathname, (request.headers.get("x-m365-check") === "1" || new URL(request.url).pathname === "/v1/proxy/model-check"), event.node.req.socket.remoteAddress, request.headers.get("user-agent") ?? undefined);
   event.context.proxyActivity = finish;
   if (finish) {
     setResponseHeader(event, "X-M365-Request-Id", finish.id);

@@ -80,30 +80,68 @@ or reloading the page clears it. Up to 20 in-memory error summaries show fixed
 categories instead of raw log messages. Tray controls and browser-managed
 start/stop remain tracked in [the roadmap](roadmap.md).
 
-Version 0.5.0 adds **Most active systems**, ranked by completed application
-requests from the actual socket IP. Explicit self-checks have separate counts;
-chat endpoint counts include invalid/rejected requests. First/last seen times,
-HTTP body bytes, error/cancellation counts and request categories are saved in
-private `request-sources.json` under the data directory. No headers, hostnames,
-credentials, queries, prompts or replies are stored. Forwarded-IP headers are
-ignored: reverse proxies/shared gateways appear as one system. IPv4-mapped IPv6
-addresses are grouped with their IPv4 form. Missing transport metadata is unknown.
-The standalone Nitro server supplies socket metadata; embedded `createApp` callers
-can pass trusted `{ remoteAddress }` context. Embedded histories are in memory.
+Version 0.6.0 saves completed activity in private `activity.sqlite` under the data
+directory, using Node's bundled SQLite. Requests, sources, requested/served models,
+recognized client software, status, duration and body-byte counts persist across
+restarts. Normal prompts, replies, tool arguments, raw headers and queries are
+excluded. SQLite stores compact identifiers, indexed request history, hourly
+summaries and all-time aggregates. No database installation is needed.
 
-The source file holds up to 512 systems (least recently seen evicted when full)
-and 500 completed request records. Systems inactive for 30 days and request
-records older than 30 days expire. A retained active system's totals cover its
-saved lifetime, not a rolling 30-day count. Records are batched for up to 500 ms
-and flushed on graceful shutdown; an abrupt crash can lose the pending batch.
-Persistence failures appear in the dashboard without failing a chat. Source
-rankings/history survive restart; current-process HTTP/chat counters still reset.
-Use the system filter in **Saved request history** to inspect a source's latest
-50 matching records inside a scrollable box.
+**Activity history** offers rolling 24-hour, 7-day, 30-day, 90-day, 1-year and
+all-time summaries. Select a model to narrow the summary and client/model tables.
+**Most active systems** and **Models by client** show the top 50 combinations for
+the selected window. **Saved request history** supports system filtering and
+20/50/100-row pages over the database; the 100-request current-process view remains
+separate and scrollable. Status queries accept `range`, `model`, `address`,
+`offset` and `limit`. Invalid queries return 400; dashboard polls are not recorded.
 
-**Recent requests** has a 480-pixel scrollable region, initially 20 requests per
-page, with 20/50/100 choices and Previous/Next controls. Changing its filter or
-page size returns to page one. Its current-process buffer remains capped at 100.
+Retention is unlimited: no request, system or old model-test report is automatically
+deleted. The dashboard shows data-file/WAL/shared-memory size, timestamped row
+count and current bytes per row including indexes/rollups. WAL space is reused;
+this measure includes allocation overhead and is not a forecast of future growth.
+Writes are batched for at most 500 ms or 100 records and committed atomically;
+graceful shutdown flushes pending records. An abrupt process exit may lose the
+pending batch. Storage failures remain diagnostic errors, with pending/lost counts,
+while chat serving continues. The emergency in-memory outage buffer is limited to
+10,000 records; this is not a database-retention limit.
+
+The old `request-sources.json` is migrated transactionally once and preserved
+unchanged. Timestamped records are imported with their IDs, preventing duplicates.
+Aggregate totals older than its retained request list are preserved only in
+**All time**, explicitly labeled as undated; no dates or model IDs are invented.
+Earlier versions did not save per-model information in that source file, so it
+starts accumulating with this version. For backups, stop the proxy before copying
+the database, or use SQLite's online backup API; copying only a live main file
+omits changes still in its WAL. Database details: [activity storage](activity-database.md).
+
+Sources use actual connection addresses, ignoring forwarded-IP headers. Shared
+proxies/gateways appear as one system. User-Agent is reduced to recognized client
+products; unknown stays unknown, and it is a software hint rather than identity.
+Local interface addresses are marked **This device**. Persist friendly names in
+`server.json`, then restart:
+
+```json
+{ "host": "100.102.206.65", "port": 4141,
+  "sourceLabels": { "100.67.127.67": "pueblo-agent",
+    "100.119.206.22": "MacBook · ai-hedge-fund-crypto" } }
+```
+
+The standalone server supplies socket addresses. Embedded `createApp` adapters may
+pass trusted `{ remoteAddress }` context; their default activity database is in
+memory. Neither forwarding headers nor source labels authorize requests.
+
+**Model availability tests** run only after selecting models and clicking
+**Test selected models**. No startup, refresh, health check or timer starts a test.
+Each sends a short version-identification chat, sequentially, with a 30-second
+cooldown. Stop after current prevents further queued tests. Account/model quotas,
+automatic retries and configured fallback routes apply; upstream throttling stops
+the batch. The served proxy model ID is shown separately from the requested model.
+Reported identity is unverified text, not proof of model version, tool capability
+or continuing availability. These explicit self-reports (up to 1,000 characters)
+are the exception to normal reply exclusion: all test reports are retained in the
+database while the listing shows the latest result per model. `POST
+/v1/proxy/model-check` shares the normal optional-key/origin policy and accepts a
+single registered `model`. Tests are labeled self-checks in activity statistics.
 
 Quota observations persist atomically in private `quota-observations-<hash>.json`
 files under the data directory. The hash scopes them to the authenticated tenant

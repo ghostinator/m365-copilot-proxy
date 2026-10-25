@@ -3,9 +3,11 @@ import { authenticationStatus, authenticationAccountKey, getAvailableModels, MET
 import { usageObservations } from "./usage-observations.js";
 import { httpActivity, type HttpActivity } from "./http-activity.js";
 import type { SessionPool } from "./session-pool.js";
+import type { ActivityQuery } from "./request-sources.js";
+import { modelCheckState } from "./model-checks.js";
 
 /** Local observations only: no login, token refresh, chat or quota probe. */
-export function operatorStatus(pool: SessionPool, activity: HttpActivity = httpActivity) {
+export function operatorStatus(pool: SessionPool, activity: HttpActivity = httpActivity, query: Partial<ActivityQuery> = {}) {
   const observed = usageObservations.snapshot(authenticationAccountKey());
   return {
     authentication: authenticationStatus(),
@@ -13,7 +15,8 @@ export function operatorStatus(pool: SessionPool, activity: HttpActivity = httpA
     requests: pool.status,
     instance: { ...activity.instance, host: process.env.NITRO_HOST || process.env.HOST || "127.0.0.1", port: Number(process.env.NITRO_PORT || process.env.PORT || 4141) },
     activity: activity.snapshot(),
-    sources: activity.sources.snapshot(),
+    sources: activity.sources.snapshot(query),
+    modelCheck: modelCheckState(),
     models: getAvailableModels(),
     lastRoute: observed.route,
     recentErrors: recentOperationalErrors(),

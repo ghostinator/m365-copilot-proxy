@@ -22,4 +22,7 @@ export default defineNitroPlugin((app) => {
   // or repeatedly launching a browser when a tenant requires human reapproval.
   const stopMaintenance = startAuthenticationMaintenance();
   app.hooks.hook("close", () => { stopMaintenance(); pool.close(); httpActivity.sources.flush(); });
+  // Late HTTP finish/close events can still arrive while Nitro drains sockets.
+  // Keep collecting until the process exits, then synchronously flush and close.
+  process.once("exit", () => httpActivity.sources.close());
 });
