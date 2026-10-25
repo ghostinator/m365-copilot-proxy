@@ -1,4 +1,5 @@
 import { AlertStore, defaultAlerts, type AlertSettings, type AlertRule, type AlertFact } from "./alert-store.js";
+import { Notifications } from "./notifications.js";
 
 export interface AlertSample { total: number; failed: number; throttled: number; storageError: boolean; authentication: "ready" | "starting" | "auth_required" }
 /** Background observations only; the sampler never refreshes auth or calls a model. */
@@ -10,9 +11,13 @@ export class AlertMonitor {
   private closed = false;
   private error: string | null = null;
   private checkedAt: number | null = null;
-  constructor(directory: string | undefined, private sample: (settings: AlertSettings, now: number) => AlertSample, private now = () => Date.now()) { this.store = new AlertStore(directory); }
+  readonly notifications: Notifications;
+  constructor(directory: string | undefined, private sample: (settings: AlertSettings, now: number) => AlertSample, private now = () => Date.now()) {
+    this.store = new AlertStore(directory); this.notifications = new Notifications(directory, (after, limit) => this.store.deliveryEvents(after, limit), undefined, now);
+  }
   start() {
     if (this.timer || this.closed) return;
+    this.notifications.start();
     this.timer = setInterval(() => this.tick(), 30_000); this.timer.unref();
     this.tick();
   }
@@ -46,5 +51,5 @@ export class AlertMonitor {
     try { return { settings: this.store.settings(), ...this.store.snapshot(offset), checkedAt: this.checkedAt, error: this.error, running: !!this.timer, intervalSeconds: 30, retention: "unlimited" }; }
     catch { return { settings: { ...defaultAlerts }, active: [], events: [], total: 0, offset: 0, limit: 20, checkedAt: this.checkedAt, error: "Alert history or settings could not be read; monitoring is unavailable.", running: !!this.timer, intervalSeconds: 30, retention: "unlimited" }; }
   }
-  close() { this.closed = true; if (this.timer) clearInterval(this.timer); this.timer = undefined; this.store.close(); this.pending.clear(); }
+  close() { this.notifications.close(); this.closed = true; if (this.timer) clearInterval(this.timer); this.timer = undefined; this.store.close(); this.pending.clear(); }
 }

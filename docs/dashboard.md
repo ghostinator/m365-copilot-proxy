@@ -291,3 +291,12 @@ The dashboard now uses up to 1720 CSS pixels on wide displays. Reliability colum
 headings and longer route/rate cells wrap; narrow displays retain horizontal table
 scrolling. External notification provider choices are tracked in
 [notification delivery](notification-delivery.md), separately from local alerts.
+
+## Notification delivery (0.15.0)
+
+Settings → Notification delivery manages named SMTP and generic/Slack/Teams webhook
+destinations, rule/event routing, preview, explicit enable/test and paged delivery
+history. Saving is disabled and sends nothing. No production destination is
+configured by this update. Read [notification delivery](notification-delivery.md)
+for TLS, private credentials, retry/acknowledgement policy and acceptance limits.
+The earlier dashboard-only alert scope is extended by this separately enabled worker.

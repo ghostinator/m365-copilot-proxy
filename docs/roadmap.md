@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.14.0. Source availability and portable
+The current source feature set is version 0.15.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.14.0 npm package. See [the README](../README.md) for current source/setup links.
+0.15.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -172,17 +172,18 @@ with rollback remain separate work. A stopped proxy is started from the host CLI
 - [x] Scrape exclusion, explicit unavailable history, restart counter semantics and setup guide.
 - [ ] Measured historical growth series, backup/alert/log footprint inventory and low-capacity alerts.
 
-## 14. Notification delivery — queued next
+## 14. Notification delivery (0.15.0)
 
 See [provider scope and delivery design](notification-delivery.md). Current alerts
-are dashboard-only; no real notification has been configured or sent.
+support optional configured SMTP/webhook delivery; only local fake receivers were used in validation. No production destination has been configured or sent to.
 
-- [ ] Multiple named destinations, per-rule routing, preview and explicit send-test.
-- [ ] SMTP and generic HTTP webhook transports.
-- [ ] Teams Workflows and Slack webhook payload adapters.
+- [x] Multiple named destinations, per-rule routing, preview and explicit send-test.
+- [x] SMTP and generic HTTP webhook transports.
+- [x] Teams Workflows and Slack webhook payload adapters.
 - [ ] Postal HTTP API and SendGrid v3 email adapters.
 - [ ] Twilio SMS/WhatsApp destinations, independently enabled.
 - [ ] ntfy push; evaluate Gotify, Discord, Telegram, Pushover and PagerDuty as needed.
-- [ ] Durable queue, bounded retry/backoff, deduplication and delivery/error history.
-- [ ] Private credential management and combined operational-state backups.
+- [x] Durable queue, bounded retry/backoff, deduplication and delivery/error history.
+- [x] Private credential configuration with metadata-only views and no read-back.
+- [ ] Combined operational-state backups/encryption.
 - [ ] Alertmanager setup/examples and external whole-process outage detection.

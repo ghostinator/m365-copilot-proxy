@@ -1,6 +1,6 @@
 {
   "name": "@m365-copilot/proxy",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -15,6 +15,7 @@
     "api-keys.md",
     "history-management.md",
     "observability.md",
+    "notification-delivery.md",
     "LICENSE"
   ],
   "scripts": {

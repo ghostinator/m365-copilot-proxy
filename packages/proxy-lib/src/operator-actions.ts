@@ -1,6 +1,7 @@
 import { diagnosticText } from "./error-diagnostics.js";
 import { activityQuery } from "./activity-schema.js";
 import { alertSettings } from "./alert-store.js";
+import { notificationDestination } from "./notification-schema.js";
 import { historyDownloads } from "./history-export.js";
 import { z } from "zod/v4";
 import { operatorAccess, type OperatorAccess } from "./operator-access.js";
@@ -12,6 +13,12 @@ import type { HttpActivity } from "./http-activity.js";
 const historyLog = createLogger("operator-history");
 const command = z.discriminatedUnion("action", [
   z.object({ action: z.literal("unlock") }).strict(),
+  z.object({ action: z.literal("notifications-status"), offset: z.number().int().min(0).max(10000000).default(0) }).strict(),
+  z.object({ action: z.literal("notifications-save"), id: z.uuid().optional(), destination: notificationDestination }).strict(),
+  z.object({ action: z.literal("notifications-enable"), id: z.uuid(), enabled: z.boolean() }).strict(),
+  z.object({ action: z.literal("notifications-remove"), id: z.uuid(), confirm: z.literal(true) }).strict(),
+  z.object({ action: z.literal("notifications-preview"), id: z.uuid() }).strict(),
+  z.object({ action: z.literal("notifications-test"), id: z.uuid(), confirm: z.literal(true) }).strict(),
   z.object({ action: z.literal("alerts-configure"), settings: alertSettings }).strict(),
   z.object({ action: z.literal("alerts-acknowledge"), id: z.uuid() }).strict(),
   z.object({ action: z.literal("alerts-history"), offset: z.number().int().min(0).max(10000000).default(0) }).strict(),
@@ -40,6 +47,12 @@ export async function operatorAction(req: Request, activity: HttpActivity, acces
     if (value.action === "backup-create") return Response.json(await activity.sources.backupStore().create(), { status: 201, headers });
     if (value.action === "backup-verify") return Response.json(await activity.sources.backupStore().restore(value.id), { headers });
     if (value.action === "unlock") return Response.json({ unlocked: true }, { headers });
+    if (value.action === "notifications-status") return Response.json(activity.sources.alerts.notifications.snapshot(value.offset), { headers });
+    if (value.action === "notifications-save") return Response.json(activity.sources.alerts.notifications.save(value.destination, value.id), { headers });
+    if (value.action === "notifications-enable") return Response.json(activity.sources.alerts.notifications.enable(value.id, value.enabled), { headers });
+    if (value.action === "notifications-remove") return Response.json(activity.sources.alerts.notifications.remove(value.id), { headers });
+    if (value.action === "notifications-preview") return Response.json(activity.sources.alerts.notifications.preview(value.id), { headers });
+    if (value.action === "notifications-test") return Response.json(activity.sources.alerts.notifications.test(value.id), { status: 202, headers });
     if (value.action === "alerts-configure") return Response.json(activity.sources.alerts.configure(value.settings), { headers });
     if (value.action === "alerts-acknowledge") return Response.json(activity.sources.alerts.acknowledge(value.id), { headers });
     if (value.action === "alerts-history") return Response.json(activity.sources.alerts.snapshot(value.offset), { headers });
@@ -48,6 +61,7 @@ export async function operatorAction(req: Request, activity: HttpActivity, acces
     if (value.action === "key-revoke") { keys.revoke(value.id); return Response.json({ updated: true }, { headers }); }
     return Response.json(await serviceCommand(value.action, activity), { status: value.action === "restart" ? 202 : 200, headers });
   } catch (error) {
+    if (value.action.startsWith("notifications-")) return Response.json({ error: { type: "notification_operation_failed", message: "Notification operation failed. Check the selected destination, complete configuration, enablement, one-minute test cooldown and host storage. Saving or previewing never sends a message." } }, { status: 409, headers });
     if (value.action.startsWith("backup-") || value.action === "export-create") {
       historyLog.error(diagnosticText(error instanceof Error ? error.message : "History operation failed"));
       const message = value.action === "backup-verify" ? "Backup verification failed. It may be missing, incomplete, corrupt or unsupported. Nothing was restored."

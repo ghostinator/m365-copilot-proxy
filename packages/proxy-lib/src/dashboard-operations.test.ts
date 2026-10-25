@@ -51,3 +51,16 @@ it("renders alert evidence as text, preserves draft settings, and locks acknowle
   expect(el("alert-incidents").children).toHaveLength(0);
   expect(el("alert-events").children).toHaveLength(0);
 });
+
+it("clears notification credentials and ignores late configuration responses after locking", async () => {
+  const { el, context, pending } = await dashboard();
+  el("notification-url").value = "https://example.invalid/private-hook"; el("notification-password").value = "private-password";
+  runInContext("operatorToken='grant';operatorExpiry=Date.now()+60000;notificationAction({action:'notifications-status',offset:0})", context);
+  runInContext("lockOperator()", context);
+  pending[1].resolve({ ok: true, json: async () => ({ destinations: [{ id: "late", label: "must-not-restore" }], deliveries: [], total: 0, offset: 0 }) });
+  await new Promise(resolve => setImmediate(resolve));
+  expect(el("notification-url").value).toBe(""); expect(el("notification-password").value).toBe("");
+  expect(el("notification-choice").children).toHaveLength(0); expect(el("notification-controls").disabled).toBe(true);
+  const before = pending.length; el("notification-test").listeners.click(); expect(pending.length).toBe(before);
+  expect(el("notification-message").textContent).toContain("Preview this destination");
+});

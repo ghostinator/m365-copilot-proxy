@@ -74,3 +74,6 @@ packages/proxy/history-management.md
 /alerts.sqlite*
 
 packages/proxy/observability.md
+
+/notifications.sqlite*
+packages/proxy/notification-delivery.md

@@ -3,6 +3,7 @@ import { closeSync, existsSync, mkdirSync, openSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
+import type { EventBatch, NotificationEventRow } from "./notification-store.js";
 
 export const alertSettings = z.object({ enabled: z.boolean(), windowMinutes: z.number().int().min(1).max(60),
   minRequests: z.number().int().min(1).max(10000), minFailures: z.number().int().min(1).max(10000),
@@ -101,6 +102,11 @@ export class AlertStore {
     offset = Math.min(offset, Math.max(0, Math.ceil(total / 20) - 1) * 20);
     return { active: db.prepare("SELECT * FROM incidents ORDER BY opened_ms DESC,id").all(),
       events: db.prepare("SELECT * FROM events ORDER BY seq DESC LIMIT 20 OFFSET ?").all(offset), total, offset, limit: 20 };
+  }
+  deliveryEvents(after: number, limit: number): EventBatch {
+    if (!this.db && (!this.directory || !existsSync(this.path))) return { max: 0, events: [] };
+    const db = this.open(), max = Number(db.prepare("SELECT COALESCE(MAX(seq),0) AS n FROM events").get()!.n);
+    return { max, events: db.prepare("SELECT seq,incident_id,rule,event,at_ms,evidence FROM events WHERE seq>? ORDER BY seq LIMIT ?").all(after, Math.min(50, Math.max(0, limit))) as unknown as NotificationEventRow[] };
   }
   close() { this.db?.close(); this.db = undefined; }
 }

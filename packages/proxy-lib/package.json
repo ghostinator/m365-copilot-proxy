@@ -1,6 +1,6 @@
 {
   "name": "@m365-copilot/proxy-lib",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -20,10 +20,12 @@
   },
   "dependencies": {
     "@m365-copilot/core": "workspace:*",
+    "nodemailer": "^10.2.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@types/nodemailer": "^8.0.2"
   },
   "publishConfig": {
     "access": "public"

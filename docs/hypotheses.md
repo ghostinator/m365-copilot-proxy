@@ -5947,3 +5947,18 @@ runtime validation separately tests file-config enablement, scrape exclusion and
 restart persistence. This validates accounting, not real future storage growth.
 
 Full Windows offline suite after storage/metrics integration: 526 passed, six live tests skipped.
+
+
+### Durable notification delivery — October 25, 2026
+
+H: versioned destinations plus an alert-event cursor and leased outbox can route
+future incidents without replaying old alerts, duplicate queue entries, secret
+read-back or chat-path network I/O. Falsification: save sends a message, enable
+replays old events, restart creates duplicate jobs, stale claim completion overwrites
+a newer lease, acknowledgement fails to cancel queued openings, or metadata exposes
+URLs/tokens/recipients. Offline tests cover restart/retry, fixed IDs, four-attempt
+bounds, permanent failures, rule routing, exclusive leases, replacement/removal,
+operator confirmation and local fake HTTP/SMTP acceptance. Actual provider delivery,
+exactly-once remote acceptance, TLS account setup and forced-stop soak remain unproven.
+
+Full Windows offline suite after notification integration: 538 passed, six live tests skipped.

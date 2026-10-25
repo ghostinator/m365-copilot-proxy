@@ -50,7 +50,9 @@ Incomplete/unreadable entries are reported separately.
 
 **Alert monitoring state is separate:** alerts.sqlite (0.13.0) stores alert settings,
 incidents and events. History backups/restores do not include or roll back that file.
-Combined operational backup remains queued.
+Combined operational backup remains queued. Version 0.15.0 also uses separate
+notifications.sqlite for notification credentials, queue and delivery history;
+activity backups do not contain or restore that file.
 
 Backups include requests, diagnostics, timings, application attribution, model-test
 reports and rollups. They do **not** include Microsoft credentials, API-key stores,

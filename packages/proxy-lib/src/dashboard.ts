@@ -23,6 +23,7 @@ export function operatorStatus(pool: SessionPool, activity: HttpActivity = httpA
     activity: activity.snapshot(),
     sources: activity.sources.snapshot(query),
     alerts: activity.sources.alerts.snapshot(),
+    notifications: activity.sources.alerts.notifications.summary(),
     modelCheck: modelCheckState(),
     models: getAvailableModels(),
     lastRoute: observed.route,

@@ -366,3 +366,21 @@ no scrape-generated history, missing storage, and fixed-label privacy. Installed
 runtime fixtures test metrics disabled by default versus explicit file-based opt-in,
 content type, no scrape counters and enabled state after detached restart. No M365
 chat, production enablement, retention changes or deletion is performed.
+
+
+## Notification delivery foundation (offline, 0.15.0)
+
+```sh
+pnpm build
+pnpm exec vitest run packages/proxy-lib/src/notifications.test.ts packages/proxy-lib/src/dashboard-operations.test.ts
+node scripts/test-operator-runtime.mjs
+```
+
+Engine fixtures use an injected sender, persisted temporary SQLite stores and fake
+clocks to test cursor boundaries, no historical replay, restart, stable IDs, bounded
+retry, acknowledgement, recovery, revision cancellation and leases. Transport tests
+use loopback HTTP and a fake SMTP relay that never forwards email. The installed
+fixture permits HTTP only to its one explicit random-port loopback receiver; all
+Microsoft/outbound HTTP remains blocked. Saves/previews send nothing; one explicitly
+confirmed local test exercises the worker. No production credentials, recipients,
+external Slack/Teams/email messages or M365 model quota are used.

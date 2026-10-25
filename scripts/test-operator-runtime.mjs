@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createServer } from "node:net";
+import { createServer as httpServer } from "node:http";
 import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -13,9 +14,14 @@ const data = mkdtempSync(join(tmpdir(), "m365-operator-runtime-"));
 const reservation = createServer(); await new Promise(r => reservation.listen(0, "127.0.0.1", r));
 const port = reservation.address().port; await new Promise(r => reservation.close(r));
 const base = `http://127.0.0.1:${port}`;
+const receivedNotifications = [];
+const receiver = httpServer(async (req, res) => { let body = ""; for await (const part of req) body += part; receivedNotifications.push(JSON.parse(body)); res.end("ok"); });
+await new Promise(resolve => receiver.listen(0, "127.0.0.1", resolve));
+const notificationUrl = `http://127.0.0.1:${receiver.address().port}/offline-test`;
 writeFileSync(join(data, "server.json"), JSON.stringify({ host: "127.0.0.1", port, metricsEnabled: true }));
 const env = { ...process.env, M365_DATA_DIR: data, M365_CACHE_FILE: join(data, "cache.json"), M365_SECRETS_FILE: join(data, "absent.json"), M365_API_KEY: "", M365_NO_INTERACTIVE: "1", M365_ENABLE_INTERACTIVE_APPROVAL: "0", M365_FORCE_AGENT: "0", M365_SERVICE_RESTARTS: "0" };
 for (const key of ["HOST", "NITRO_HOST", "NITRO_PORT", "PORT", "NODE_PATH", "NITRO_UNIX_SOCKET", "M365_ALLOWED_ORIGINS", "M365_DEBUG", "M365_DUMP_FRAMES", "M365_METRICS"]) delete env[key];
+env.M365_TEST_NOTIFICATION_URL = notificationUrl;
 env.NODE_OPTIONS = `--import=${pathToFileURL(join(root, "scripts/fixtures/chat-loader.mjs")).href}`;
 const command = async (...args) => (await promisify(execFile)(process.execPath, [launcher, ...args], { env, windowsHide: true, timeout: 30_000 })).stdout;
 const child = spawn(process.execPath, [launcher, "serve"], { env, cwd: data, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -65,6 +71,27 @@ try {
   assert.equal(configuredAlerts.status, 200);
   assert.equal((await configuredAlerts.json()).settings.enabled, true);
   assert.equal((await operator({ action: "alerts-configure", settings: { ...alertSettings, webhook: "https://unrequested.invalid" } })).status, 400);
+  const destination = { label: "Offline receiver", config: { type: "webhook", url: notificationUrl, format: "generic", allowHttp: true }, rules: ["failures"], events: ["opened", "resolved"] };
+  const savedDestination = await (await operator({ action: "notifications-save", destination })).json();
+  assert.equal(savedDestination.destinations[0].enabled, false);
+  assert(!JSON.stringify(savedDestination).includes(notificationUrl));
+  const destinationId = savedDestination.destinations[0].id;
+  const preview = await (await operator({ action: "notifications-preview", id: destinationId })).json();
+  assert.match(preview.message.text, /explicitly requested test/); assert.equal(receivedNotifications.length, 0);
+  assert.equal((await operator({ action: "notifications-test", id: destinationId, confirm: true })).status, 409);
+  await operator({ action: "notifications-enable", id: destinationId, enabled: true });
+  assert.equal((await operator({ action: "notifications-test", id: destinationId, confirm: true })).status, 202);
+  for (let i = 0; i < 80 && !receivedNotifications.length; i++) await delay(200);
+  assert.equal(receivedNotifications.length, 1); assert.equal(receivedNotifications[0].event, "test");
+  let deliveryState;
+  for (let i = 0; i < 80; i++) {
+    deliveryState = await (await operator({ action: "notifications-status", offset: 0 })).json();
+    if (deliveryState.deliveries[0]?.status === "sent") break;
+    await delay(100);
+  }
+  assert.equal(deliveryState.deliveries[0].status, "sent");
+  await operator({ action: "notifications-enable", id: destinationId, enabled: false });
+  console.log("PASS: disabled destination save/preview, explicit local-only queued test, private metadata and durable delivery history");
   const jsonJob = await operator({ action: "export-create", format: "json", query: { range: "all", limit: 1, offset: 999 } });
   assert.equal(jsonJob.status, 200); const download = await jsonJob.json();
   assert(download.snapshot.records > 1);
@@ -84,6 +111,9 @@ try {
   assert.equal(after.apiKeys.required, false); assert.equal(after.apiKeys.keys[0].label, "Renamed"); assert(after.apiKeys.keys[0].revokedAt);
   assert.equal(after.alerts.settings.enabled, true, "alert settings survive detached restart");
   assert.equal(after.alerts.running, true);
+  assert.equal(after.notifications.configured, 1);
+  assert.equal(after.notifications.enabled, 0);
+  assert.equal(after.notifications.counts.sent, 1);
   assert.equal(after.metrics.enabled, true);
   assert.equal((await fetch(base + "/v1/proxy/metrics")).status, 200);
   assert.equal((await operator({ action: "alerts-configure", settings: { ...alertSettings, enabled: false } })).status, 200);
@@ -99,6 +129,7 @@ try {
     assert(!existsSync(join(data, "instance.json")), `Temporary runtime did not stop: ${data}`);
   }
   if (child.exitCode === null) child.kill();
+  await new Promise(resolve => receiver.close(resolve));
 }
 
 // Offline restore only after the instance has fully stopped; preserve keys/configuration.
