@@ -60,6 +60,12 @@ try {
   assert.equal(afterScrape.activity.total, beforeScrape.activity.total);
   assert.equal(afterScrape.sources.storage.storedRecords, beforeScrape.sources.storage.storedRecords);
   assert(afterScrape.sources.storage.growth.logicalBytes > 0);
+  const storageResponse=await fetch(base+"/v1/proxy/storage-history?range=7d");assert.equal(storageResponse.status,200);
+  const storageHistory=await storageResponse.json();assert.equal(storageHistory.persistent,true);assert.equal(storageHistory.total,1);assert.equal(storageHistory.points.length,1);
+  assert(storageHistory.points[0].activityBytes>=0);assert.equal(storageHistory.change,null);
+  assert.equal((await fetch(base+"/v1/proxy/storage-history?range=invalid")).status,400);
+  assert.equal((await fetch(base+"/v1/proxy/storage-history",{headers:{origin:"https://foreign.example"}})).status,403);
+  const afterStorage=await(await fetch(base+"/v1/proxy/status")).json();assert.equal(afterStorage.activity.total,afterScrape.activity.total);
   assert.equal(afterScrape.alerts.settings.minFreeMiB, 0);
   assert.deepEqual(afterScrape.alerts.settings.models, []);
   assert.equal(afterScrape.alerts.events.find(e => e.seq === 17)?.incident_id, "legacy-incident");
@@ -189,6 +195,9 @@ try {
   console.log("PASS: scheduled backup opt-in, persisted due time, one verified overdue run across restart and disable without deletion");
   assert.equal(after.alerts.settings.enabled, true, "alert settings survive detached restart");
   assert.equal(after.alerts.running, true);
+  const storedHistory=await(await fetch(base+"/v1/proxy/storage-history?range=all")).json();
+  assert.equal(storedHistory.points[0].at,storageHistory.points[0].at);assert(storedHistory.total<=2);
+  console.log("PASS: automatic hourly storage snapshot, range/origin checks and persistence across installed restart");
   assert.deepEqual(after.alerts.settings.models,alertSettings.models);
   assert.equal(after.alerts.events.find(e => e.seq === 17)?.incident_id,"legacy-incident");
   console.log("PASS: legacy alert-store migration and per-model settings persist across installed restart");

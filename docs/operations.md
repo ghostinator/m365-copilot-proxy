@@ -279,3 +279,18 @@ settings and enable no model rules. See [configuration, privacy and migration](d
 Alert schema upgrades to 2; activity/notification schemas remain unchanged. Before
 downgrading, preserve a stopped-host copy of alerts.sqlite and its sidecars: older
 binaries cannot read the model-scoped alert store. Activity backups exclude it.
+
+
+## Measured storage history (0.23.0)
+
+Overview → Measured storage history charts actual activity/operations/backups/log
+file lengths. Automatic local hourly snapshots start after authentication, persist
+across restart in private storage-history.sqlite, and continue with the dashboard
+closed. No model calls or automatic deletion. The chart has 24h/7d/30d/90d/365d/all
+ranges, bounded last-per-bucket points and a measurement table. Partial scans and
+missing hours are explicit; measured change uses complete endpoints and may be
+negative. Older sizes cannot be backfilled. See [collection and query scope](observability.md#measured-storage-history-0230).
+
+The read-only /v1/proxy/storage-history endpoint uses the existing optional-key/origin
+policy and does not count as application traffic. Activity backups do not include
+this operational database. No existing settings or alerts are enabled by this change.

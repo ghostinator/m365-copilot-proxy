@@ -1,3 +1,4 @@
+import { StorageHistory } from "./storage-history.js";
 import { filesystemCapacity } from "./storage-footprint.js";
 import { BackupScheduler } from "./backup-scheduler.js";
 import { HistoryCursor } from "./history-export.js";
@@ -23,7 +24,9 @@ export class RequestSources {
   private notSaved = 0;
   readonly alerts: AlertMonitor;
   readonly backups: BackupScheduler;
+  readonly storageHistory: StorageHistory;
   constructor(private directory?: string) {
+    this.storageHistory = new StorageHistory(directory);
     this.backups = new BackupScheduler(directory, () => this.backupStore().create());
     this.alerts = new AlertMonitor(directory, (settings, now) => {
       this.flush();
@@ -100,5 +103,5 @@ export class RequestSources {
     this.flush(); if (!this.directory || this.closed || this.pending.length) throw new Error("A writable persistent history database is required");
     this.open(); return new HistoryBackups(this.directory);
   }
-  close() { void this.backups.close(); this.alerts.close(); this.flush(); this.closed = true; this.database?.close(); this.database = undefined; }
+  close() { this.storageHistory.close(); void this.backups.close(); this.alerts.close(); this.flush(); this.closed = true; this.database?.close(); this.database = undefined; }
 }

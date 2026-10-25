@@ -6102,3 +6102,23 @@ fixture used an unadvertised model name, intentionally anonymized as custom by t
 activity logger; using advertised claude-sonnet exercised the actual stored route
 and passed. No logger privacy behavior was changed. Model rules remain empty on
 production upgrade. Reference: docs/dashboard-operations.md, Per-model alert rules.
+
+
+### Measured storage time series — October 25, 2026
+
+H: one persisted numeric snapshot per UTC hour can reveal actual operational file
+size changes without model quota, dashboard dependence, historical fabrication or
+unbounded chart responses. Falsification: a same-hour restart duplicates a row,
+clock rollback writes older samples, partial scans produce a complete trend delta,
+future/out-of-window samples leak into results, reads create samples, or long ranges
+return more than 240 chart points. Probes: storage-history.test.ts (seven cases),
+two chart/race cases in dashboard-operations.test.ts, and installed-runtime collection
+plus persistence checks in test-operator-runtime.mjs.
+
+Result: all 598 Windows offline tests passed; six live M365 tests skipped. Hourly
+deduplication, background timer cleanup, restart/gap/clock behavior, complete-endpoint
+negative changes, unknown capacity, unsupported stores, exact partial-hour range
+bounds, 2,001-row query downsampling, API policy, chart gaps and late-response
+clearing passed. All original rows remain. Reference scope and limitations promoted
+to docs/observability.md, Measured storage history. No backfilled production series,
+model probes, external notification sends or retention limits were introduced.

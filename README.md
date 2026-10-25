@@ -4,7 +4,7 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.22.0)
+## Dashboard and operations (0.23.0)
 
 New: export **all matching history** as streamed JSON/CSV, create verified online
 SQLite backups, and prepare an explicit offline restore with a safety snapshot.
@@ -881,3 +881,13 @@ rules. See [setup, scope and migration details](docs/dashboard-operations.md#per
 > **Screenshot to add — model alerts:** Capture Settings → Opt-in alerts → Per-model
 > alerts with an example row; capture Errors → Alert center with model-scoped incidents.
 > Use synthetic data and omit credentials.
+
+
+**Measured storage history (0.23.0):** Overview charts hourly activity/operations,
+backup and log file sizes with selectable ranges and a measurement table. Samples
+persist indefinitely and collect with the dashboard closed. Partial scans and gaps
+are explicit; older sizes cannot be reconstructed. See [storage history details](docs/observability.md#measured-storage-history-0230).
+
+> **Screenshot to add — measured storage:** Capture Overview → Measured storage history
+> after at least two complete readings, with the range selector, legend, measured change
+> and expanded measurement table. Use synthetic data if sharing publicly.

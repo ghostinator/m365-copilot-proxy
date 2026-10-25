@@ -1,3 +1,5 @@
+export { storageHistoryResponse } from "./storage-history-response.js";
+import { storageHistoryResponse } from "./storage-history-response.js";
 export { HistoryBackups, historyBackups } from "./history-backups.js";
 export { historyDownloads } from "./history-export.js";
 import { historyDownloads } from "./history-export.js";
@@ -112,6 +114,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
   const activity = new HttpActivity();
   activity.sources.alerts.start();
   activity.sources.backups.start();
+  activity.sources.storageHistory.start();
 
   async function fetch(req: Request, trace?: RequestTrace | null): Promise<Response> {
     const { pathname } = new URL(req.url);
@@ -131,6 +134,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
     }
 
     if (method === "GET") {
+      if (pathname === "/v1/proxy/storage-history") return withCors(storageHistoryResponse(req, activity), req);
       if (pathname === "/v1/proxy/metrics") return withCors(metricsResponse(activity), req);
       const dashboard = dashboardResponse(pathname);
       if (dashboard) return dashboard;

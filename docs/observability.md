@@ -70,6 +70,54 @@ an invented recovery. Capacity checking makes no M365 calls. Monitoring still de
 on the proxy and alert database being available: it cannot guarantee delivery after
 the disk is already full. Keep the threshold above zero with enough headroom if used.
 
+## Measured storage history (0.23.0)
+
+Overview → **Measured storage history** adds a category chart and a table of the
+latest 24 chart measurements. Choose 24 hours, 7/30/90/365 days or all time; this
+range is independent of model/client/request filters. The page refreshes history
+at most once a minute, with explicit Refresh available. API:
+`GET /v1/proxy/storage-history?range=7d`, under the existing optional application-key
+and origin policy. History reads do not count as application traffic or trigger scans.
+Invalid or duplicate query parameters return 400; unavailable history returns 503
+with a fixed diagnostic. The status API includes a compact `storageHistory` summary.
+
+The standalone proxy automatically collects one numeric-only snapshot per **UTC
+hour** after successful startup authentication, including an initial reading. It
+continues with the dashboard closed and checks for a new hour once a minute. The
+private **storage-history.sqlite** (schema 1) stores timestamp/hour, activity,
+operations, backup and log file lengths, available/capacity bytes (nullable), and a
+complete/partial flag. No filenames, paths, credentials, request/client/model IDs or
+conversation content are stored. Retention is unlimited; there is no automatic deletion.
+The collector does not query M365, attempt sign-in, create backups or change alerts.
+In-memory embedded apps do not collect persistent history.
+
+All hourly rows remain saved. For larger ranges, the read-only chart query returns
+at most **240 points**, taking the last recorded reading in each fixed hour bucket;
+this is not an average, maximum or deletion of earlier readings. The response reports
+bucket width, total hourly readings and complete readings in the selected range.
+The details table shows the latest 24 of those chart points, including partial rows.
+The chart plots category/total lengths, not free space (shown in the table/current
+capacity display). Single readings appear as dots. Lines break on partial readings
+and gaps longer than one chart bucket. Long-range bucketing cannot show every gap
+inside a bucket. The API retains each returned point's actual timestamp and quality.
+
+Measured change compares the **first and last complete hourly readings** in the
+range before chart downsampling. It can be negative: WAL checkpoints, external log
+rotation/deletion and backup changes alter physical file lengths. It is neither the
+logical-density forecast nor a filesystem exhaustion prediction. Scope and partial
+scan limits match the footprint inventory above; a partial value is a lower bound
+and never used as a complete trend measurement. Available/capacity bytes remain
+unknown when the OS cannot report them. This store itself counts toward operations
+storage; writes can influence the next sample.
+
+Old measurements cannot be reconstructed: collection starts with 0.23.0, shutdown
+periods stay missing and restart does not backfill them or duplicate the same hour.
+Clock rollback does not write older slots and future-dated points are excluded from
+range results. Unsupported/corrupt stores are preserved and reported unavailable,
+never silently replaced. Collection errors are isolated from serving chats. Samples
+are recorded only while running; this is not process-outage monitoring. Activity
+backups exclude this database, as they exclude other operational stores.
+
 ## Enable optional metrics
 
 Disabled by default. Add a Boolean property to the existing `server.json`, preserving
@@ -141,5 +189,5 @@ activity-file size metric; filesystem free space includes all users of the volum
 ## Screenshots
 
 Placeholder: capture Overview → Storage planning with the file-category breakdown, sample coverage, logical size,
-filesystem availability and estimated growth visible. Capture Settings → Prometheus
+filesystem availability and estimated growth visible. Add a capture of Measured storage history after at least two complete readings, with the selected time range and details table visible. Capture Settings → Prometheus
 metrics showing enabled/disabled status. Use synthetic data; never include tokens.

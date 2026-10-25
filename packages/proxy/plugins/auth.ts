@@ -14,7 +14,7 @@ export default defineNitroPlugin((app) => {
   httpActivity.sources.alerts.start();
   // Nitro 2 does not await async plugins. Own the rejection and fail the process;
   // readiness remains 503 until getToken has completed successfully.
-  void getToken().then(() => httpActivity.sources.backups.start()).catch((err: Error) => {
+  void getToken().then(() => { httpActivity.sources.backups.start(); httpActivity.sources.storageHistory.start(); }).catch((err: Error) => {
     createLogger("startup").error(`Authentication failed: ${err.message}. Run m365-proxy login, then restart.`);
     pool.close();
     process.exit(78); // configuration/auth recovery needs a human, not rapid retries
@@ -22,7 +22,7 @@ export default defineNitroPlugin((app) => {
   // Keep readiness valid across idle token expiry, without generating chat turns
   // or repeatedly launching a browser when a tenant requires human reapproval.
   const stopMaintenance = startAuthenticationMaintenance();
-  app.hooks.hook("close", async () => { await httpActivity.sources.backups.close(); stopMaintenance(); httpActivity.sources.alerts.close(); pool.close(); httpActivity.sources.flush(); });
+  app.hooks.hook("close", async () => { httpActivity.sources.storageHistory.close(); await httpActivity.sources.backups.close(); stopMaintenance(); httpActivity.sources.alerts.close(); pool.close(); httpActivity.sources.flush(); });
   // Late HTTP finish/close events can still arrive while Nitro drains sockets.
   // Keep collecting until the process exits, then synchronously flush and close.
   process.once("exit", () => httpActivity.sources.close());

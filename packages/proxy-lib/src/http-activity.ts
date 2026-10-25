@@ -40,7 +40,7 @@ export interface RequestTrace {
   result(status: number): void;
   output(bytes: number): void;
 }
-const ignored = new Set(["/dashboard", "/dashboard-script", "/v1/proxy/status", "/v1/proxy/checks", "/v1/proxy/metrics", "/favicon.ico"]);
+const ignored = new Set(["/dashboard", "/dashboard-script", "/v1/proxy/status", "/v1/proxy/checks", "/v1/proxy/metrics", "/v1/proxy/storage-history", "/favicon.ico"]);
 const endpoints: Record<string, Kind> = { "/v1/models": "models", "/v1/chat/completions": "chat", "/health": "health", "/health/live": "health", "/health/ready": "health", "/v1/proxy/model-check": "other", "/v1/responses": "other", "/v1/messages": "other", "/messages": "other" };
 
 /** Bounded metadata only. No prompts, answers, headers, keys or query strings. */

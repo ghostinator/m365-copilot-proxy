@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import { dashboardResponse } from "./dashboard.js";
 async function dashboard() {
   const elements = new Map<string, any>(), blobs: Blob[] = [];
-  const node = () => ({ textContent: "", value: "", hidden: false, disabled: false, children: [] as any[], dataset: {}, style: {}, listeners: {} as Record<string, Function>, setAttribute() {}, querySelectorAll: () => [], addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(...children: any[]) { this.children.push(...children); }, click() {}, focus() {} });
+  const node = () => ({ textContent: "", value: "", hidden: false, disabled: false, children: [] as any[], dataset: {}, style: {}, listeners: {} as Record<string, Function>, attributes: {} as Record<string,string>, setAttribute(name: string,value: string) {this.attributes[name]=value}, querySelectorAll: () => [], addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(...children: any[]) { this.children.push(...children); }, click() {}, focus() {} });
   const el = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
   const pending: { resolve: (value: any) => void; url: string }[] = [];
   const context = createContext({ document: { getElementById: el, createElement: node }, fetch: (url: string) => new Promise(resolve => pending.push({ resolve, url })), AbortController, AbortSignal, URLSearchParams, Blob, URL: { createObjectURL(blob: Blob) { blobs.push(blob); return "blob:synthetic"; }, revokeObjectURL() {} }, setInterval: () => 0, clearTimeout: () => {}, setTimeout: () => 0 });
@@ -159,4 +159,24 @@ it("edits per-model thresholds without polling overwrites and saves exact model 
  expect(saved.settings.models).toEqual([{model:'claude-sonnet',failures:true,throttling:true,minRequests:20,minFailures:5,failurePercent:50}]);
  runInContext("modelAlertRows[0].remove.listeners.click()",context);expect(runInContext('readModelAlertRules().length',context)).toBe(0);
  runInContext("lockOperator()",context);el('alerts-model-add').listeners.click();expect(runInContext('readModelAlertRules().length',context)).toBe(0);
+});
+
+
+it("charts only complete storage points, breaks gaps, and shows signed measured change", async () => {
+ const {el,context}=await dashboard();const h=3600000;
+ const point=(hour: number,complete=true)=>({hour,at:hour*h,activityBytes:10,operationsBytes:20,backupsBytes:30,logsBytes:40,totalBytes:100,freeBytes:null,complete});
+ const data={available:true,from:0,to:6*h,bucketHours:1,totalInRange:5,completeInRange:4,change:{bytes:-50,from:0,to:6*h},points:[point(0),point(1),point(2,false),point(3),point(6)]};
+ runInContext('renderStorageTrend('+JSON.stringify(data)+')',context);
+ const path=el('storage-line-totalBytes').attributes.d;expect(path.match(/M/g)).toHaveLength(3);expect(path.match(/L/g)).toHaveLength(1);
+ expect(el('storage-history-change').textContent).toContain('−');expect(el('storage-history-rows').children).toHaveLength(5);
+ expect(el('storage-history-rows').children[2].children.at(-1).textContent).toContain('Partial');
+ runInContext('clearStorageTrend()',context);expect(el('storage-line-totalBytes').attributes.d).toBe('');expect(el('storage-history-rows').children).toHaveLength(0);
+});
+
+it("ignores late storage history responses after changing range or clearing authentication", async () => {
+ const {el,context,pending}=await dashboard();el('storage-history-range').value='24h';runInContext('loadStorageTrend(true)',context);
+ el('storage-history-range').value='7d';runInContext('loadStorageTrend(true)',context);
+ pending[1].resolve({ok:true,json:async()=>({available:true,totalInRange:999,completeInRange:0,points:[],bucketHours:1})});await new Promise(r=>setImmediate(r));
+ expect(el('storage-history-status').textContent).not.toContain('999');
+ runInContext('clearStorageTrend()',context);pending[2].resolve({ok:true,json:async()=>({available:true,totalInRange:123,completeInRange:0,points:[],bucketHours:1})});await new Promise(r=>setImmediate(r));expect(el('storage-history-status').textContent).not.toContain('123');
 });
