@@ -247,14 +247,15 @@ export async function handleChatCompletion(
   opts = { ...opts, signal: AbortSignal.any([...(opts.signal ? [opts.signal] : []), pool.shutdown.signal, cancellation.signal]) };
   let release: () => void;
   try { release = await pool.acquire(opts.signal); }
-  catch (error: any) { opts.activity?.result(opts.signal?.aborted ? 499 : 503); return jsonResponse(opts.signal?.aborted ? 499 : 503, { error: { message: error.message, type: "proxy_busy" } }); }
+  catch (error: any) { opts.activity?.diagnostic("proxy_busy", error.message, error.stack); opts.activity?.result(opts.signal?.aborted ? 499 : 503); return jsonResponse(opts.signal?.aborted ? 499 : 503, { error: { message: error.message, type: "proxy_busy" } }); }
   opts.activity?.admitted();
   let streaming = false;
   try {
     const response = await handleLocked(body, pool, { ...opts, ownStream: () => { streaming = true; }, release, cancel: () => cancellation.abort() });
-    if (!streaming) opts.activity?.result(response.status);
+    if (!streaming) { opts.activity?.result(response.status); if (response.status >= 400) opts.activity?.errorBody(await response.clone().text()); }
     return response;
   } catch (error) {
+    opts.activity?.diagnostic("unhandled_error", error instanceof Error ? error.message : "Unhandled request failure", error instanceof Error ? error.stack : undefined);
     opts.activity?.result(opts.signal?.aborted ? 499 : 500);
     throw error;
   } finally { if (!streaming) release(); }
@@ -429,6 +430,7 @@ async function handleLocked(
       } catch (err: any) {
         if (!(err instanceof TurnBudgetHold)) opts.activity?.upstreamFailed();
         if (err instanceof TurnBudgetHold) return { error: turnBudgetHoldResponse(err) };
+        opts.activity?.diagnostic("upstream_error", err.message, err.stack);
         return { error: jsonResponse(502, { error: { message: err.message, type: "upstream_error" } }) };
       }
 
@@ -456,6 +458,7 @@ async function handleLocked(
         }
       } catch (err: any) {
         opts.activity?.upstreamFailed();
+        opts.activity?.diagnostic("upstream_error", err.message, err.stack);
         return { error: jsonResponse(502, { error: { message: err.message, type: "upstream_error" } }) };
       }
 
@@ -916,7 +919,7 @@ async function handleLocked(
 
       let p: Produced;
       try { p = await produce(liveDelta); }
-      catch (err: any) { p = { kind: "error", resp: jsonResponse(502, { error: { message: err?.message ?? "stream error", type: "upstream_error" } }) }; }
+      catch (err: any) { opts.activity?.diagnostic("upstream_error", err?.message ?? "Stream error", err?.stack); p = { kind: "error", resp: jsonResponse(502, { error: { message: err?.message ?? "stream error", type: "upstream_error" } }) }; }
       opts.activity?.result(opts.signal?.aborted ? 499 : p.kind === "error" ? p.resp.status : 200);
       if (p.kind !== "error") pool.acknowledge(conv, body.messages, p.kind === "tools" ? { role: "assistant", content: null, tool_calls: p.toolCalls } : { role: "assistant", content: p.text });
       clearInterval(hb);
@@ -935,6 +938,7 @@ async function handleLocked(
             if (parsed?.type) type = parsed.type;
             if (parsed?.code) code = parsed.code;
           } catch {}
+          opts.activity?.diagnostic(type, message, undefined, code);
           const retryAfter = p.resp.headers.get("Retry-After");
           // HTTP 200 is already committed, so surface the failure as an in-stream error chunk.
           send({ ...base, error: { message, type, ...(code ? { code } : {}), ...(retryAfter ? { retry_after: Number(retryAfter) } : {}) } });

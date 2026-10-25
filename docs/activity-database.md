@@ -51,3 +51,11 @@ The WAL and checkpoint design follows [SQLite's documentation](https://www.sqlit
 checks with an offline fake backend. `node scripts/activity-db-bench.mjs` creates
 10,000 synthetic requests in temporary storage and reports measured file/query
 costs without signing in or contacting Microsoft.
+
+## Error history (0.6.1)
+
+Schema version 2 adds a sparse `request_errors` table keyed by the existing binary request UUID and a partial time index for failed/cancelled requests. Existing request rows and rollups remain unchanged. The migration is additive and idempotent; earlier failures remain queryable with an explicit missing-detail indication.
+
+Each new failure stores a bounded, redacted error type, message (12,000 characters), optional upstream code and stack (16,000 characters), failure phase, queue/first-byte timings, and upstream attempt/failure counts. HTTP and application statuses, requested/served model, client IP/software, bytes and duration join from the request row. SSE application errors are retained even when HTTP status is 200. Client disconnects are included. Normal response bodies are never collected; native HTTP error response capture is capped at 16 KiB. Validation diagnostics include issue paths/codes rather than submitted values. Authorization strings, common secret assignments, JWTs, API keys and URL credentials/queries are redacted on a best-effort basis.
+
+The Recent errors panel reads persisted failures independently of internal logger summaries, with 20/50/100-row paging (`errorOffset`, `errorLimit`) and the selected range, client and model filters. Internal operational summaries remain separately available. Failures occurring entirely inside a client, before reaching this proxy, cannot be observed here. Unknown request paths remain masked; supported protocol routes are retained.

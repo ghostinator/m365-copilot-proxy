@@ -152,7 +152,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
 
   return { async fetch(req, connection) {
     const finish = activity.begin(req.method.toUpperCase(), new URL(req.url).pathname, (req.headers.get("x-m365-check") === "1" || new URL(req.url).pathname === "/v1/proxy/model-check"), connection?.remoteAddress, req.headers.get("user-agent") ?? undefined);
-    try { const response = trackHttpResponse(await fetch(req, finish), finish); response.headers.set("X-M365-Proxy-Instance", activity.instance.id); response.headers.set("X-M365-Proxy-Version", activity.instance.version); return response; }
+    try { const raw = await fetch(req, finish); if (raw.status >= 400) finish?.errorBody(await raw.clone().text()); const response = trackHttpResponse(raw, finish); response.headers.set("X-M365-Proxy-Instance", activity.instance.id); response.headers.set("X-M365-Proxy-Version", activity.instance.version); return response; }
     catch (error) { finish?.(500); throw error; }
   }, close: () => { pool.close(); activity.sources.close(); } };
 }

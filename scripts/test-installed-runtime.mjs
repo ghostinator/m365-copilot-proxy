@@ -137,6 +137,18 @@ async function start(authenticated, extra = {}) {
     assert.equal(history.sources.storage.engine, "SQLite");
     assert.equal(history.sources.storage.retention, "unlimited");
     assert.equal(history.sources.recent.length, 1);
+    assert(history.sources.errorHistory.total >= 2, "validation failures must appear without internal logger errors");
+    const invalid = history.sources.errors.find(event => event.status === 400);
+    assert.equal(invalid.diagnostic.type, "invalid_request_error");
+    assert.match(invalid.diagnostic.message, /Malformed JSON/);
+    assert(history.sources.errors.some(event => event.status === 413 && /size limit/.test(event.diagnostic.message)));
+    if (mode === "throttled") {
+      const streamError = history.sources.errors.find(event => event.status === 200 && event.applicationStatus === 429);
+      assert(streamError, "HTTP-200 SSE errors must be saved in Recent errors");
+      assert.equal(streamError.diagnostic.type, "rate_limit_error");
+      assert.match(streamError.diagnostic.message, /throttl/i);
+      assert(streamError.upstreamAttempts > 0);
+    }
     assert.equal((await fetch(base + "/v1/proxy/status?range=invalid", { headers })).status, 400);
     if (mode === "success" && !extra.M365_API_KEY) {
       assert.equal(history.sources.modelChecks.length, 0, "status polling must never run a model check");

@@ -5799,3 +5799,7 @@ and rollups (337.92 bytes/row), 1.25 s ingest, 2.06 ms all-time query and 6.35 m
 `node scripts/activity-db-bench.mjs`. Model self-reports remain unverified, and no
 live identity conclusion comes from fixtures. Reference: operations.md and
 activity-database.md. No model sweep is automatically run on deployment.
+
+### 2026-10-25: HTTP failures absent from dashboard error panel
+
+Hypothesis: Recent errors reads only core ERROR logger summaries, while HTTP 4xx and SSE application failures are counted through separate request instrumentation. Prediction: malformed JSON/unsupported endpoints increment failures without a logger entry. Offline Fetch and packaged Nitro probes reproduce this. Fix: sparse persistent error details plus status/source/model-filtered paging, including existing failed rows. Four targeted unit tests cover restart, v1 migration, HTTP-200/application-429, redaction and HTTP validation. No Microsoft model probe is required or run for this instrumentation change. See `activity-database.md` for the schema and diagnostic limits.

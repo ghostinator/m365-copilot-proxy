@@ -2,11 +2,14 @@ import { randomUUID } from "node:crypto";
 import { CONFIG_DIR, getAvailableModels } from "@m365-copilot/core";
 import { RequestSources, sourceAddress } from "./request-sources.js";
 import { clientSoftware } from "./activity-schema.js";
+import { diagnosticText, errorPayload } from "./error-diagnostics.js";
+import { STATUS_CODES } from "node:http";
 import packageInfo from "../package.json" with { type: "json" };
 
 type Kind = "models" | "chat" | "health" | "other";
 type Phase = "received" | "queued" | "preparing" | "upstream" | "streaming" | "completed" | "failed" | "cancelled";
 export interface ActivityEvent {
+  diagnostic: { type: string; message: string; code?: string; stack?: string; phase: string } | null;
   clientAddress: string;
   clientSoftware: string;
   id: string; method: string; endpoint: string; source: "application" | "self-check";
@@ -19,6 +22,8 @@ export interface ActivityEvent {
 export interface RequestTrace {
   (status: number): void;
   id: string;
+  diagnostic(type: string, message: string, stack?: string, code?: string): void;
+  errorBody(text: string): void;
   route(): string | null;
   chat(model: string, streamed: boolean): void;
   phase(value: Phase): void;
@@ -49,7 +54,7 @@ export class HttpActivity {
     const known = Object.hasOwn(endpoints, pathname);
     const kind = known ? endpoints[pathname] : "other";
     selfCheck = selfCheck && ((method === "GET" && (kind === "models" || kind === "health")) || (method === "POST" && pathname === "/v1/proxy/model-check"));
-    const event: ActivityEvent = { clientSoftware: clientSoftware(userAgent), clientAddress: sourceAddress(remoteAddress), id: randomUUID(), method: /^(GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE)$/.test(method) ? method : "OTHER", endpoint: known ? pathname : "(other endpoint)", source: selfCheck ? "self-check" : "application", receivedAt: new Date(started).toISOString(), status: null, durationMs: null, phase: "received", outcome: "pending", model: null, servedModel: null, streamed: null, applicationStatus: null, responseBytes: 0, firstByteMs: null, queueMs: null, upstreamAttempts: 0, upstreamFailures: 0 };
+    const event: ActivityEvent = { diagnostic: null, clientSoftware: clientSoftware(userAgent), clientAddress: sourceAddress(remoteAddress), id: randomUUID(), method: /^(GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE)$/.test(method) ? method : "OTHER", endpoint: known ? pathname : "(other endpoint)", source: selfCheck ? "self-check" : "application", receivedAt: new Date(started).toISOString(), status: null, durationMs: null, phase: "received", outcome: "pending", model: null, servedModel: null, streamed: null, applicationStatus: null, responseBytes: 0, firstByteMs: null, queueMs: null, upstreamAttempts: 0, upstreamFailures: 0 };
     this.total++; if (selfCheck) this.selfChecks++;
     this.categories[kind]++;
     this.recent.push(event);
@@ -71,12 +76,16 @@ export class HttpActivity {
       const result = event.status >= 400 ? event.status : event.applicationStatus ?? event.status;
       finishChat(result);
       event.outcome = result === 499 ? "cancelled" : result >= 400 ? "error" : "success";
+      if (result === 404) event.diagnostic = { type: "unsupported_endpoint", message: "No route matches this endpoint and method. Supported chat endpoint: POST /v1/chat/completions. Responses and Anthropic Messages APIs are not implemented.", phase: event.phase };
+      if (event.outcome !== "success" && !event.diagnostic) event.diagnostic = { type: result === 499 ? "client_disconnected" : "http_error", message: result === 499 ? "Client connection closed before the response completed. Check client timeout and network connectivity." : result === 404 ? "No route matches this endpoint and method. Supported chat endpoint: POST /v1/chat/completions. Responses and Anthropic Messages APIs are not implemented." : `${STATUS_CODES[result] ?? "Request failed"} (status ${result}). No additional error payload was supplied.`, phase: event.phase };
       event.phase = event.outcome === "cancelled" ? "cancelled" : event.outcome === "error" ? "failed" : "completed";
       this.completed++; if (event.outcome !== "success") this.failed++;
       this.sources.record(event);
     };
     return Object.assign(finish, {
       id: event.id,
+      diagnostic: (type: string, message: string, stack?: string, code?: string) => { if (finished) return; event.diagnostic = { type: diagnosticText(type, 200), message: diagnosticText(message), ...((stack ?? event.diagnostic?.stack) ? { stack: diagnosticText(stack ?? event.diagnostic?.stack, 16000) } : {}), ...(code ? { code: diagnosticText(code, 200) } : {}), phase: event.phase }; },
+      errorBody: (text: string) => { if (finished || event.diagnostic) return; const error = errorPayload(text); if (error) event.diagnostic = { type: diagnosticText(error.type,200), message: diagnosticText(error.message), ...(error.code ? { code: diagnosticText(error.code,200) } : {}), phase: event.phase }; },
       route: () => event.servedModel,
       chat: (model: string, streamed: boolean) => { if (finished || validated) return; validated = true; event.model = knownModel(model); event.streamed = streamed; this.chat.validated++; if (streamed) this.chat.streamed++; else this.chat.nonStreamed++; },
       phase: (value: Phase) => { if (finished) return; event.phase = value; if (value === "queued") queuedAt = Date.now(); },
@@ -106,7 +115,7 @@ export function trackHttpResponse(response: Response, finish: RequestTrace | nul
         const next = await reader.read();
         if (next.done) { finish(response.status); controller.close(); }
         else { finish.output(next.value.byteLength); controller.enqueue(next.value); }
-      } catch (error) { finish(502); controller.error(error); }
+      } catch (error) { finish.diagnostic("response_stream_error", error instanceof Error ? error.message : "Response stream failed", error instanceof Error ? error.stack : undefined); finish(502); controller.error(error); }
     },
     async cancel(reason) { finish(499); await reader.cancel(reason); },
   }), { status: response.status, statusText: response.statusText, headers: response.headers });

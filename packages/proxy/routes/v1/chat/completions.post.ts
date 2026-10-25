@@ -6,6 +6,8 @@ export default defineEventHandler(async (event) => {
   try {
     body = ChatCompletionRequest.parse(await readJsonBody(getRequestWebStream(event), getHeader(event, "content-length")));
   } catch (err: any) {
+    const issues = Array.isArray(err.issues) ? err.issues.map((issue: any) => `${issue.path.filter((part: unknown) => typeof part === "number" || ["messages","model","role","content","stream","tools","type","function","name","parameters","tool_calls","tool_call_id"].includes(String(part))).join(".")}: ${issue.code}`).join("; ") : /size limit|deadline|aborted/i.test(err.message) ? err.message : "Malformed JSON request body";
+    event.context.proxyActivity?.diagnostic("invalid_request_error", issues);
     return new Response(
       JSON.stringify({ error: { message: err.message, type: "invalid_request_error" } }),
       // A size/deadline rejection may leave unread request bytes. Do not reuse

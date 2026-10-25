@@ -54,7 +54,7 @@ export class RequestSources {
       const database = this.open();
       return { ...database.snapshot(query, now), ...status, error: this.error ?? database.migrationWarning };
     } catch {
-      return { ...status, error: this.error ?? "Activity database could not be opened or read.", startedAt: null, systems: [], recent: [], labels: {}, modelActivity: [], modelChecks: [], range: query.range, from: null, to: new Date(now).toISOString(), summary: { total: 0, applicationRequests: 0, selfChecks: 0, chats: 0, models: 0, health: 0, other: 0, failed: 0, cancelled: 0, responseBytes: 0, systems: 0, averageDurationMs: null }, history: { total: 0, limit: query.limit, offset: 0 }, legacyUndated: 0, storage: { engine: "SQLite", retention: "unlimited", totalBytes: 0, databaseBytes: 0, walBytes: 0, sharedMemoryBytes: 0, storedRecords: 0, averageBytesPerRecord: null } };
+      return { ...status, error: this.error ?? "Activity database could not be opened or read.", errors: [], errorHistory: { total: 0, offset: 0, limit: query.errorLimit }, startedAt: null, systems: [], recent: [], labels: {}, modelActivity: [], modelChecks: [], range: query.range, from: null, to: new Date(now).toISOString(), summary: { total: 0, applicationRequests: 0, selfChecks: 0, chats: 0, models: 0, health: 0, other: 0, failed: 0, cancelled: 0, responseBytes: 0, systems: 0, averageDurationMs: null }, history: { total: 0, limit: query.limit, offset: 0 }, legacyUndated: 0, storage: { engine: "SQLite", retention: "unlimited", totalBytes: 0, databaseBytes: 0, walBytes: 0, sharedMemoryBytes: 0, storedRecords: 0, averageBytesPerRecord: null } };
     }
   }
   close() { this.flush(); this.closed = true; this.database?.close(); this.database = undefined; }
