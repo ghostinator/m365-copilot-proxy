@@ -69,31 +69,49 @@ it("organizes unique controls into accessible tabs and preserves filters when sw
   expect(element("activity-range").value).toBe("7d");
 });
 
-it("pages recent requests in groups of 20 and resets pagination when the size or filter changes", async () => {
+it("uses one persistent request list with live rows pinned, server paging and complete-history filters", async () => {
+  vi.stubEnv("M365_API_KEY", "");
+  const app = createApp();
+  for (let index = 0; index < 25; index++) await (await app.fetch(new Request("http://localhost/v1/models"))).text();
+  for (let index = 0; index < 4; index++) await (await app.fetch(new Request("http://localhost/v1/models", { headers: { "x-m365-check": "1" } }))).text();
+  await (await app.fetch(new Request("http://localhost/unknown"))).text();
   const elements = new Map<string, any>();
-  const node = () => ({ textContent: "", value: "", disabled: false, children: [] as any[], style: {} as Record<string,string>, dataset: {} as Record<string,string>, querySelectorAll() { return []; }, listeners: {} as Record<string, Function>, setAttribute() {}, focus() {}, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
+  const node = () => ({ textContent: "", value: "", disabled: false, children: [] as any[], style: {}, dataset: {}, listeners: {} as Record<string, Function>, setAttribute() {}, focus() {}, querySelectorAll() { return []; }, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(...children: any[]) { this.children.push(...children); } });
   const element = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
-  element("activity-page-size").value = "20"; element("activity-filter").value = "all";
-  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch: () => new Promise(() => {}), AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
+  element("history-size").value = "20"; element("activity-filter").value = "all";
+  const urls: string[] = [];
+  const fetch = async (url: string) => {
+    urls.push(url);
+    if (url === "/v1/proxy/checks") return { ok: true, json: async () => ({ listeners: [], registeredModels: 0, authentication: { status: "starting" } }) };
+    return app.fetch(new Request("http://localhost" + url));
+  };
+  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch, AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
   const page = await dashboardResponse("/dashboard")!.text();
-  expect(page).toContain('class="request-box"');
-  expect(page).toContain('max-height:480px;overflow:auto');
+  expect(page).not.toContain('id="http-events"');
+  expect(page).not.toContain('Saved request history</h2>');
+  expect(page).toContain('aria-label="Live and saved requests"');
   runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
-  const events = Array.from({ length: 55 }, (_, id) => ({ id: String(id), receivedAt: new Date().toISOString(), method: "GET", endpoint: "/v1/models", clientAddress: "100.64.0.2", source: "application", streamed: null, status: 200, phase: "completed", outcome: "success", applicationStatus: null, responseBytes: 123, firstByteMs: 1, queueMs: null, durationMs: 2, upstreamAttempts: 0 }));
-  runInContext(`records=${JSON.stringify(events)};renderEvents()`, context);
-  expect(element("http-events").children).toHaveLength(20);
-  expect(element("activity-page").textContent).toContain("1–20 of 55");
-  element("activity-next").listeners.click();
-  expect(element("activity-page").textContent).toContain("21–40 of 55");
-  element("activity-next").listeners.click();
-  expect(element("http-events").children).toHaveLength(15);
-  expect(element("activity-next").disabled).toBe(true);
-  element("activity-page-size").value = "50"; element("activity-page-size").listeners.change();
-  expect(element("http-events").children).toHaveLength(50);
-  expect(element("activity-page").textContent).toContain("1–50 of 55");
-  element("activity-filter").value = "errors"; element("activity-filter").listeners.change();
-  expect(element("activity-page").textContent).toContain("0–0 of 0");
-  expect(element("activity-previous").disabled).toBe(true);
+  const settle = () => new Promise(resolve => setImmediate(resolve));
+  await settle();
+  expect(element("source-history").children).toHaveLength(20);
+  expect(element("history-page").textContent).toContain("1–20 of 30");
+  element("history-next").listeners.click(); await settle();
+  expect(element("source-history").children).toHaveLength(10);
+  expect(element("history-page").textContent).toContain("21–30 of 30");
+  expect(urls.at(-1)).toContain("offset=20");
+  element("history-size").value = "50"; element("history-size").listeners.change(); await settle();
+  expect(element("source-history").children).toHaveLength(30);
+  element("activity-filter").value = "checks"; element("activity-filter").listeners.change(); await settle();
+  expect(element("source-history").children).toHaveLength(4);
+  expect(element("history-page").textContent).toContain("of 4");
+  expect(urls.at(-1)).toContain("requestKind=checks");
+  element("activity-filter").value = "all";
+  const live = { id: "live-example", receivedAt: new Date().toISOString(), phase: "queued", outcome: "pending", method: "POST", endpoint: "/v1/chat/completions", clientAddress: "192.0.2.20", source: "application" };
+  runInContext('liveRecords='+JSON.stringify([live])+';renderSourceHistory()', context);
+  expect(element("source-history").children).toHaveLength(5);
+  expect(element("source-history").children[0].children[0].children[0].textContent).toContain("LIVE · queued");
+  expect(element("request-summary").textContent).toContain("1 waiting in queue");
+  app.close();
 });
 
 it("protects operator data with the API key and never injects credentials into the page", async () => {

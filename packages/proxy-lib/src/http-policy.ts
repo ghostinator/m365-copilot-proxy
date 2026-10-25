@@ -1,4 +1,5 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { proxyApiKeys, type ApiKeyStore } from "./api-keys.js";
+import { createHash } from "node:crypto";
 import { authenticationStatus, boundedBytes, requestSignal, getToneForModel, positiveInt } from "@m365-copilot/core";
 
 export async function readJsonBody(body: ReadableStream<Uint8Array> | null, length?: string | null, signal?: AbortSignal): Promise<unknown> {
@@ -25,15 +26,14 @@ export function corsHeaders(req: Request): Record<string, string> {
   return { "Access-Control-Allow-Origin": origin, "Vary": "Origin", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Conversation-Id" };
 }
 
-export function requestGate(req: Request): Response | null {
+export function requestGate(req: Request, keys: ApiKeyStore = proxyApiKeys): Response | null {
   if (req.headers.has("origin") && !corsHeaders(req)["Access-Control-Allow-Origin"]) return Response.json({ error: { type: "forbidden_origin", message: "This browser origin is not allowed" } }, { status: 403 });
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(req) });
   if (!new URL(req.url).pathname.startsWith("/v1/")) return null;
-  const expected = process.env.M365_API_KEY;
-  if (!expected) return null;
-  const presented = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-  const digest = (v: string) => createHash("sha256").update(v).digest();
-  if (!timingSafeEqual(digest(expected), digest(presented))) return Response.json({ error: { type: "authentication_error", message: "A valid proxy bearer token is required" } }, { status: 401, headers: { "WWW-Authenticate": "Bearer" } });
+  try {
+    if (!keys.authorize(req.headers).allowed) return Response.json({ error: { type: "authentication_error", message: "A valid proxy bearer token is required" } }, { status: 401, headers: { "WWW-Authenticate": "Bearer" } });
+  } catch { return Response.json({ error: { type: "key_configuration_error", message: "Application key configuration is unavailable" } }, { status: 503 }); }
+
   return null;
 }
 

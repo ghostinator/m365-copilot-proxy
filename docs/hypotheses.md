@@ -5837,3 +5837,35 @@ snapshot (31.91 ms all-time). This is one sample, not a large-dataset throughput
 guarantee; exact quantiles scan/sort selected samples. See dashboard.md and
 activity-database.md for durable semantics, and analytics-validation-2026-10-25.md
 for runnable evidence. No live model conclusion or protocol change follows.
+
+### 2026-10-25: merged request history and named application attribution
+
+Hypothesis: two applications sharing a connection IP cannot be distinguished from
+transport metadata alone, but separately recognized proxy keys can identify their
+configured callers. Falsification/probe: send two named credentials from one IP
+and require separate usage rows without retaining credentials. Five deterministic
+key/storage tests cover distinct attribution, optional/required access, legacy
+compatibility, revocation/renaming hot reload, corrupt configuration, digest-only
+storage and schema-4 upgrade preservation. No claim is made about verifying a
+machine's identity. Semantics graduate to api-keys.md and activity-database.md.
+
+The two request panels differed mostly by retention; a unified saved page plus
+pinned live records removes duplicates without skipping saved rows when active
+traffic arrives. The browser/Fetch test verifies full-history filtering/paging,
+and an eviction probe verifies a queued request survives 110 subsequent requests.
+Model requests remain serialized; operator cancellation is still queued.
+
+Windows packaged validation exposed an H3 incoming-body adapter race on a rejected
+oversized request: a late Node chunk enqueued into an already closed controller,
+causing an uncaught ERR_INVALID_STATE and connection reset. This reproduced twice
+on Windows before the change. The new adapter detaches listeners and pauses input
+on cancellation so the 413 reply can use the same socket; two focused offline
+probes cover late chunks, normal JSON and abort. This changes the HTTP boundary,
+not the M365 wire protocol. No Microsoft request was sent for these experiments.
+
+A separate reset after CLI mutations came from synchronous `execFileSync` calls in
+the live-fixture parent: Windows key-directory ACL setup kept its event loop blocked
+longer than the server keepalive period, so the next GET could reuse a closed socket.
+Prediction: asynchronous child commands let close events drain while CLI runs.
+The harness now awaits asynchronous `execFile`; it does not retry chat POSTs or
+mask server failures. Final extracted-runtime verification tests this correction.

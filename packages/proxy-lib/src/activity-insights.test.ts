@@ -46,7 +46,7 @@ it("upgrades schema 3 without inventing timings or losing old requests and check
   const original = new ActivityDatabase(directory);
   original.write([entry.parse(saved())]);
   original.saveModelCheck("claude-sonnet", 200, "old report", 50);
-  original.db.exec("DROP TABLE request_timings; PRAGMA user_version=3");
+  original.db.exec("DROP INDEX requests_application_time; ALTER TABLE requests DROP COLUMN application_id; DROP TABLE request_applications; DROP TABLE request_timings; PRAGMA user_version=3");
   original.close();
   const upgraded = new ActivityDatabase(directory);
   const result = upgraded.snapshot(query(), now + 60000);

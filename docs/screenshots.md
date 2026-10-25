@@ -44,3 +44,15 @@ committing it. Production screenshots are unnecessary for this gallery.
 
 These JPEG captures supplement the original six-tab PNG gallery. Use the isolated
 synthetic server above; do not capture production source IPs or error content.
+
+## Unified requests and named keys (0.9.0)
+
+- `images/dashboard-requests.jpg`: one merged list, application/type filters and
+  expanded synthetic diagnostics; replaces the older two-list Requests PNG.
+- `images/dashboard-clients.jpg`: global filters and named key/model/route usage
+  across multiple synthetic applications.
+- `images/dashboard-application-keys.jpg`: Settings inventory and optional-mode
+  explanation, with no tokens or digests visible.
+
+The preview fixture creates keys only in its isolated temporary directory and
+seeds public example addresses/labels. Production keys are never created or captured.

@@ -1,6 +1,6 @@
 # Activity storage
 
-Version 0.8.0 (schema 4) uses Node 24's built-in SQLite: no native addon or separate server.
+Version 0.9.0 (schema 5) uses Node 24's built-in SQLite: no native addon or separate server.
 `activity.sqlite` lives with existing private account state; credentials are not
 copied into it. `request-sources.json` is a preserved migration input.
 
@@ -89,3 +89,17 @@ Model report history is independently paged with `checkOffset`/`checkLimit` and
 error and reported/unknown; a correlated indexed lookup compares each visible
 report to its previous stored sample for the same model/check. Route changes are
 shown, so unlike routes are not silently presented as identical configurations.
+
+## Application identity and unified request paging (0.9.0)
+
+Schema 5 adds `request_applications` with unique key-ID/historical-label pairs,
+and a nullable integer `requests.application_id` reference with a time index.
+Digests/tokens never enter SQLite. Older records remain unattributed. The additive
+migration preserves request UUIDs, timing rows, reports and existing rollups.
+
+`requestKind` (all/chat/errors/checks) and `requestKey` (UUID/legacy/unattributed)
+filter the request list across the full saved history before counting and paging.
+They do not filter global summaries, errors or model reports. Key-usage aggregates
+use global range/model/system filters and return at most 50 key/model/route rows.
+No retention limit is added. Active requests are process-local and appear in the
+same dashboard list until completion stores their final record.

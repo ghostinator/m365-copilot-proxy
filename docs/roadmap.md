@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.8.0. Source availability and portable
+The current source feature set is version 0.9.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.8.0 npm package. See [the README](../README.md) for current source/setup links.
+0.9.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -86,8 +86,9 @@ requested, serialized and quota-consuming. No automatic capability sweeps.
 
 ## 7. Follow-on operations features — queued after analytics
 
-- [ ] Live active/waiting request view, elapsed times and cancellation controls;
-  preserve one upstream turn at a time.
+- [x] Unified live/saved request list, elapsed times and queued-request visibility (0.9.0);
+  active requests survive recent-buffer eviction and upstream turns remain serialized.
+- [ ] Operator cancellation controls for active/waiting requests.
 - [ ] Error grouping by cause, frequency and affected clients/models, separating
   authentication, throttling, transport and model failures.
 - [ ] Dashboard settings editor: source labels, aliases, fallbacks, listener and
@@ -103,3 +104,13 @@ requested, serialized and quota-consuming. No automatic capability sweeps.
 - [ ] Client profiles: separate default models, usage summaries and fair queue
   priorities for production, development and agent clients.
 - [ ] Linux systemd installer parity (continues section 5).
+
+## 8. Named application API keys (0.9.0)
+
+- [x] Create/list/rename/revoke multiple named keys through local CLI commands.
+- [x] Optional attribution without forcing keys; explicit required mode; preserve legacy key.
+- [x] Only SHA-256 digests on disk; display generated tokens once, never in dashboard/history.
+- [x] Apply key changes to subsequent requests without restarting.
+- [x] Persist application identity/label in normalized SQLite records; key/model/route usage.
+- [x] Filter the unified request list by application key across the entire saved history.
+- [x] Keep follow-on work on a separate branch; do not modify the existing draft PR.

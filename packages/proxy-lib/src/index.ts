@@ -1,3 +1,6 @@
+export { incomingRequestBody } from "./incoming-body.js";
+import { proxyApiKeys } from "./api-keys.js";
+export { ApiKeyStore, proxyApiKeys } from "./api-keys.js";
 import { type ModelSessionOptions, getAvailableModels } from "@m365-copilot/core";
 import { ChatCompletionRequest } from "./schemas.js";
 import { SessionPool, handleChatCompletion } from "./handler.js";
@@ -104,6 +107,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
 
     const gate = requestGate(req);
     if (gate) return gate;
+    trace?.applicationKey(proxyApiKeys.authorize(req.headers).application);
     if (method === "POST" && pathname === "/v1/proxy/model-check") {
       let value: unknown;
       try { value = await readJsonBody(req.body, req.headers.get("content-length"), req.signal); }

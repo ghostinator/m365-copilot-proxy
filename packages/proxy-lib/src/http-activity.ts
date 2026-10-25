@@ -1,3 +1,4 @@
+import type { ApplicationKey } from "./api-keys.js";
 import { randomUUID } from "node:crypto";
 import { CONFIG_DIR, getAvailableModels } from "@m365-copilot/core";
 import { RequestSources, sourceAddress } from "./request-sources.js";
@@ -9,6 +10,8 @@ import packageInfo from "../package.json" with { type: "json" };
 type Kind = "models" | "chat" | "health" | "other";
 type Phase = "received" | "queued" | "preparing" | "upstream" | "streaming" | "completed" | "failed" | "cancelled";
 export interface ActivityEvent {
+  apiKeyId?: string | null;
+  apiKeyLabel?: string | null;
   timeline?: { atMs: number; phase: string; model?: string | null }[];
   timelineTruncated?: boolean;
   diagnostic: { type: string; message: string; code?: string; stack?: string; phase: string } | null;
@@ -24,6 +27,7 @@ export interface ActivityEvent {
 export interface RequestTrace {
   (status: number): void;
   id: string;
+  applicationKey(value: ApplicationKey | null): void;
   diagnostic(type: string, message: string, stack?: string, code?: string): void;
   errorBody(text: string): void;
   route(): string | null;
@@ -50,6 +54,7 @@ export class HttpActivity {
   private chat = { validated: 0, completed: 0, failed: 0, cancelled: 0, streamed: 0, nonStreamed: 0, upstreamAttempts: 0, upstreamFailures: 0, retries: 0 };
   private categories = { models: 0, chat: 0, health: 0, other: 0 };
   private recent: ActivityEvent[] = [];
+  private activeRequests = new Map<string, ActivityEvent>();
 
   begin(method: string, pathname: string, selfCheck = false, remoteAddress?: string, userAgent?: string): RequestTrace | null {
     if (ignored.has(pathname)) return null;
@@ -60,6 +65,7 @@ export class HttpActivity {
     const event: ActivityEvent = { timeline: [{ atMs: 0, phase: "received" }], timelineTruncated: false, diagnostic: null, clientSoftware: clientSoftware(userAgent), clientAddress: sourceAddress(remoteAddress), id: randomUUID(), method: /^(GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE)$/.test(method) ? method : "OTHER", endpoint: known ? pathname : "(other endpoint)", source: selfCheck ? "self-check" : "application", receivedAt: new Date(started).toISOString(), status: null, durationMs: null, phase: "received", outcome: "pending", model: null, servedModel: null, streamed: null, applicationStatus: null, responseBytes: 0, firstByteMs: null, queueMs: null, upstreamAttempts: 0, upstreamFailures: 0 };
     this.total++; if (selfCheck) this.selfChecks++;
     this.categories[kind]++;
+    this.activeRequests.set(event.id, event);
     this.recent.push(event);
     if (this.recent.length > 100) this.recent.shift();
     let finished = false, validated = false, chatFinished = false, queuedAt = started, turnAttempts = 0;
@@ -89,10 +95,12 @@ export class HttpActivity {
       event.phase = event.outcome === "cancelled" ? "cancelled" : event.outcome === "error" ? "failed" : "completed";
       mark(event.phase);
       this.completed++; if (event.outcome !== "success") this.failed++;
+      this.activeRequests.delete(event.id);
       this.sources.record(event);
     };
     return Object.assign(finish, {
       id: event.id,
+      applicationKey: (value: ApplicationKey | null) => { if (!finished) { event.apiKeyId = value?.id ?? null; event.apiKeyLabel = value?.label ?? null; } },
       diagnostic: (type: string, message: string, stack?: string, code?: string) => { if (finished) return; event.diagnostic = { type: diagnosticText(type, 200), message: diagnosticText(message), ...((stack ?? event.diagnostic?.stack) ? { stack: diagnosticText(stack ?? event.diagnostic?.stack, 16000) } : {}), ...(code ? { code: diagnosticText(code, 200) } : {}), phase: event.phase }; },
       errorBody: (text: string) => { if (finished || event.diagnostic) return; const error = errorPayload(text); if (error) event.diagnostic = { type: diagnosticText(error.type,200), message: diagnosticText(error.message), ...(error.code ? { code: diagnosticText(error.code,200) } : {}), phase: event.phase }; },
       route: () => event.servedModel,
@@ -108,7 +116,8 @@ export class HttpActivity {
   }
 
   snapshot() {
-    return { total: this.total, applicationRequests: this.total - this.selfChecks, selfChecks: this.selfChecks, active: this.total - this.completed, completed: this.completed, failed: this.failed, categories: { ...this.categories }, chats: { ...this.chat, active: this.chat.validated - this.chat.completed - this.chat.failed - this.chat.cancelled }, recent: this.recent.map(event => ({ ...event, timeline: event.timeline?.map(point => ({ ...point })) })).reverse() };
+    const live = [...this.activeRequests.values()].map(event => ({ ...event, elapsedMs: Math.max(0, Date.now() - Date.parse(event.receivedAt)), timeline: event.timeline?.map(point => ({ ...point })) }));
+    return { live, total: this.total, applicationRequests: this.total - this.selfChecks, selfChecks: this.selfChecks, active: this.total - this.completed, completed: this.completed, failed: this.failed, categories: { ...this.categories }, chats: { ...this.chat, active: this.chat.validated - this.chat.completed - this.chat.failed - this.chat.cancelled }, recent: this.recent.map(event => ({ ...event, timeline: event.timeline?.map(point => ({ ...point })) })).reverse() };
   }
 }
 export const httpActivity = new HttpActivity(new RequestSources(CONFIG_DIR));

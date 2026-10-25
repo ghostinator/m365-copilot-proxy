@@ -256,3 +256,20 @@ expires after ten minutes and never authenticates to Microsoft. Check Overview
 charts, expand Requests and browse Models history; no model test is needed.
 Cost: local CPU/disk only, zero Microsoft quota. Large all-time exact quantile
 queries should be measured separately before making scalability claims.
+
+## Named keys and unified requests (offline)
+
+```sh
+pnpm test
+node scripts/test-installed-runtime.mjs
+node scripts/docs-screenshots-server.mjs
+```
+
+The runtime harness creates named keys in temporary state, sends model-list GETs
+from separate credentials, checks required/optional access, renaming and revocation,
+and verifies digest-only persistence. No Microsoft requests are sent: chats use an
+isolated fake backend. Browser preview: Requests has one list with application-key
+and type filters; Clients shows named-key usage; Settings lists safe metadata.
+The oversized-body fixture must receive 413 and leave the server alive instead of
+an incoming-stream enqueue exception. See incoming-body.test.ts for the late-chunk
+cancellation probe and api-keys.test.ts for schema-4 migration/attribution.

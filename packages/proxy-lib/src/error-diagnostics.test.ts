@@ -35,7 +35,7 @@ it("upgrades an existing v1 database without losing earlier failed requests", ()
   activity.begin("POST", "/v1/responses", false, "192.0.2.20")!(404);
   sources.close();
   const db = new DatabaseSync(join(directory, "activity.sqlite"));
-  db.exec("DROP TABLE request_timings; DROP TABLE request_errors; DROP INDEX requests_errors_time; DROP TABLE model_checks; CREATE TABLE model_checks(seq INTEGER PRIMARY KEY, model TEXT NOT NULL, checked_ms INTEGER NOT NULL, status INTEGER NOT NULL, identity TEXT NOT NULL, duration_ms INTEGER NOT NULL, served_model TEXT); PRAGMA user_version=1;"); db.close();
+  db.exec("DROP INDEX requests_application_time; ALTER TABLE requests DROP COLUMN application_id; DROP TABLE request_applications; DROP TABLE request_timings; DROP TABLE request_errors; DROP INDEX requests_errors_time; DROP TABLE model_checks; CREATE TABLE model_checks(seq INTEGER PRIMARY KEY, model TEXT NOT NULL, checked_ms INTEGER NOT NULL, status INTEGER NOT NULL, identity TEXT NOT NULL, duration_ms INTEGER NOT NULL, served_model TEXT); PRAGMA user_version=1;"); db.close();
   const upgraded = new RequestSources(directory), result = upgraded.snapshot();
   expect(result.error).toBeNull();
   expect(result.summary.total).toBe(1);
@@ -68,7 +68,7 @@ it("upgrades v2 model reports and retains independent capability history for eac
   const directory = mkdtempSync(join(tmpdir(), "m365-checks-v2-"));
   const initial = new RequestSources(directory); initial.snapshot(); initial.close();
   const db = new DatabaseSync(join(directory, "activity.sqlite"));
-  db.exec("DROP TABLE request_timings; DROP TABLE model_checks; CREATE TABLE model_checks(seq INTEGER PRIMARY KEY, model TEXT NOT NULL, checked_ms INTEGER NOT NULL, status INTEGER NOT NULL, identity TEXT NOT NULL, duration_ms INTEGER NOT NULL, served_model TEXT); INSERT INTO model_checks VALUES(1,'claude-sonnet',1,200,'Earlier identity',10,'claude-sonnet'); PRAGMA user_version=2;"); db.close();
+  db.exec("DROP INDEX requests_application_time; ALTER TABLE requests DROP COLUMN application_id; DROP TABLE request_applications; DROP TABLE request_timings; DROP TABLE model_checks; CREATE TABLE model_checks(seq INTEGER PRIMARY KEY, model TEXT NOT NULL, checked_ms INTEGER NOT NULL, status INTEGER NOT NULL, identity TEXT NOT NULL, duration_ms INTEGER NOT NULL, served_model TEXT); INSERT INTO model_checks VALUES(1,'claude-sonnet',1,200,'Earlier identity',10,'claude-sonnet'); PRAGMA user_version=2;"); db.close();
   const upgraded = new RequestSources(directory);
   expect(upgraded.snapshot().modelChecks[0]).toMatchObject({ kind: "identity", identity: "Earlier identity", verdict: "unknown" });
   upgraded.saveModelCheck("claude-sonnet", 200, "", 15, "claude-sonnet", "json", "failed", "Wrong JSON", 1);

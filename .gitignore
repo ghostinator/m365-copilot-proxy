@@ -56,3 +56,5 @@ scripts/harness/out/
 /shutdown-*
 /service-logs/
 /browser-profile/
+
+/proxy-api-keys.json*

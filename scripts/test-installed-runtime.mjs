@@ -1,7 +1,8 @@
+import { promisify } from "node:util";
 import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { spawn, execFileSync } from "node:child_process";
+import { spawn, execFile, execFileSync } from "node:child_process";
 import { createServer } from "node:net";
 import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -28,7 +29,8 @@ async function start(authenticated, extra = {}) {
   const args = authenticated ? ["--import", pathToFileURL(join(root, "scripts/fixtures/chat-loader.mjs")).href] : [];
   args.push(process.argv[2] || join(root, "packages/proxy/bin/m365-proxy.mjs"), String(port));
   const child = spawn(process.execPath, args, { cwd: dir, env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
-  let logs = "";
+  let logs = "", stage = "startup";
+  const request = (url, options) => { stage = (options?.method || "GET") + " " + new URL(url).pathname; return globalThis.fetch(url, options); };
   child.stdout.on("data", d => { logs += d; }); child.stderr.on("data", d => { logs += d; });
   const exit = new Promise(r => child.once("exit", r));
   try {
@@ -42,68 +44,71 @@ async function start(authenticated, extra = {}) {
     }
     assert.match(logs, new RegExp(`Listening on http://127\\.0\\.0\\.1:${port}`), logs);
     const base = `http://127.0.0.1:${port}`;
-    const dashboard = await fetch(base + "/dashboard");
+    const dashboard = await request(base + "/dashboard");
     assert.equal(dashboard.status, 200);
     assert.match(await dashboard.text(), /M365 Copilot Proxy/);
-    assert.equal((await fetch(base + "/dashboard-script")).status, 200);
-    assert.equal((await fetch(base + "/v1/proxy/status")).status, extra.M365_API_KEY ? 401 : 200);
-    const operator = await fetch(base + "/v1/proxy/status", { headers: extra.M365_API_KEY ? { authorization: `Bearer ${extra.M365_API_KEY}` } : {} });
+    assert.equal((await request(base + "/dashboard-script")).status, 200);
+    assert.equal((await request(base + "/v1/proxy/status")).status, extra.M365_API_KEY ? 401 : 200);
+    const operator = await request(base + "/v1/proxy/status", { headers: extra.M365_API_KEY ? { authorization: `Bearer ${extra.M365_API_KEY}` } : {} });
     const operatorStatus = await statusJson(operator);
     assert.equal(operatorStatus.authentication.status, "ready");
     assert.equal(operatorStatus.budgets.find(b => b.id === "opus").allowance.daily, 12);
     assert.equal(operatorStatus.lastRoute.fallbackUsed, true);
-    assert.equal((await fetch(base + "/health/ready")).status, 200);
-    assert.equal((await fetch(base + "/health/live")).status, 200);
-    assert.equal((await fetch(base + "/v1/models")).status, extra.M365_API_KEY ? 401 : 200);
-    assert.equal((await fetch(base + "/v1/models", { headers: { origin: "https://untrusted.example" } })).status, 403);
-    if (extra.M365_API_KEY) assert.equal((await fetch(base + "/v1/models", { headers: { authorization: `Bearer ${extra.M365_API_KEY}` } })).status, 200);
+    assert.equal((await request(base + "/health/ready")).status, 200);
+    assert.equal((await request(base + "/health/live")).status, 200);
+    assert.equal((await request(base + "/v1/models")).status, extra.M365_API_KEY ? 401 : 200);
+    assert.equal((await request(base + "/v1/models", { headers: { origin: "https://untrusted.example" } })).status, 403);
+    if (extra.M365_API_KEY) assert.equal((await request(base + "/v1/models", { headers: { authorization: `Bearer ${extra.M365_API_KEY}` } })).status, 200);
     const headers = { "content-type": "application/json", ...(extra.M365_API_KEY ? { authorization: `Bearer ${extra.M365_API_KEY}` } : {}) };
-    await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
-    const oversized = await fetch(base + "/v1/chat/completions", { method: "POST", headers, body: JSON.stringify({ messages: [{ role: "user", content: "x".repeat(2000) }] }) });
+    await statusJson(await request(base + "/v1/proxy/status", { headers }));
+    const oversized = await request(base + "/v1/chat/completions", { method: "POST", headers, body: JSON.stringify({ messages: [{ role: "user", content: "x".repeat(2000) }] }) });
     assert.equal(oversized.status, 413); await oversized.text();
-    const malformed = await fetch(base + "/v1/chat/completions", { method: "POST", headers, body: "{broken" });
+    const malformed = await request(base + "/v1/chat/completions", { method: "POST", headers, body: "{broken" });
     assert.equal(malformed.status, 400); await malformed.text();
-    const observed = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
+    const observed = await statusJson(await request(base + "/v1/proxy/status", { headers }));
     assert(observed.activity.categories.models >= 2);
     assert(observed.activity.categories.chat >= 2);
     assert(observed.activity.categories.health >= 2);
     assert(observed.activity.failed >= 3);
-    const unchanged = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
+    const unchanged = await statusJson(await request(base + "/v1/proxy/status", { headers }));
     assert.equal(unchanged.activity.total, observed.activity.total, "dashboard polls must not inflate activity");
     assert.equal(unchanged.sources.persistent, true);
     assert.equal(unchanged.sources.systems[0].address, "127.0.0.1");
     const beforeForged = unchanged.sources.systems[0].applicationRequests;
-    await (await fetch(base + "/v1/models", { headers: { ...headers, "x-forwarded-for": "100.64.99.99", "x-real-ip": "100.64.99.99" } })).text();
-    const afterForged = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
+    await (await request(base + "/v1/models", { headers: { ...headers, "x-forwarded-for": "100.64.99.99", "x-real-ip": "100.64.99.99" } })).text();
+    const afterForged = await statusJson(await request(base + "/v1/proxy/status", { headers }));
     assert.equal(afterForged.sources.systems[0].applicationRequests, beforeForged + 1);
     assert(!JSON.stringify(afterForged.sources).includes("100.64.99.99"));
     assert.equal(unchanged.instance.id, operator.headers.get("x-m365-proxy-instance"));
-      const inspection = await fetch(base + "/v1/proxy/checks", { headers });
+      const inspection = await request(base + "/v1/proxy/checks", { headers });
       assert.equal(inspection.status, 200);
       const checked = await statusJson(inspection);
       assert.equal(checked.instance.id, unchanged.instance.id);
       assert.equal(checked.upstream, "not_probed");
       if (checked.listenerInspection === "available") assert(checked.listeners.some(listener => listener.thisInstance));
-      const selfCheck = await fetch(base + "/v1/models", { headers: { ...headers, "x-m365-check": "1" } });
+      const selfCheck = await request(base + "/v1/models", { headers: { ...headers, "x-m365-check": "1" } });
       await selfCheck.text();
-      const afterCheck = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
+      const afterCheck = await statusJson(await request(base + "/v1/proxy/status", { headers }));
       assert.equal(afterCheck.activity.selfChecks, unchanged.activity.selfChecks + 1);
       assert.equal(afterCheck.activity.applicationRequests, afterForged.activity.applicationRequests);
       assert.equal(afterCheck.activity.chats.upstreamAttempts, 0, "local checks must not start an upstream chat");
     const mode = extra.M365_TEST_CHAT_MODE || "success";
     const chatBody = { model: "claude-sonnet", messages: [{ role: "user", content: "private-offline-prompt" }] };
-    const sendChat = (stream, signal) => fetch(base + "/v1/chat/completions", { method: "POST", headers, body: JSON.stringify({ ...chatBody, stream }), signal });
+    const sendChat = (stream, signal) => request(base + "/v1/chat/completions", { method: "POST", headers, body: JSON.stringify({ ...chatBody, stream }), signal });
     if (mode === "hold") {
       const held = await sendChat(true);
       const reader = held.body.getReader(); await reader.read();
       for (let i = 0; i < 60; i++) {
-        const inProgress = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
-        if (inProgress.activity.chats.upstreamAttempts > 0) break;
+        const inProgress = await statusJson(await request(base + "/v1/proxy/status", { headers }));
+        if (inProgress.activity.chats.upstreamAttempts > 0) {
+          assert(inProgress.activity.live.some(row => row.endpoint === "/v1/chat/completions" && row.outcome === "pending" && row.elapsedMs >= 0));
+          break;
+        }
         await delay(50);
       }
       await reader.cancel();
       await delay(150);
-      const cancelled = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
+      const cancelled = await statusJson(await request(base + "/v1/proxy/status", { headers }));
       assert.equal(cancelled.activity.chats.cancelled, 1);
       assert.equal(cancelled.activity.chats.active, 0);
       assert(cancelled.activity.recent.some(event => event.outcome === "cancelled"));
@@ -117,7 +122,7 @@ async function start(authenticated, extra = {}) {
       const streamText = await streamed.text();
       assert(streamText.includes("[DONE]"));
       assert(streamText.includes(mode === "throttled" ? "m365_throttled" : "Offline fixture reply"));
-      const afterChat = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
+      const afterChat = await statusJson(await request(base + "/v1/proxy/status", { headers }));
       assert.equal(afterChat.activity.chats.validated, 2);
       assert.equal(afterChat.activity.chats.streamed, 1);
       assert.equal(afterChat.activity.chats.nonStreamed, 1);
@@ -133,7 +138,7 @@ async function start(authenticated, extra = {}) {
       assert(!JSON.stringify(afterChat).includes("private-offline-prompt"));
       assert(!JSON.stringify(afterChat).includes("Offline fixture reply"));
     }
-    const history = await statusJson(await fetch(base + "/v1/proxy/status?range=24h&limit=1", { headers }));
+    const history = await statusJson(await request(base + "/v1/proxy/status?range=24h&limit=1", { headers }));
     assert.equal(history.sources.storage.engine, "SQLite");
     assert.equal(history.sources.storage.retention, "unlimited");
     assert.equal(history.sources.recent.length, 1);
@@ -149,26 +154,49 @@ async function start(authenticated, extra = {}) {
       assert.match(streamError.diagnostic.message, /throttl/i);
       assert(streamError.upstreamAttempts > 0);
     }
-    assert.equal((await fetch(base + "/v1/proxy/status?range=invalid", { headers })).status, 400);
+    assert.equal((await request(base + "/v1/proxy/status?range=invalid", { headers })).status, 400);
     if (mode === "success" && !extra.M365_API_KEY) {
       assert.equal(history.sources.modelChecks.length, 0, "status polling must never run a model check");
-      const check = await statusJson(await fetch(base + "/v1/proxy/model-check", { method: "POST", headers, body: JSON.stringify({ model: "claude-sonnet" }) }));
+      const check = await statusJson(await request(base + "/v1/proxy/model-check", { method: "POST", headers, body: JSON.stringify({ model: "claude-sonnet" }) }));
       assert.equal(check.selfReported, true);
       assert(check.identity.includes("Offline fixture reply"));
       assert.equal(check.servedModel, "claude-sonnet");
-      assert.equal((await fetch(base + "/v1/proxy/model-check", { method: "POST", headers, body: JSON.stringify({ model: "claude-sonnet" }) })).status, 429);
-      const checked = await statusJson(await fetch(base + "/v1/proxy/status?range=24h", { headers }));
+      assert.equal((await request(base + "/v1/proxy/model-check", { method: "POST", headers, body: JSON.stringify({ model: "claude-sonnet" }) })).status, 429);
+      const checked = await statusJson(await request(base + "/v1/proxy/status?range=24h", { headers }));
       assert.equal(checked.sources.modelChecks.length, 1);
       assert(checked.sources.modelActivity.some(row => row.model === "claude-sonnet" && row.address === "127.0.0.1"));
     }
     if (mode === "success" && extra.M365_API_KEY) {
       assert.equal(history.modelCheck.tests.length, 8);
-      const check = await statusJson(await fetch(base + "/v1/proxy/model-check", { method: "POST", headers, body: JSON.stringify({ model: "claude-sonnet", kind: "function-tool" }) }));
+      const check = await statusJson(await request(base + "/v1/proxy/model-check", { method: "POST", headers, body: JSON.stringify({ model: "claude-sonnet", kind: "function-tool" }) }));
       assert.equal(check.kind, "function-tool");
       assert.equal(check.verdict, "failed", "plain prose must not pass a tool capability check");
       assert.equal(check.turns, 1);
-      const saved = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
+      const saved = await statusJson(await request(base + "/v1/proxy/status", { headers }));
       assert(saved.sources.modelChecks.some(row => row.kind === "function-tool" && row.verdict === "failed"));
+    }
+    if (mode === "success" && !extra.M365_API_KEY) {
+      const keyCommand = async (...command) => (await promisify(execFile)(process.execPath, [process.argv[2] || join(root, "packages/proxy/bin/m365-proxy.mjs"), "keys", ...command], { env, cwd: dir, windowsHide: true, encoding: "utf8" })).stdout;
+      const production = JSON.parse(await keyCommand("create", "Production fixture"));
+      const development = JSON.parse(await keyCommand("create", "Development fixture"));
+      const useKey = async token => { const response = await request(base + "/v1/models", { headers: { authorization: "Bearer " + token } }); await response.text(); return response.status; };
+      assert.equal(await useKey(production.token), 200);
+      assert.equal(await useKey(development.token), 200);
+      const usage = await statusJson(await request(base + "/v1/proxy/status"));
+      assert(usage.sources.keyActivity.some(row => row.id === production.id && row.label === "Production fixture"));
+      assert(usage.sources.keyActivity.some(row => row.id === development.id && row.label === "Development fixture"));
+      assert(!JSON.stringify(usage).includes(production.token));
+      assert(!JSON.stringify(usage.apiKeys).includes("hash"));
+      await keyCommand("rename", production.id, "Renamed production");
+      await keyCommand("mode", "required");
+      assert.equal((await request(base + "/v1/models")).status, 401);
+      assert.equal(await useKey(development.token), 200);
+      await keyCommand("revoke", production.id);
+      assert.equal(await useKey(production.token), 401);
+      await keyCommand("mode", "optional");
+      assert.equal((await request(base + "/v1/models")).status, 200);
+      assert(!readFileSync(join(dir, "proxy-api-keys.json"), "utf8").includes(development.token));
+      console.log("PASS: named application keys, hot reload, attribution, optional/required mode and revocation");
     }
     console.log(`PASS: offline ${mode} chat activity and streaming lifecycle`);
     const instance = JSON.parse(readFileSync(join(dir, "instance.json"), "utf8"));
@@ -181,6 +209,9 @@ async function start(authenticated, extra = {}) {
     assert(!JSON.stringify(sourceHistory.prepare("SELECT * FROM requests").all()).includes("private-offline-prompt"));
     sourceHistory.close();
     console.log("PASS: loopback listener, readiness, origin/key policy, and graceful stop");
+  } catch (error) {
+    error.message += "\nStage: " + stage + "\nIsolated fixture server log:\n" + logs.slice(-8000);
+    throw error;
   } finally { if (child.exitCode === null) child.kill(); await Promise.race([exit, delay(1000)]); }
 }
 await start(false);
@@ -209,3 +240,18 @@ const info = execFileSync(process.execPath, [launcher, "client", "info"], { env:
 assert(!info.includes("offline-client-secret"));
 assert.equal(JSON.parse(info).recommendedModel, "claude-sonnet");
 console.log("PASS: isolated pi/OpenClaw configuration, dry-run and credential-free client info");
+
+const keyEnv = { ...clientEnv, M365_API_KEY: "" };
+const clientCommand = async (...args) => (await promisify(execFile)(process.execPath, [launcher, ...args], { env: keyEnv, windowsHide: true, encoding: "utf8" })).stdout;
+const appKey = JSON.parse(await clientCommand("keys", "create", "Guided setup fixture"));
+await clientCommand("keys", "mode", "required");
+assert(JSON.parse(await clientCommand("client", "info")).authorization.includes("Bearer"));
+keyEnv.M365_APPLICATION_KEY = appKey.token;
+for (const client of ["pi", "openclaw"]) {
+  const path = join(clientDir, client, "named-config.json");
+  const output = await clientCommand("client", "setup", client, "--config", path, "--api-key-env", "M365_APPLICATION_KEY");
+  assert(!output.includes(appKey.token));
+  const config = JSON.parse(readFileSync(path, "utf8"));
+  assert.equal((client === "pi" ? config.providers.m365 : config.models.providers.m365).apiKey, appKey.token);
+}
+console.log("PASS: guided client setup selects a named key from an environment variable without printing it");

@@ -13,16 +13,15 @@ every bind address. See [configuration and access](operations.md#configuration-a
 | Tab | Contents |
 | --- | --- |
 | Overview | Listener/version/PID/instance identity, readiness, token expiry, uptime, current-process HTTP/chat counters, saved summaries, performance charts, database size, observed budgets and fallback route. |
-| Requests | Recent current-process requests and persistent request history, each in a scrollable box with 20/50/100-row pages and expandable request inspectors. |
-| Clients | Most active connection IPs, configured labels, this-device identification and requested/served-model usage by client software. |
+| Requests | One scrollable live/saved request list with 20/50/100-row saved pages, pinned live/queued requests, application-key and request-type filters, and expandable inspectors. |
+| Clients | Most active connection IPs, configured labels, this-device identification and requested/served-model usage by client software and named application keys. |
 | Models | Registered identifiers, selected-model capability tests, latest evidence, paged history and per-check sample summaries. |
 | Errors | Persistent failed/cancelled requests with expandable diagnostics, plus separate internal operational summaries. |
-| Settings | Optional API-key connection form and CLI recovery/startup instructions. |
+| Settings | Optional API-key connection form, named-key inventory/management instructions and CLI recovery/startup instructions. |
 
 **Time range**, **Model** and **System** apply to saved summaries, client/model
 tables, saved requests and errors. Ranges are rolling 24 hours, 7/30/90/365 days or
-all time. Current-process counters and the latest-100 request buffer remain
-instance-wide and reset at restart; saved data persists. Model test selections
+all time. Current-process counters remain instance-wide and reset at restart; saved data persists. Model test selections
 are independent of these filters. Tabs preserve filter selections, support
 arrow/Home/End navigation and can be linked directly, for example
 `/dashboard#models` and `/dashboard#errors`.
@@ -134,7 +133,7 @@ not necessarily the first model token. Completed application chat requests inclu
 errors and cancellations; health/model-list polls and manual model tests are excluded.
 Success describes transport/application completion, not answer correctness.
 
-**Requests → Inspect request**, or expanding a **Saved request history** row,
+**Requests → expand a row** in the unified request list,
 shows request ID, client/software, statuses, requested/served models, stream mode,
 bytes, duration, queue/first-byte times, attempts/failures and an observed timeline.
 New requests retain phase offsets and per-attempt served routes across restart.
@@ -148,3 +147,26 @@ not added to request storage. Expanded inspectors remain open across polling.
 The status API adds `sources.performance` and `sources.checkHistory`.
 `checkKind`, `checkOffset`, `checkLimit` select check history independently of
 request/error page controls. Limits are 1–100; invalid selectors return HTTP 400.
+
+## Unified requests and application identity (0.9.0)
+
+The former Recent requests and Saved request history panels are merged. Completed
+requests appear once in the saved page; active requests are pinned above it until
+completion, with phase, elapsed time and queue counts. One scrollable box contains
+both. Paging (20/50/100) applies to saved rows so active traffic cannot skip saved
+rows between pages. Expand an entry for its timing/timeline inspector. Existing
+expanded rows remain open across polling. Live requests remain tracked even after
+more than 100 other requests have passed through the recent buffer. Operator
+cancellation controls remain planned; no cancel button is shown yet.
+
+**Show** filters the entire stored history by chat, error/cancellation or explicit
+self-check, rather than filtering just a recent buffer or one page. **Application
+key** filters the same list by named key or keyless/unattributed traffic. These two
+filters apply to the request list, while global time/model/system filters also
+apply to summary charts, error history and client tables. Keyless and old records
+cannot be reliably assigned to an application retroactively.
+
+**Clients → Applications by API key** lists completed requests by key label,
+requested/served model and connected-system counts under the global filters.
+**Settings → Application API keys** lists labels, IDs and active/revoked status;
+it never returns tokens or stored digests. See [application keys](api-keys.md).

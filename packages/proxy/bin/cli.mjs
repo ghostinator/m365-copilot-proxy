@@ -53,7 +53,7 @@ export async function main(args) {
   let command = args[0] || "serve";
   if (/^\d+$/.test(command)) { process.env.NITRO_PORT = process.env.PORT = command; command = "serve"; }
   if (["--help", "-h", "help"].includes(command)) {
-    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy service install|status|start|stop|uninstall\nm365-proxy diagnostics [output.json]\nm365-proxy client setup pi|openclaw [--config path] [--base-url URL] [--dry-run] [--replace]\nm365-proxy client info\nDashboard: http://127.0.0.1:<port>/dashboard\n\nConfiguration: " + configPath);
+    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy service install|status|start|stop|uninstall\nm365-proxy diagnostics [output.json]\nm365-proxy client setup pi|openclaw [--config path] [--base-url URL] [--api-key-env NAME] [--dry-run] [--replace]\nm365-proxy client info\nm365-proxy keys create <label>|list|revoke <id>|rename <id> <label>|mode optional|required\nDashboard: http://127.0.0.1:<port>/dashboard\n\nConfiguration: " + configPath);
     return;
   }
   if (command === "service") {
@@ -75,25 +75,37 @@ export async function main(args) {
     }
     throw new Error("Proxy did not acknowledge shutdown; use service stop to verify and stop a supervised process");
   }
-  if (!["serve", "setup", "login", "doctor", "diagnostics", "client"].includes(command)) throw new Error(`Unknown command: ${command}; use --help`);
+  if (!["serve", "setup", "login", "doctor", "diagnostics", "client", "keys"].includes(command)) throw new Error(`Unknown command: ${command}; use --help`);
   if (command === "serve" && args[1]) process.env.NITRO_PORT = process.env.PORT = args[1];
   const config = settings();
   const runtime = await import(runtimeUrl.href);
   runtime.validateBind(config.host);
+  if (command === "keys") {
+    const action = args[1], store = runtime.proxyApiKeys;
+    if (["create", "revoke", "rename", "mode"].includes(action)) protectDataDir();
+    if (action === "list" && args.length === 2) console.log(JSON.stringify(store.status(), null, 2));
+    else if (action === "create" && args.length === 3) console.log(JSON.stringify({ ...store.create(args[2]), notice: "Save this token now; it is shown only once. Creating a key does not enable required-key mode." }, null, 2));
+    else if (action === "revoke" && args.length === 3) { store.revoke(args[2]); console.log("Key revoked. " + (store.status().required ? "New requests require a valid active key." : "Keyless access remains allowed.")); }
+    else if (action === "rename" && args.length === 4) { store.rename(args[2], args[3]); console.log("Key label updated; earlier request labels remain historical."); }
+    else if (action === "mode" && args.length === 3 && ["optional", "required"].includes(args[2])) { store.mode(args[2] === "required"); console.log(JSON.stringify(store.status(), null, 2)); }
+    else throw new Error("Use keys create <label>, list, revoke <id>, rename <id> <label>, or mode optional|required");
+    return;
+  }
+  runtime.proxyApiKeys.status();
   if (command === "client") {
     if (args[1] === "info") {
       if (args.length !== 2) throw new Error("Use client info without additional arguments");
       const host = ["0.0.0.0", "::"].includes(config.host) ? "127.0.0.1" : config.host;
-      console.log(JSON.stringify({ api: "OpenAI chat completions", baseUrl: `http://${host.includes(":") ? `[${host}]` : host}:${config.port}/v1`, authorization: process.env.M365_API_KEY ? "Authorization: Bearer <proxy API key>" : "No proxy key configured; use a placeholder if your client requires one", recommendedModel: "claude-sonnet", models: runtime.getAvailableModels(), verification: "No upstream request was sent" }, null, 2));
+      console.log(JSON.stringify({ api: "OpenAI chat completions", baseUrl: `http://${host.includes(":") ? `[${host}]` : host}:${config.port}/v1`, authorization: runtime.proxyApiKeys.status().required ? "Authorization: Bearer <proxy API key>" : "No proxy key required; use a named key for application attribution, or a placeholder if needed", recommendedModel: "claude-sonnet", models: runtime.getAvailableModels(), verification: "No upstream request was sent" }, null, 2));
       return;
     }
-    if (args[1] !== "setup" || !["pi", "openclaw"].includes(args[2])) throw new Error("Use client setup pi|openclaw [--config path] [--base-url URL] [--dry-run] [--replace]");
+    if (args[1] !== "setup" || !["pi", "openclaw"].includes(args[2])) throw new Error("Use client setup pi|openclaw [--config path] [--base-url URL] [--api-key-env NAME] [--dry-run] [--replace]");
     const client = args[2];
     const options = {};
     for (let i = 3; i < args.length; i++) {
       const flag = args[i];
       if (["--dry-run", "--replace"].includes(flag)) options[flag] = true;
-      else if (["--config", "--base-url"].includes(flag) && args[i + 1] && !args[i + 1].startsWith("--")) options[flag] = args[++i];
+      else if (["--config", "--base-url", "--api-key-env"].includes(flag) && args[i + 1] && !args[i + 1].startsWith("--")) options[flag] = args[++i];
       else throw new Error(`Unknown or incomplete client option: ${flag}`);
     }
     const defaultPath = client === "pi" ? join(process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent"), "models.json") : process.env.OPENCLAW_CONFIG_PATH || join(process.env.OPENCLAW_STATE_DIR || join(homedir(), ".openclaw"), "openclaw.json");
@@ -101,7 +113,12 @@ export async function main(args) {
     const host = ["0.0.0.0", "::"].includes(config.host) ? "127.0.0.1" : config.host;
     const url = options["--base-url"] || `http://${host.includes(":") ? `[${host}]` : host}:${config.port}/v1`;
     const setup = client === "pi" ? runtime.setupPiClient : runtime.setupOpenClawClient;
-    const result = setup(path, url, process.env.M365_API_KEY || "", !!options["--dry-run"], !!options["--replace"]);
+    const keyVariable = options["--api-key-env"];
+    if (keyVariable && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(keyVariable)) throw new Error("Use an environment variable name for --api-key-env");
+    const applicationKey = keyVariable ? process.env[keyVariable] : process.env.M365_API_KEY;
+    if (keyVariable && !applicationKey) throw new Error("The selected API-key environment variable is empty");
+    if (runtime.proxyApiKeys.status().required && !applicationKey) throw new Error("A named key is required; set an environment variable and select it with --api-key-env NAME");
+    const result = setup(path, url, applicationKey || "", !!options["--dry-run"], !!options["--replace"]);
     console.log(JSON.stringify(result, null, 2));
     console.log(client === "pi" ? "Connect with: pi --provider m365 --model claude-sonnet" : options["--dry-run"] ? "Dry run only; no OpenClaw configuration was changed." : "OpenClaw provider m365 is configured; select m365/claude-sonnet in your client.");
     return;
@@ -130,7 +147,7 @@ export async function main(args) {
   }
   if (command === "doctor" || command === "diagnostics") {
     // Deliberately exclude cache contents, browser state, env dumps, logs and prompts.
-    const status = { node: process.version, platform: process.platform, dataDir, configured: existsSync(configPath), builtServer: existsSync(join(root, ".output/server/index.mjs")), browserAvailable: existsSync(runtime.browserExecutable()), port: config.port, host: config.host, proxyKeyConfigured: !!process.env.M365_API_KEY };
+    const status = { node: process.version, platform: process.platform, dataDir, configured: existsSync(configPath), builtServer: existsSync(join(root, ".output/server/index.mjs")), browserAvailable: existsSync(runtime.browserExecutable()), port: config.port, host: config.host, proxyKeyConfigured: !!process.env.M365_API_KEY || runtime.proxyApiKeys.status().keys.some(key => !key.revokedAt), proxyKeyRequired: runtime.proxyApiKeys.status().required };
     if (command === "doctor" && args.includes("--live")) {
       await runtime.getToken();
       status.authentication = runtime.authenticationStatus().status;

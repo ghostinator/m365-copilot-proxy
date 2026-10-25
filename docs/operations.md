@@ -195,3 +195,17 @@ node scripts/verify-release.mjs <release-directory>
 The installed-runtime tests use explicitly loaded offline MSAL/WebSocket fixtures and temporary state, with outbound HTTP disabled. Built-server tests cover successful and streamed chats, throttling inside HTTP-200 SSE, reconnects, cancellation, exact Unicode body-byte counts and request correlation. It is never enabled by the production launcher. Release smoke tests copy the app into a temporary path containing spaces and run outside the repository. Manifests contain SHA-256 hashes of all shipped files; each archive has a separate checksum file. Verify a downloaded archive against a checksum obtained from a trusted release channel before extraction; an included manifest is an integrity check, not an authenticity signature.
 
 Windows/Linux CI runs build/unit tests and built/isolated runtime checks. The Windows runner, task definition and versioned installer have offline checks. `scripts/test-windows-service.ps1` additionally registers a uniquely named temporary sign-in task with a local fake server, verifies failure/restart and stop, then removes it. Real M365/pi validation, actual account startup, reboot/logoff behavior and 24–72-hour soak tests remain separate account/host checks. `scripts/windows/Test-Proxy.ps1 -Tools` runs one isolated, real pi tool loop; `-Live` runs one plain completion instead. NixOS users can continue using the existing `services.m365-copilot-proxy` module and systemd unit.
+
+## Named application keys (0.9.0)
+
+Use `m365-proxy keys create "Application label"` on the host to generate a key for
+an individual client. `keys list`, `keys rename <id> "Label"`, `keys revoke <id>`
+and `keys mode optional|required` manage keys without a restart. New keys do not
+force authentication; the legacy configured `apiKey`/`M365_API_KEY` still requires
+valid keys. Optional mode accepts keyless/placeholder traffic as unattributed.
+Only digests and metadata are saved in private `proxy-api-keys.json`; generated
+tokens are printed once. See [application keys](api-keys.md) for complete behavior.
+
+Requests combines live/queued requests and saved history in one scrollable view.
+Request-type and application-key filters query the complete saved history. Clients
+adds application/model/served-route usage; Settings lists safe key metadata.

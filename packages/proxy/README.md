@@ -39,3 +39,10 @@ Source version 0.7.0 does not imply that this fork has published an npm package.
 Version 0.8 adds Overview performance charts, Requests timeline inspectors, and
 Models check-history paging/comparisons. Existing databases upgrade additively;
 older missing timing samples remain unknown. Model checks remain opt-in.
+
+Version 0.9 merges live and saved request lists and adds named application keys.
+Use `m365-proxy keys create "Application name"`, `keys list`, `keys rename`,
+`keys revoke` and `keys mode optional|required`. Adding keys preserves keyless
+access; a configured legacy key retains its existing required-access behavior.
+See [application keys](https://github.com/ghostinator/m365-copilot-proxy/blob/feat/unified-activity-operations/docs/api-keys.md)
+for storage, hot reload and attribution semantics.

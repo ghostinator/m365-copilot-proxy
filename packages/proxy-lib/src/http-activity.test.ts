@@ -52,6 +52,19 @@ it("bounds recent metadata, counts each finish once and keeps streams active unt
   expect(activity.snapshot().recent[0].status).toBe(499);
 });
 
+it("keeps queued requests visible even after the recent buffer evicts them", () => {
+  const activity = new HttpActivity();
+  const queued = activity.begin("POST", "/v1/chat/completions", false, "192.0.2.20")!;
+  queued.chat("claude-sonnet", false); queued.phase("queued");
+  for (let index = 0; index < 110; index++) activity.begin("GET", "/v1/models")!(200);
+  expect(activity.snapshot().recent.some(row => row.id === queued.id)).toBe(false);
+  expect(activity.snapshot().live).toEqual([expect.objectContaining({ id: queued.id, phase: "queued", elapsedMs: expect.any(Number) })]);
+  queued(499);
+  expect(activity.snapshot().live).toHaveLength(0);
+  expect(activity.sources.snapshot({ requestKind: "errors" }).recent[0]).toMatchObject({ id: queued.id, outcome: "cancelled" });
+  activity.sources.close();
+});
+
 it("distinguishes self-checks and application-level errors inside successful HTTP streams", () => {
   const activity = new HttpActivity();
   activity.begin("GET", "/v1/models", true)!(200);

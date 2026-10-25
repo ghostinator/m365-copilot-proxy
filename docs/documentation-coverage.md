@@ -37,3 +37,13 @@ changed for documentation capture.
 - Paged model-check history, previous samples/routes and graded denominators:
   dashboard.md; activity-insights.ts / dashboard-insights.ts; offline database and UI tests.
 - Follow-on feature list and implementation priorities: roadmap.md sections 6–7.
+
+## Unified requests and application keys (0.9.0)
+
+- Full-history type/key paging and pinned live rows: dashboard.md / dashboard-requests.ts.
+- Named key creation, modes, hot reload, revocation, labels and one-time tokens:
+  api-keys.md / api-keys.ts / cli.mjs; api-keys.test.ts and installed-runtime fixtures.
+- Application/model/route usage and normalized schema-5 migration: api-keys.md /
+  activity-database.md; migration/restart/filter tests in api-keys.test.ts.
+- Live rows surviving recent-buffer eviction: http-activity.test.ts; queue display
+  and merged-list paging: dashboard.test.ts. Cancellation controls remain queued.

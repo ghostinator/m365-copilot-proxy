@@ -4,7 +4,7 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.8.0)
+## Dashboard and operations (0.9.0)
 
 This fork adds a tabbed operations dashboard, persistent activity/error history,
 model capability checks, portable runtime packaging and Windows sign-in startup
@@ -16,7 +16,8 @@ archive explicitly built from this fork to get these features.
 | Feature | What is included |
 | --- | --- |
 | Dashboard | Overview, Requests, Clients, Models, Errors and Settings tabs, shared filters, keyboard navigation and direct links. |
-| Activity | HTTP/chat outcomes, streaming errors, cancellations, request IDs, timings, body bytes and upstream attempts; scrollable 20/50/100-row pages. |
+| Activity | One live/saved request list, queue visibility, full-history filters, inspectors and scrollable 20/50/100-row saved pages. |
+| Application keys | Multiple named keys, per-application/model usage, optional attribution, explicit required mode, hot reload, renaming and revocation. |
 | History | Built-in SQLite, rolling 24-hour/7-day/30-day/90-day/year/all-time summaries, unlimited retention, storage-size reporting and migration from older JSON history. |
 | Clients and models | Connection IP rankings, friendly labels, this-device detection, recognized client software and requested/served-model breakdowns. |
 | Model checks | Eight explicitly requested checks: identity, function tool, shell tool, tool-result round trip, streaming, JSON, instruction following and multi-turn recall. Results and evidence persist per model/check. |
@@ -26,7 +27,7 @@ archive explicitly built from this fork to get these features.
 Start from source:
 
 ```sh
-git clone https://github.com/ghostinator/m365-copilot-proxy.git
+git clone --branch feat/unified-activity-operations https://github.com/ghostinator/m365-copilot-proxy.git
 cd m365-copilot-proxy
 pnpm install
 pnpm build
@@ -40,8 +41,10 @@ use your configured listener address. Source builds require Node 24+ and pnpm 10
 portable archives can bundle Node. Setup/login can require tenant SSO/MFA. The
 legacy account directory stays `~/.config/opencode-m365` across upgrades.
 
-API keys are optional on every bind address. If you configure one, enter it under
-**Settings → Connection**; the page holds it only in memory. Dashboard polling and
+Named application keys remain optional on every bind address unless you explicitly
+require keys or keep a legacy key configured. See [application keys](docs/api-keys.md).
+When authentication is required, enter a valid key under **Settings → Connection**;
+the page holds it only in memory. Dashboard polling and
 local health/model-list checks do not start chats. Capability checks run only
 after you select models/checks and click **Test selected models**. They consume
 Microsoft quota, run sequentially with a 30-second cooldown, and never execute
@@ -70,11 +73,11 @@ are included for future updates.
 
 | Overview | Requests |
 | --- | --- |
-| ![Overview: instance health, activity summaries and storage](docs/images/dashboard-overview.png) | ![Requests: scrollable recent and saved history](docs/images/dashboard-requests.png) |
+| ![Overview: instance health, activity summaries and storage](docs/images/dashboard-overview.png) | ![Requests: scrollable recent and saved history](docs/images/dashboard-requests.jpg) |
 | **Clients** | **Models** |
-| ![Clients: labeled source systems and model usage](docs/images/dashboard-clients.png) | ![Models: selected capability checks and saved evidence](docs/images/dashboard-models.png) |
+| ![Clients: labeled source systems and model usage](docs/images/dashboard-clients.jpg) | ![Models: selected capability checks and saved evidence](docs/images/dashboard-models.png) |
 | **Errors** | **Settings** |
-| ![Errors: saved failures with expanded diagnostics](docs/images/dashboard-errors.png) | ![Settings: optional key and recovery instructions](docs/images/dashboard-settings.png) |
+| ![Errors: saved failures with expanded diagnostics](docs/images/dashboard-errors.png) | ![Settings: optional key and recovery instructions](docs/images/dashboard-application-keys.jpg) |
 
 ## How it works
 
@@ -803,3 +806,18 @@ New analytics views use synthetic documentation data, not live model evaluations
 ![Chat performance charts](docs/images/dashboard-performance.jpg)
 ![Request timeline inspector](docs/images/dashboard-request-inspector.jpg)
 ![Model check history](docs/images/dashboard-check-history.jpg)
+
+### Application keys and one request list (0.9.0)
+
+Create separate optional keys with `m365-proxy keys create "Application name"`.
+Labels appear in Requests and Clients, so applications sharing an IP remain
+distinguishable. Tokens are shown once; only digests are kept privately. Explicit
+required mode, revocation and renaming apply without restarting. See the
+[application-key guide](docs/api-keys.md).
+
+Requests now combines live queue activity and persistent history in one scrollable
+list, with 20/50/100 saved rows per page and full-history type/application filters.
+
+Named-key settings (synthetic documentation data):
+
+![Application API keys and optional access mode](docs/images/dashboard-application-keys.jpg)

@@ -1,3 +1,4 @@
+import { proxyApiKeys } from "./api-keys.js";
 import { html, script } from "./dashboard-ui.js";
 import { authenticationStatus, authenticationAccountKey, getAvailableModels, METERED_BUDGETS, activePriorityAccessExhaustion, priorityAccessFallbackModel, recentOperationalErrors, type MeteredBudget } from "@m365-copilot/core";
 import { usageObservations } from "./usage-observations.js";
@@ -10,6 +11,7 @@ import { modelCheckState } from "./model-checks.js";
 export function operatorStatus(pool: SessionPool, activity: HttpActivity = httpActivity, query: Partial<ActivityQuery> = {}) {
   const observed = usageObservations.snapshot(authenticationAccountKey());
   return {
+    apiKeys: proxyApiKeys.status(),
     authentication: authenticationStatus(),
     uptimeSeconds: Math.floor(process.uptime()),
     requests: pool.status,

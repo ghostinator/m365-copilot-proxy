@@ -1,10 +1,10 @@
-import { callerIdentity, ChatCompletionRequest, handleChatCompletion, readJsonBody } from "@m365-copilot/proxy-lib";
+import { callerIdentity, ChatCompletionRequest, handleChatCompletion, incomingRequestBody, readJsonBody } from "@m365-copilot/proxy-lib";
 import { pool } from "../../../server-pool";
 
 export default defineEventHandler(async (event) => {
   let body: ReturnType<typeof ChatCompletionRequest.parse>;
   try {
-    body = ChatCompletionRequest.parse(await readJsonBody(getRequestWebStream(event), getHeader(event, "content-length")));
+    body = ChatCompletionRequest.parse(await readJsonBody(incomingRequestBody(event.node.req), getHeader(event, "content-length")));
   } catch (err: any) {
     const issues = Array.isArray(err.issues) ? err.issues.map((issue: any) => `${issue.path.filter((part: unknown) => typeof part === "number" || ["messages","model","role","content","stream","tools","type","function","name","parameters","tool_calls","tool_call_id"].includes(String(part))).join(".")}: ${issue.code}`).join("; ") : /size limit|deadline|aborted/i.test(err.message) ? err.message : "Malformed JSON request body";
     event.context.proxyActivity?.diagnostic("invalid_request_error", issues);
