@@ -237,9 +237,9 @@ by default; existing application-key/origin policy applies and keys stay optiona
 Scrapes are excluded from activity. Retention remains unlimited.
 
 
-## Notification delivery (0.16.0)
+## Notification delivery (0.17.0)
 
-Settings supports named SMTP, Postal, SendGrid and generic/Slack/Teams destinations.
+Settings supports named SMTP, Postal, SendGrid, ntfy and generic/Slack/Teams destinations.
 See [notification delivery](notification-delivery.md) for private credential setup,
 explicit tests, durable queue/retry semantics and provider acceptance limits.
 All destinations save disabled; no provider account or recipient is provisioned.

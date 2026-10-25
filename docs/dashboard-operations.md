@@ -104,9 +104,9 @@ activity history backups do not include this separate state. Pending sustain tim
 restart after process restart. Unknown observations do not imply recovery. If the
 alert store fails, status explicitly reports monitor-unavailable.
 
-## Notification delivery (0.16.0)
+## Notification delivery (0.17.0)
 
-Operator access now manages named SMTP, Postal, SendGrid and generic/Slack/Teams webhook destinations.
+Operator access now manages named SMTP, Postal, SendGrid, ntfy and generic/Slack/Teams webhook destinations.
 Saving/replacing always disables the destination and sends nothing. Preview before
 explicit enablement or confirmed test. Credentials and endpoint/recipient settings
 are private, stored without at-rest encryption, and never read back by the dashboard.

@@ -12,15 +12,25 @@ export function webhookPayload(config: Extract<NotificationConfig, { type: "webh
 }
 /** No redirects, no remote response bodies in diagnostics, no chat-path dependency. */
 export async function sendNotification(config: NotificationConfig, message: DeliveryMessage): Promise<void> {
-  if (config.type === "webhook") {
+  if (config.type === "webhook" || config.type === "ntfy") {
+    const ntfy = config.type === "ntfy", category = config.type;
+    const url = ntfy ? new URL("/" + config.topic, config.url).href : config.url;
     try {
-      const response = await fetch(config.url, { method: "POST", redirect: "error", signal: AbortSignal.timeout(10_000),
-        headers: { "Content-Type": "application/json", "X-M365-Delivery-Id": message.deliveryId, ...(config.bearer ? { Authorization: "Bearer " + config.bearer } : {}) },
-        body: JSON.stringify(webhookPayload(config, message)) });
-      await response.body?.cancel().catch(() => {});
-      if (!response.ok) throw new DeliveryFailure("webhook_http_" + response.status, [408, 425, 429].includes(response.status) || response.status >= 500);
+      const response = await fetch(url, { method: "POST", redirect: "error", signal: AbortSignal.timeout(10_000),
+        headers: { "Content-Type": ntfy ? "text/plain; charset=utf-8" : "application/json", "X-M365-Delivery-Id": message.deliveryId, ...(ntfy ? { Title: message.subject } : {}), ...(config.bearer ? { Authorization: "Bearer " + config.bearer } : {}) },
+        body: ntfy ? message.text : JSON.stringify(webhookPayload(config, message)) });
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => {});
+        throw new DeliveryFailure(category + "_http_" + response.status, [408, 425, 429].includes(response.status) || response.status >= 500);
+      }
+      if (ntfy) {
+        const payload = await readProviderJson(response, "ntfy");
+        if (!payload || typeof payload !== "object" || !("event" in payload) || payload.event !== "message"
+          || !("topic" in payload) || payload.topic !== config.topic || !("id" in payload)
+          || typeof payload.id !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(payload.id)) throw new DeliveryFailure("ntfy_invalid_response", true);
+      } else await response.body?.cancel().catch(() => {});
       return;
-    } catch (error) { if (error instanceof DeliveryFailure) throw error; throw new DeliveryFailure("webhook_network_or_timeout", true); }
+    } catch (error) { if (error instanceof DeliveryFailure) throw error; throw new DeliveryFailure(category + "_network_or_timeout", true); }
   }
   if (config.type === "postal" || config.type === "sendgrid") return sendEmailApi(config, message);
   const transport = nodemailer.createTransport({ host: config.host, port: config.port, secure: config.security === "tls",
@@ -40,27 +50,31 @@ export async function sendNotification(config: NotificationConfig, message: Deli
   } finally { if (timer) clearTimeout(timer); transport.close(); }
 }
 
-/** Postal reports application errors inside HTTP 200; never retain its diagnostic body. */
-async function postalAccepted(response: Response): Promise<void> {
+/** Bound response parsing without retaining remote diagnostic content. */
+async function readProviderJson(response: Response, category: string): Promise<unknown> {
   const reader = response.body?.getReader();
-  if (!reader) throw new DeliveryFailure("postal_invalid_response", true);
+  if (!reader) throw new DeliveryFailure(category + "_invalid_response", true);
   try {
     const chunks: Uint8Array[] = []; let size = 0;
     while (true) {
       const chunk = await reader.read(); if (chunk.done) break;
       size += chunk.value.byteLength;
-      if (size > 16_384) throw new DeliveryFailure("postal_invalid_response", true);
+      if (size > 16_384) throw new DeliveryFailure(category + "_invalid_response", true);
       chunks.push(chunk.value);
     }
     const bytes = new Uint8Array(size); let offset = 0;
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-    let payload: unknown;
-    try { payload = JSON.parse(new TextDecoder().decode(bytes)); }
-    catch { throw new DeliveryFailure("postal_invalid_response", true); }
-    const status = payload && typeof payload === "object" && "status" in payload ? payload.status : null;
-    if (status === "error") throw new DeliveryFailure("postal_api_rejected", false);
-    if (status !== "success") throw new DeliveryFailure("postal_invalid_response", true);
+    try { return JSON.parse(new TextDecoder().decode(bytes)); }
+    catch { throw new DeliveryFailure(category + "_invalid_response", true); }
   } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+}
+
+/** Postal reports application errors inside HTTP 200. */
+async function postalAccepted(response: Response): Promise<void> {
+  const payload = await readProviderJson(response, "postal");
+  const status = payload && typeof payload === "object" && "status" in payload ? payload.status : null;
+  if (status === "error") throw new DeliveryFailure("postal_api_rejected", false);
+  if (status !== "success") throw new DeliveryFailure("postal_invalid_response", true);
 }
 
 async function sendEmailApi(config: Extract<NotificationConfig, { type: "postal" | "sendgrid" }>, message: DeliveryMessage): Promise<void> {

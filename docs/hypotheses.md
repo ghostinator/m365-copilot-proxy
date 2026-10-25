@@ -5988,3 +5988,21 @@ regression creates and verifies a real temporary backup from module stdin.
 Final Windows offline suite including backup-worker regression: 545 passed,
 six live tests skipped. The live host backup from module stdin also verified
 successfully after the fix; no M365 model request was made.
+
+
+### ntfy delivery boundary — October 25, 2026
+
+H: the existing leased outbox can publish fixed incident text to an operator-selected
+ntfy topic without exposing its topic/token or replaying historical alerts.
+Falsification: save/preview publishes, credentials appear in metadata, redirects
+forward credentials, retry loses its stable delivery ID, or the dashboard sends
+email/webhook fields for ntfy. Probe: notification-ntfy.test.ts, dashboard operator
+VM checks and one explicitly queued loopback installed-runtime push. Actual mobile
+receipt, ntfy server authorization and remote deduplication require separate evidence.
+Twilio was removed from planned features at the user's request; no implementation
+or production destination was added.
+
+Result: all six ntfy/UI scenarios passed; full Windows offline suite: 551 passed,
+six live tests skipped. ntfy acceptance additionally requires a message event,
+selected topic and bounded message ID; wrong-topic/HTML/oversized responses fail
+without recording provider content. No live mobile delivery is claimed.

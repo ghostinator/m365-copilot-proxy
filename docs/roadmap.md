@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.16.0. Source availability and portable
+The current source feature set is version 0.17.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.16.0 npm package. See [the README](../README.md) for current source/setup links.
+0.17.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -173,17 +173,17 @@ with rollback remain separate work. A stopped proxy is started from the host CLI
 - [x] Scrape exclusion, explicit unavailable history, restart counter semantics and setup guide.
 - [ ] Measured historical growth series, backup/alert/log footprint inventory and low-capacity alerts.
 
-## 14. Notification delivery (0.16.0)
+## 14. Notification delivery (0.17.0)
 
 See [provider scope and delivery design](notification-delivery.md). Current alerts
-support optional configured SMTP/Postal/SendGrid/webhook delivery; only local fake receivers and mocked provider responses were used in validation. No production destination has been configured or sent to.
+support optional configured SMTP/Postal/SendGrid/ntfy/webhook delivery; only local fake receivers and mocked provider responses were used in validation. No production destination has been configured or sent to.
 
 - [x] Multiple named destinations, per-rule routing, preview and explicit send-test.
 - [x] SMTP and generic HTTP webhook transports.
 - [x] Teams Workflows and Slack webhook payload adapters.
 - [x] Postal HTTP API and SendGrid v3 email adapters (0.16.0).
-- [ ] Twilio SMS/WhatsApp destinations, independently enabled.
-- [ ] ntfy push; evaluate Gotify, Discord, Telegram, Pushover and PagerDuty as needed.
+- [x] ntfy push (0.17.0).
+- [ ] Evaluate Gotify, Discord, Telegram, Pushover and PagerDuty as needed.
 - [x] Durable queue, bounded retry/backoff, deduplication and delivery/error history.
 - [x] Private credential configuration with metadata-only views and no read-back.
 - [ ] Combined operational-state backups/encryption.

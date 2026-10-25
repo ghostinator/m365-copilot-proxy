@@ -15,7 +15,7 @@ const reservation = createServer(); await new Promise(r => reservation.listen(0,
 const port = reservation.address().port; await new Promise(r => reservation.close(r));
 const base = `http://127.0.0.1:${port}`;
 const receivedNotifications = [];
-const receiver = httpServer(async (req, res) => { let body = ""; for await (const part of req) body += part; receivedNotifications.push(JSON.parse(body)); res.end("ok"); });
+const receiver = httpServer(async (req, res) => { let body = ""; for await (const part of req) body += part; receivedNotifications.push(req.headers["content-type"]?.startsWith("text/plain") ? { event: "ntfy-test", body, title: req.headers.title, deliveryId: req.headers["x-m365-delivery-id"] } : JSON.parse(body)); res.end(req.headers["content-type"]?.startsWith("text/plain") ? JSON.stringify({ id: "offline-id", event: "message", topic: req.url.slice(1) }) : "ok"); });
 await new Promise(resolve => receiver.listen(0, "127.0.0.1", resolve));
 const notificationUrl = `http://127.0.0.1:${receiver.address().port}/offline-test`;
 writeFileSync(join(data, "server.json"), JSON.stringify({ host: "127.0.0.1", port, metricsEnabled: true }));
@@ -103,6 +103,24 @@ try {
   assert.equal(deliveryState.deliveries[0].status, "sent");
   await operator({ action: "notifications-enable", id: destinationId, enabled: false });
   console.log("PASS: disabled destination save/preview, explicit local-only queued test, private metadata and durable delivery history");
+  const pushConfig = { type: "ntfy", url: new URL(notificationUrl).origin, topic: "offline-test", allowHttp: true, bearer: "synthetic-ntfy-token" };
+  const pushSave = await operator({ action: "notifications-save", destination: { label: "Offline push", config: pushConfig, rules: ["storage"], events: ["opened"] } });
+  assert.equal(pushSave.status, 200); const pushState = await pushSave.json(), push = pushState.destinations.find(d => d.type === "ntfy");
+  assert(push && !push.enabled); assert(!JSON.stringify(pushState).includes(pushConfig.topic)); assert(!JSON.stringify(pushState).includes(pushConfig.bearer));
+  assert.equal((await operator({ action: "notifications-preview", id: push.id })).status, 200);
+  assert.equal(receivedNotifications.length, 1);
+  assert.equal((await operator({ action: "notifications-test", id: push.id, confirm: true })).status, 409);
+  assert.equal((await operator({ action: "notifications-enable", id: push.id, enabled: true })).status, 200);
+  assert.equal((await operator({ action: "notifications-test", id: push.id, confirm: true })).status, 202);
+  for (let i = 0; i < 80 && receivedNotifications.length < 2; i++) await delay(200);
+  assert.equal(receivedNotifications.length, 2); const pushMessage = receivedNotifications[1];
+  assert.equal(pushMessage.event, "ntfy-test"); assert.match(pushMessage.body, /explicitly requested test/); assert.equal(pushMessage.title, "M365 Proxy notification test"); assert(pushMessage.deliveryId);
+  for (let i = 0; i < 80; i++) {
+    deliveryState = await (await operator({ action: "notifications-status", offset: 0 })).json();
+    if (deliveryState.counts.sent === 2) break; await delay(100);
+  }
+  assert.equal(deliveryState.counts.sent, 2); await operator({ action: "notifications-enable", id: push.id, enabled: false });
+  console.log("PASS: ntfy disabled save/preview, explicit loopback-only push and private durable delivery history");
   const jsonJob = await operator({ action: "export-create", format: "json", query: { range: "all", limit: 1, offset: 999 } });
   assert.equal(jsonJob.status, 200); const download = await jsonJob.json();
   assert(download.snapshot.records > 1);
@@ -122,9 +140,9 @@ try {
   assert.equal(after.apiKeys.required, false); assert.equal(after.apiKeys.keys[0].label, "Renamed"); assert(after.apiKeys.keys[0].revokedAt);
   assert.equal(after.alerts.settings.enabled, true, "alert settings survive detached restart");
   assert.equal(after.alerts.running, true);
-  assert.equal(after.notifications.configured, 1);
+  assert.equal(after.notifications.configured, 2);
   assert.equal(after.notifications.enabled, 0);
-  assert.equal(after.notifications.counts.sent, 1);
+  assert.equal(after.notifications.counts.sent, 2);
   assert.equal(after.metrics.enabled, true);
   assert.equal((await fetch(base + "/v1/proxy/metrics")).status, 200);
   assert.equal((await operator({ action: "alerts-configure", settings: { ...alertSettings, enabled: false } })).status, 200);

@@ -400,3 +400,20 @@ private metadata and two queued provider tests restored across restart through t
 real worker. Dashboard checks field visibility and clearing on lock. These fixtures
 send no email and use no real provider credentials or M365 quota. A provider setup
 still requires its own explicitly requested live acceptance/delivery test.
+
+
+## ntfy delivery (offline, 0.17.0)
+
+```sh
+pnpm build
+pnpm exec vitest run packages/proxy-lib/src/notification-ntfy.test.ts packages/proxy-lib/src/dashboard-operations.test.ts
+node scripts/test-operator-runtime.mjs
+```
+
+Unit fixtures publish to a loopback HTTP sink, verify plain text/title/authentication,
+reject redirects, classify transient/permanent failures, validate topic/origin
+boundaries, and recover a retry with the same delivery ID across restart. UI checks
+verify transport-specific fields, save payloads and clearing private fields on lock.
+The installed fixture allows only its one fixed loopback receiver; its explicitly
+queued ntfy test never contacts ntfy.sh or sends a device notification. Disabled
+saves/previews send nothing. No M365 model quota or production destination is used.

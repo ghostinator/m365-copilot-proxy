@@ -87,3 +87,14 @@ it("selects API email fields and clears provider credentials on lock", async () 
     for (const id of ["api-key", "api-from", "api-to", "postal-url"]) expect(el("notification-"+id).value).toBe("");
   }
 });
+
+it("saves ntfy fields separately from email/webhook settings and clears private topic/token on lock", async () => {
+  const { el, context } = await dashboard(); runInContext("notificationAction=command=>globalThis.capturedNotification=command", context);
+  el("notification-type").value = "ntfy"; el("notification-type").listeners.change();
+  expect(el("notification-ntfy").hidden).toBe(false); expect(el("notification-email-api").hidden).toBe(true); expect(el("notification-webhook").hidden).toBe(true);
+  el("notification-ntfy-url").value = "https://push.example.invalid"; el("notification-topic").value = "private-topic"; el("notification-ntfy-token").value = "private-token"; el("notification-ntfy-http").checked = false;
+  el("notification-rules").value = "storage"; el("notification-events").value = "opened"; el("notification-save").listeners.click();
+  expect(runInContext("capturedNotification.destination.config", context)).toMatchObject({ type: "ntfy", url: "https://push.example.invalid", topic: "private-topic", bearer: "private-token", allowHttp: false });
+  runInContext("lockOperator()", context);
+  for (const id of ["ntfy-url", "topic", "ntfy-token"]) expect(el("notification-"+id).value).toBe("");
+});

@@ -124,7 +124,7 @@ export class NotificationStore {
     return { destinations: db.prepare("SELECT id,label,revision,enabled,config,rules,events FROM destinations WHERE deleted=0 ORDER BY label,id LIMIT 20").all().map(d => {
       const c = notificationConfig.parse(JSON.parse(String(d.config)));
       return { id: d.id, label: d.label, revision: d.revision, enabled: !!d.enabled, type: c.type, format: c.type === "webhook" ? c.format : null,
-        rules: JSON.parse(String(d.rules)), events: JSON.parse(String(d.events)), credentialConfigured: c.type === "smtp" ? !!c.user : c.type === "webhook" ? !!c.bearer : !!c.apiKey };
+        rules: JSON.parse(String(d.rules)), events: JSON.parse(String(d.events)), credentialConfigured: c.type === "smtp" ? !!c.user : (c.type === "webhook" || c.type === "ntfy") ? !!c.bearer : !!c.apiKey };
     }), deliveries: db.prepare(`SELECT j.id,d.label,j.event,j.status,j.attempts,j.next_ms,j.created_ms,j.updated_ms,j.error
       FROM deliveries j JOIN destinations d ON d.id=j.destination_id ORDER BY j.created_ms DESC,j.id LIMIT 20 OFFSET ?`).all(offset), total, offset, limit: 20,
       counts: Object.fromEntries(db.prepare("SELECT status,count(*) AS n FROM deliveries GROUP BY status").all().map(r => [String(r.status), Number(r.n)])) };

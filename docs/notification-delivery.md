@@ -1,15 +1,15 @@
-# Notification delivery (0.16.0)
+# Notification delivery (0.17.0)
 
-Requested October 25, 2026. **Implemented: SMTP, Postal and SendGrid email APIs, plus generic/Slack/Teams
+Requested October 25, 2026. **Implemented: SMTP, Postal and SendGrid email APIs, ntfy push, plus generic/Slack/Teams
 webhooks with a durable delivery queue.** No production destination is configured or enabled by
 this change. Local fake receivers and mocked provider responses were used for validation.
-Twilio messaging remains queued. Existing alerts and metrics
+Existing alerts and metrics
 stay opt-in, and application keys stay optional.
 
 ## Configure from the dashboard
 
 Unlock operator access in Settings, then open **Notification delivery**. At most
-20 named destinations can be configured. Create a webhook, SMTP or email API destination,
+20 named destinations can be configured. Create a webhook, SMTP, email API or ntfy destination,
 choose the alert rules and opening/recovery events, then **Save disabled**. Saving
 never sends or verifies a remote endpoint. A replacement requires all configuration
 and credentials again, increments its revision, cancels queued work and disables it
@@ -25,7 +25,7 @@ by the operator; none is provisioned automatically.
 
 The dashboard reads back names, transport/payload type, revision, enablement, routing
 and a credential-present flag. It never reads back webhook URLs, bearer tokens,
-Postal URLs, provider API keys, SMTP hosts, usernames, passwords or email addresses. These fields are cleared from
+ntfy server/topic/token, Postal URLs, provider API keys, SMTP hosts, usernames, passwords or email addresses. These fields are cleared from
 the page when saved/locked. Reload/expiry clears operator access. Locking the page
 does not disable already-enabled server destinations. Use Disable to cancel queued
 work, or Remove to scrub the active configuration while retaining delivery history.
@@ -98,6 +98,24 @@ Provider response bodies are never logged or stored; Postal's bounded status che
 is used only in memory. No email credentials or recipients are provisioned by the
 proxy. Application API keys remain optional and separate from provider credentials.
 
+### ntfy push
+
+Select ntfy, supply the server origin (hosted or self-hosted), a topic and an optional
+access token. Origins require HTTPS unless HTTP is explicitly allowed. Paths,
+queries, credentials in URLs and redirects are refused. Topics accept 1–64 letters,
+digits, underscores or dashes. The server/topic/token are private fields and are
+never returned in metadata. Subscribe to that server/topic in your ntfy client.
+
+The adapter posts fixed incident text with a Title header and bearer authentication
+when configured. It shares the existing ten-second HTTP timeout and retry policy.
+Acceptance requires HTTP 2xx and a bounded JSON message response with the selected
+topic and a message ID; it does not confirm receipt by a device. Malformed or wrong-topic
+responses are retryable `ntfy_invalid_response` failures (16 KiB parse limit). Delivery IDs stay stable
+across retry, but ntfy deduplication is not guaranteed. No subscription, account or
+remote topic permission is created. Use server access controls or an unguessable
+topic: unauthenticated topics can be read by others who know their name. HTTP sends
+topic, token and message without encryption. No attachments or action URLs are sent.
+
 ## Queue and incident behavior
 
 The worker processes one send at a time, on a five-second schedule, independently
@@ -128,7 +146,7 @@ retry; exactly-once delivery is not promised. Generic receivers can deduplicate 
 the X-M365-Delivery-Id header/body field; SMTP uses the stable Message-ID. Slack and
 Teams do not gain a deduplication guarantee from these IDs.
 
-**Sent means webhook 2xx, SMTP acceptance, Postal application success or SendGrid 202**, not confirmed
+**Sent means webhook 2xx, ntfy message acceptance, SMTP acceptance, Postal application success or SendGrid 202**, not confirmed
 inbox arrival, reading, or successful downstream Teams workflow execution. Delivery
 history shows state, attempts, next retry and fixed redacted error categories. It
 is paged 20 at a time; newly arriving jobs can shift offset pages. Retention is
@@ -165,15 +183,13 @@ attachments are disabled in the SMTP library. Provider I/O is outside the chat p
    currently documented Workflows flow rather than depend on retiring connectors.
 2. **Implemented: Postal HTTP API and SendGrid v3 Mail Send** for direct email delivery. These
    are independent choices alongside SMTP, not additional required services.
-3. **Twilio SMS/WhatsApp** for urgent phone delivery, separately opt-in because
-   sender provisioning, templates, country restrictions and cost vary by channel.
-4. **ntfy** for lightweight self-hosted/hosted push, plus consideration of Gotify,
+3. **Implemented: ntfy** for lightweight self-hosted/hosted push, plus consideration of Gotify,
    Discord, Telegram, Pushover and PagerDuty according to actual demand.
-5. **Prometheus Alertmanager integration/examples** for sites already operating a
+4. **Prometheus Alertmanager integration/examples** for sites already operating a
    monitoring stack. Its receivers cover SMTP, Slack and generic webhooks, and an
    external monitor can detect a stopped proxy that cannot report its own outage.
 
-Twilio and the push adapters above remain backlog items. Postal and SendGrid can
+Other push adapters above remain backlog items. Postal and SendGrid can
 also be configured through SMTP using operator-supplied settings.
 
 ## Shared delivery requirements
@@ -205,7 +221,6 @@ also be configured through SMTP using operator-supplied settings.
 - [Postal API](https://docs.postalserver.io/developer/api/)
 - [Postal send-message request](https://apiv1.postalserver.io/controllers/send/message.html)
 - [SendGrid Mail Send](https://www.twilio.com/docs/sendgrid/api-reference/mail-send/mail-send)
-- [Twilio Message resource](https://www.twilio.com/docs/messaging/api/message-resource)
 - [Teams incoming webhooks / Workflows](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook)
 - [Teams connector retirement guidance](https://devblogs.microsoft.com/microsoft365dev/retirement-of-office-365-connectors-within-microsoft-teams/)
 - [Slack incoming webhooks](https://api.slack.com/messaging/webhooks)
@@ -213,8 +228,8 @@ also be configured through SMTP using operator-supplied settings.
 - [Alertmanager notification integrations](https://prometheus.io/docs/alerting/latest/integrations/)
 
 Provider-specific requests, authentication and limits must be checked against the
-current primary docs when implementing each adapter. Version 0.16.0 adds Postal and SendGrid APIs
-to the existing SMTP and generic/Slack/Teams transports.
+current primary docs when implementing each adapter. Version 0.17.0 adds ntfy push alongside Postal, SendGrid, SMTP and
+generic/Slack/Teams transports.
 
 ## Screenshots
 

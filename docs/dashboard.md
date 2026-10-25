@@ -292,7 +292,7 @@ headings and longer route/rate cells wrap; narrow displays retain horizontal tab
 scrolling. External notification provider choices are tracked in
 [notification delivery](notification-delivery.md), separately from local alerts.
 
-## Notification delivery (0.16.0)
+## Notification delivery (0.17.0)
 
 Settings → Notification delivery manages named SMTP and generic/Slack/Teams webhook
 destinations, rule/event routing, preview, explicit enable/test and paged delivery
