@@ -15,6 +15,14 @@ Version 0.4.0, source commit 016d42a, Windows x64 archive built locally.
 Actual routing remains unresolved: 127.0.0.1:4141 and the Tailnet address:4141
 belong to different Node processes. The user's application/base URL is needed
 before changing that routing. No application settings or remote listener changed.
-Automatic approval review blocked restarting the localhost runtime; the live
-/dashboard still serves 0.3.1 pending that restart. The verified 0.4.0 archive is
+Initial automatic review blocked the restart. After the user explicitly approved,
+the idle localhost instance was stopped gracefully and replaced with verified
+0.4.0 (PID 14528). Authentication and local health/model checks passed. The
+Tailnet process (PID 344) remains running. The verified 0.4.0 archive is
 in release/m365-proxy-0.4.0-win32-x64-1792923546268.zip.
+
+Available local startup logs confirm earlier use of the Tailnet bind address, but
+contain no per-request access records or client identities. No claim about which
+application made the reported successful chat can be recovered from those logs.
+Live socket inspection succeeded; one subsequent OS inventory timed out and was
+reported as unavailable. Liveness/readiness/model-list checks passed without chat.
