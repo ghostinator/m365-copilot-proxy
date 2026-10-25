@@ -24,7 +24,7 @@ function inspect(path: string): Promise<{ schema: 5; requests: number; modelRepo
         for(const name of ['metadata','systems','requests','hourly','system_totals','legacy_totals','model_checks','request_errors','request_timings','request_applications'])if(!tables.has(name))throw Error('Missing table');
         result={schema:5,requests:db.prepare('SELECT count(*) AS n FROM requests').get().n,modelReports:db.prepare('SELECT count(*) AS n FROM model_checks').get().n};
       }catch{result={error:true}}finally{db?.close()}parentPort.postMessage(result);
-    `, { eval: true, workerData: path, resourceLimits: { maxOldGenerationSizeMb: 64 } });
+    `, { eval: true, execArgv: [], workerData: path, resourceLimits: { maxOldGenerationSizeMb: 64 } });
     let settled = false;
     const finish = (error?: Error, value?: { schema: 5; requests: number; modelReports: number }) => { if (settled) return; settled = true; clearTimeout(timer); void worker.terminate(); error ? reject(error) : accept(value!); };
     const timer = setTimeout(() => finish(new Error("Backup verification exceeded 30 seconds")), 30_000);

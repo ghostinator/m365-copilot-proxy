@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync, appendFileSync, existsSync, r
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, expect, it, vi } from "vitest";
 import { HttpActivity } from "./http-activity.js";
@@ -116,4 +117,13 @@ it("cleans up failed backup creation and refuses path traversal without touching
   expect(readdirSync(join(dir, "history-backups"))).toHaveLength(0);
   expect(existsSync(join(dir, "history-backups.lock"))).toBe(false);
   await expect(manager.verify("../server.json")).rejects.toThrow();
+});
+
+it("verifies backups from a module-stdin caller without inheriting incompatible worker flags", () => {
+  const f = fixture(); f.record(2); f.sources.close();
+  const script = `import {HistoryBackups} from ${JSON.stringify(new URL("../dist/index.mjs", import.meta.url).href)};
+    const manager = new HistoryBackups(${JSON.stringify(f.dir)});
+    const backup = await manager.create(); console.log(JSON.stringify(await manager.verify(backup.id)));`;
+  const output = execFileSync(process.execPath, ["--input-type=module"], { input: script, encoding: "utf8", windowsHide: true, timeout: 15_000 });
+  expect(JSON.parse(output)).toMatchObject({ verified: true, requests: 2, schema: 5 });
 });
