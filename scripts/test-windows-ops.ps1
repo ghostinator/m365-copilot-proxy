@@ -24,3 +24,7 @@ Copy-Item -LiteralPath (Join-Path $repo 'packages\proxy\bin\supervise.mjs') -Des
 & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $repo 'packages\proxy\windows\Runner.ps1') -Launcher $fake -NodePath (Get-Command node.exe).Source -DataDir (Join-Path $scratch 'state')
 if ($LASTEXITCODE -ne 17) { throw ('Runner lost Node exit 17; got ' + $LASTEXITCODE) }
 Write-Output 'PASS: Windows runner propagates the Node exit code through paths containing spaces'
+
+# The deliberate child exit 17 was asserted above. PowerShell -Command must not
+# propagate that expected failure as the successful harness's process result.
+exit 0
