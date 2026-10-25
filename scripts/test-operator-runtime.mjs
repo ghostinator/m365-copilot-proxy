@@ -26,6 +26,12 @@ for (const key of ["HOST", "NITRO_HOST", "NITRO_PORT", "PORT", "NODE_PATH", "NIT
 env.M365_TEST_NOTIFICATION_URL = notificationUrl;
 env.NODE_OPTIONS = `--import=${pathToFileURL(join(root, "scripts/fixtures/chat-loader.mjs")).href}`;
 const command = async (...args) => (await promisify(execFile)(process.execPath, [launcher, ...args], { env, windowsHide: true, timeout: 30_000 })).stdout;
+// A real legacy v1 store is upgraded by the installed process, preserving sequence IDs.
+const legacyAlerts = new DatabaseSync(join(data, "alerts.sqlite"));
+legacyAlerts.exec(`CREATE TABLE settings(id INTEGER PRIMARY KEY,value TEXT NOT NULL);
+CREATE TABLE incidents(id TEXT PRIMARY KEY,rule TEXT NOT NULL UNIQUE,opened_ms INTEGER NOT NULL,last_seen_ms INTEGER NOT NULL,acknowledged_ms INTEGER,evidence TEXT NOT NULL);
+CREATE TABLE events(seq INTEGER PRIMARY KEY,incident_id TEXT NOT NULL,rule TEXT NOT NULL,event TEXT NOT NULL,at_ms INTEGER NOT NULL,evidence TEXT NOT NULL);
+INSERT INTO events VALUES(17,'legacy-incident','failures','resolved',1,'legacy fixture');PRAGMA user_version=1;`);legacyAlerts.close();
 const child = spawn(process.execPath, [launcher, "serve"], { env, cwd: data, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
 let logs = ""; child.stdout.on("data", d => logs += d); child.stderr.on("data", d => logs += d);
 async function ready(newPid) {
@@ -55,6 +61,10 @@ try {
   assert.equal(afterScrape.sources.storage.storedRecords, beforeScrape.sources.storage.storedRecords);
   assert(afterScrape.sources.storage.growth.logicalBytes > 0);
   assert.equal(afterScrape.alerts.settings.minFreeMiB, 0);
+  assert.deepEqual(afterScrape.alerts.settings.models, []);
+  assert.equal(afterScrape.alerts.events.find(e => e.seq === 17)?.incident_id, "legacy-incident");
+  const migratedAlerts = new DatabaseSync(join(data,"alerts.sqlite"),{readOnly:true});
+  assert.equal(migratedAlerts.prepare("PRAGMA user_version").get().user_version,2);migratedAlerts.close();
   assert.equal(afterScrape.sources.storage.footprint.persistent, true);
   assert(afterScrape.sources.storage.footprint.categories.activity.files > 0);
   assert(afterScrape.sources.storage.footprint.totalBytes > 0);
@@ -80,11 +90,12 @@ try {
   assert.equal((await operator({ action: "key-revoke", id: key.id })).status, 200);
   const service = await operator({ action: "status" }); assert.equal(service.status, 200);
   assert.equal((await service.json()).available, true);
-  const alertSettings = { ...before.alerts.settings, enabled: true, minFreeMiB: 1 };
+  const alertSettings = { ...before.alerts.settings, enabled: true, minFreeMiB: 1,
+    models: [{model:"claude-sonnet",failures:true,throttling:true,minRequests:10,minFailures:5,failurePercent:50}] };
   const configuredAlerts = await operator({ action: "alerts-configure", settings: alertSettings });
   assert.equal(configuredAlerts.status, 200);
   const savedAlertSettings = (await configuredAlerts.json()).settings;
-  assert.equal(savedAlertSettings.enabled, true); assert.equal(savedAlertSettings.minFreeMiB, 1);
+  assert.equal(savedAlertSettings.enabled, true); assert.equal(savedAlertSettings.minFreeMiB, 1);assert.deepEqual(savedAlertSettings.models,alertSettings.models);
   assert.equal((await operator({ action: "alerts-configure", settings: { ...alertSettings, webhook: "https://unrequested.invalid" } })).status, 400);
   for (const type of ["postal", "sendgrid"]) {
     const config = { type, apiKey: "synthetic-provider-key", from: "sender@example.invalid", to: ["recipient@example.invalid"], ...(type === "postal" ? { url: "https://postal.example.invalid" } : { region: "eu" }) };
@@ -178,6 +189,9 @@ try {
   console.log("PASS: scheduled backup opt-in, persisted due time, one verified overdue run across restart and disable without deletion");
   assert.equal(after.alerts.settings.enabled, true, "alert settings survive detached restart");
   assert.equal(after.alerts.running, true);
+  assert.deepEqual(after.alerts.settings.models,alertSettings.models);
+  assert.equal(after.alerts.events.find(e => e.seq === 17)?.incident_id,"legacy-incident");
+  console.log("PASS: legacy alert-store migration and per-model settings persist across installed restart");
   assert.equal((await operator({ action: "unlock" }, { "x-m365-operator": adminSession.token })).status, 200);
   assert.equal((await operator({ action: "admin-revoke" }, { "x-m365-operator": adminSession.token })).status, 200);
   assert.equal((await operator({ action: "unlock" }, { "x-m365-operator": adminSession.token })).status, 403);

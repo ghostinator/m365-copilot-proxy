@@ -152,3 +152,53 @@ Paste the 15-minute grant into First-time setup, then set/reset your password.
 A new host grant replaces the prior host grant but does not revoke administrator
 sessions; password changes and Revoke all sessions do. Keep the private data folder.
 Activity backups exclude administrator credentials and sessions.
+
+
+## Per-model alert rules (0.22.0)
+
+Settings → **Opt-in alerts → Per-model alerts** lets an administrator add up to ten
+model rows. Choose exact requested model IDs from the suggestions. Aliases are
+separate routes; a requested model that falls back still counts against the requested
+ID, not the served model. Unknown/custom names are anonymized by existing request
+logging, so choose an advertised ID rather than an arbitrary custom string.
+
+Each row has failure/throttling switches, minimum completed chats, minimum errors
+and failure percentage. Failure rules require both error count and percentage;
+throttling requires the count without the percentage. The global rolling window
+and sustain time apply to model rows too. **Enable background alert monitoring**
+is required; global failures/throttling switches control only the all-model rules.
+Saving empty model rows or duplicate IDs is rejected. Removing a row takes effect
+only when Apply alert settings succeeds. Reload saved settings discards drafts.
+Polling preserves edits. Existing settings default to no model rows on upgrade.
+
+Only completed application chat requests count. SSE application errors count even
+when HTTP status is 200. Explicit self-checks/model tests, unrelated endpoints and
+future-dated requests are excluded. Cancellations count as traffic but not errors.
+At least the row's minimum traffic is needed to open **or resolve** a model incident;
+missing/low-volume observations and unavailable activity storage are unknown, so
+quiet models do not falsely recover. Interrupted sustain timers restart. This uses
+saved observations and never initiates a model probe or sign-in.
+
+Overview/Errors → **Alert center** labels model-scoped incidents and events by
+requested model. Each (rule, model) has an independent incident, acknowledgement
+and recovery; all-model incidents can coexist. Settings changes still reset existing
+incidents and sustain timers. Model notifications use existing failures/throttling
+routing: enabling model rules authorizes their configured model IDs in notifications.
+Fixed counts/messages and the configured ID are sent; no arbitrary error text,
+prompts, answers, keys or client identifiers are included. Existing enabled destinations
+may receive these future events if their routing matches. No destinations are created
+or enabled by adding rules. A single condition can generate both global and model
+notifications when both are configured.
+
+The private alerts.sqlite upgrades transactionally from schema 1 to **schema 2**,
+adding model scope and composite incident uniqueness while preserving incident IDs,
+acknowledgements, event sequence numbers and saved configuration. New global rows
+use an empty model scope. Activity schema remains 5, notification schema remains 1,
+and activity backups still exclude alerts. Older binaries cannot read alert schema 2;
+keep a stopped-host copy of alerts.sqlite and its sidecars before a rollback. Metrics
+sum global and model incidents under existing fixed rule labels; no model labels are
+added to Prometheus.
+
+Screenshot placeholder: capture Settings → Per-model alerts with a synthetic model
+row and thresholds, then Errors → Alert center showing two independently scoped
+model incidents. Use fixture data; do not trigger live failures just for screenshots.

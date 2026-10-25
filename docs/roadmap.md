@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.21.0. Source availability and portable
+The current source feature set is version 0.22.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.21.0 npm package. See [the README](../README.md) for current source/setup links.
+0.22.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -163,7 +163,8 @@ with rollback remain separate work. A stopped proxy is started from the host CLI
 - [x] Separate private SQLite incident/event store, unlimited retention and paged history.
 - [x] Deduplicated incidents, acknowledgement, recovery and recurrence across restarts.
 - [x] Optional external notification delivery (0.15.0+).
-- [ ] Per-model rules and process-outage monitoring.
+- [x] Opt-in per-model failure/throttling rules, persisted independent incidents and existing destination routing (0.22.0).
+- [ ] Process-outage monitoring.
 - [ ] Combined backup/restore of alert state (history backups cover activity only).
 
 ## 13. Storage planning and optional metrics (0.14.0)

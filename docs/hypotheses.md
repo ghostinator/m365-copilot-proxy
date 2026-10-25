@@ -6082,3 +6082,23 @@ sustained opening, threshold-boundary recovery, unknown samples and storage togg
 all passed. Reference scope/limitations promoted to docs/observability.md. Installed
 runtime checks also assert inventory availability and explicit threshold configuration;
 no production alert or model probe is enabled by this change.
+
+
+### Scoped model alerts from saved observations — October 25, 2026
+
+H: grouping completed application chats by exact requested model can sustain separate
+incidents without extra M365 turns or losing global incident identity on upgrade.
+Falsification: one model's recovery/acknowledgement affects another, insufficient
+traffic resolves a model incident, v1 migration changes IDs/event sequence, global
+switches incorrectly disable model rows, or notification routing loses model scope.
+Probes: model-alerts.test.ts (seven offline cases) and dashboard-operations.test.ts
+(one model-editor case). The installed operator fixture seeds an actual v1 store,
+configures a model row and checks migration/history/settings across restart.
+
+Result: 589 Windows offline tests passed; six live M365 tests skipped. Separate
+scopes, missing/low-volume observations, sustain resets, persistence, configuration
+reset, v1 migration and existing destination routing passed. The first SQL sampler
+fixture used an unadvertised model name, intentionally anonymized as custom by the
+activity logger; using advertised claude-sonnet exercised the actual stored route
+and passed. No logger privacy behavior was changed. Model rules remain empty on
+production upgrade. Reference: docs/dashboard-operations.md, Per-model alert rules.

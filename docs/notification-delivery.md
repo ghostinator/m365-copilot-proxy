@@ -238,3 +238,14 @@ generic/Slack/Teams transports.
 Capture Settings → Notification delivery with a synthetic disabled destination,
 preview text and delivery history. Hide/clear URL, bearer, SMTP and email fields;
 never publish real credentials or recipients. No live provider screenshot is claimed.
+
+
+### Model-scoped events (0.22.0)
+
+Configured model alert rows use the existing failures/throttling rule routing and
+opened/resolved events. Payloads may include an optional **model** field and a
+Requested model line in text, containing the explicitly configured ID. Fixed numeric
+count extraction remains unchanged; arbitrary diagnostics and client information
+are not sent. Global payloads keep their existing shape. Existing destinations are
+not modified, but enabled matching destinations receive future model events after
+an administrator enables model monitoring. See [model setup and scope](dashboard-operations.md#per-model-alert-rules-0220).

@@ -1,11 +1,12 @@
-import { AlertStore, defaultAlerts, type AlertSettings, type AlertRule, type AlertFact } from "./alert-store.js";
+import { AlertStore, defaultAlerts, type AlertSettings, type AlertFact } from "./alert-store.js";
+import { modelAlertFacts, type ModelAlertSample } from "./alert-models.js";
 import { Notifications } from "./notifications.js";
 
-export interface AlertSample { total: number; failed: number; throttled: number; storageError: boolean; freeBytes?: number | null; authentication: "ready" | "starting" | "auth_required" }
+export interface AlertSample { total: number; failed: number; throttled: number; storageError: boolean; freeBytes?: number | null; models?: ModelAlertSample[]; authentication: "ready" | "starting" | "auth_required" }
 /** Background observations only; the sampler never refreshes auth or calls a model. */
 export class AlertMonitor {
   private store: AlertStore;
-  private pending = new Map<AlertRule, number>();
+  private pending = new Map<string, number>();
   private timer?: ReturnType<typeof setInterval>;
   private lastConfig = "";
   private closed = false;
@@ -46,7 +47,7 @@ export class AlertMonitor {
           evidence: s.authentication === "auth_required" ? "Existing sign-in requires recovery on the proxy host." : "Authentication is ready." },
         { rule: "storage", triggered: storageTriggered, evidence: storageEvidence },
       ];
-      this.store.apply(facts, this.pending, settings.sustainSeconds * 1000, now);
+      this.store.apply([...facts, ...modelAlertFacts(settings.models, s.models, s.storageError, settings.windowMinutes)], this.pending, settings.sustainSeconds * 1000, now);
       this.checkedAt = now; this.error = null;
     } catch { this.error = "Alert monitoring is unavailable. Check the host alert database, configuration, permissions and disk space."; this.pending.clear(); }
   }

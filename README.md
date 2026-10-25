@@ -4,7 +4,7 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.21.0)
+## Dashboard and operations (0.22.0)
 
 New: export **all matching history** as streamed JSON/CSV, create verified online
 SQLite backups, and prepare an explicit offline restore with a safety snapshot.
@@ -870,3 +870,14 @@ See [backup download scope](docs/history-management.md#download-a-verified-backu
 Settings → **Scheduled history backups** supports opt-in hourly, 6/12/24-hour or
 weekly verified snapshots with persistent run history. One overdue run catches up
 after downtime; backups are never deleted automatically. See [scheduling](docs/history-management.md#scheduled-backups-0200).
+
+
+**Per-model alerts (0.22.0):** Settings → Opt-in alerts can monitor up to ten requested
+model IDs with independent failure/throttling thresholds. Incidents identify the model,
+persist across restarts, and use existing destination routing. Low traffic is unknown,
+not recovery; no model tests run automatically. Existing configurations have no model
+rules. See [setup, scope and migration details](docs/dashboard-operations.md#per-model-alert-rules-0220).
+
+> **Screenshot to add — model alerts:** Capture Settings → Opt-in alerts → Per-model
+> alerts with an example row; capture Errors → Alert center with model-scoped incidents.
+> Use synthetic data and omit credentials.

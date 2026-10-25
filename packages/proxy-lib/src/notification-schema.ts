@@ -1,3 +1,4 @@
+import { alertModelId } from "./alert-models.js";
 import { z } from "zod/v4";
 
 const clean = (max: number) => z.string().max(max).refine(s => !/[\x00-\x1f\x7f]/.test(s));
@@ -31,10 +32,12 @@ export const notificationDestination = z.object({ label: clean(100).refine(s => 
   rules: z.array(notificationRule).min(1).max(4), events: z.array(notificationEvent).min(1).max(2) }).strict();
 export type NotificationDestination = z.infer<typeof notificationDestination>;
 export type NotificationConfig = z.infer<typeof notificationConfig>;
-export interface DeliveryMessage { version: 1; deliveryId: string; incidentId: string | null; rule: string; event: string; occurredAt: string; subject: string; text: string }
+export interface DeliveryMessage { version: 1; deliveryId: string; incidentId: string | null; rule: string; event: string; occurredAt: string; subject: string; text: string; model?: string }
 
-/** Only fixed messages and recognized numeric counts cross the notification boundary. */
-export function deliveryMessage(id: string, incidentId: string | null, rule: string, event: string, at: number, evidence = ""): DeliveryMessage {
+/** Fixed messages, recognized counts and explicitly configured model IDs only. */
+export function deliveryMessage(id: string, incidentId: string | null, rule: string, event: string, at: number, evidence = "", model?: string): DeliveryMessage {
+  const parsedModel = alertModelId.safeParse(model);
+  const modelName = parsedModel.success ? parsedModel.data : null;
   const test = event === "test", subject = test ? "M365 Proxy notification test" : `M365 Proxy: ${rule} ${event}`;
   const counts = evidence.match(/^(\d+) (errors|throttled requests) \/ (\d+) completed application chats in (\d+) minutes\.$/);
   const detail = test ? "This is an explicitly requested test notification. No model request was sent."
@@ -42,5 +45,5 @@ export function deliveryMessage(id: string, incidentId: string | null, rule: str
     : counts ? `${counts[1]} ${counts[2]} / ${counts[3]} completed chats in ${counts[4]} minutes.`
     : rule === "authentication" ? "Sign-in recovery is required on the proxy host."
     : rule === "storage" ? "Activity storage needs attention on the proxy host." : "A sustained condition was observed. Inspect the proxy dashboard.";
-  return { version: 1, deliveryId: id, incidentId, rule, event, occurredAt: new Date(at).toISOString(), subject, text: subject + "\n" + detail + "\n" + new Date(at).toISOString() };
+  return { version: 1, deliveryId: id, incidentId, rule, event, occurredAt: new Date(at).toISOString(), subject, ...(modelName ? { model: modelName } : {}), text: subject + (modelName ? "\nRequested model: " + modelName : "") + "\n" + detail + "\n" + new Date(at).toISOString() };
 }

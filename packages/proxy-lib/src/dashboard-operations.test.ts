@@ -145,3 +145,18 @@ it("preserves a low-space threshold draft and renders partial storage measuremen
   expect(el("storage-footprint").textContent).toContain("lower bound"); expect(el("storage-footprint").textContent).toContain("backups");
   runInContext("renderStoragePlanning(null)", context); expect(el("storage-footprint").textContent).toBe("");
 });
+
+
+it("edits per-model thresholds without polling overwrites and saves exact model rules", async () => {
+ const {el,context}=await dashboard();
+ const a={settings:{enabled:true,failures:false,throttling:false,authentication:true,storage:true,minFreeMiB:0,windowMinutes:5,minRequests:10,minFailures:5,failurePercent:50,sustainSeconds:60,models:[]},active:[],events:[],total:0,offset:0};
+ runInContext("operatorToken='grant';renderAlerts("+JSON.stringify(a)+");alertAction=command=>globalThis.savedAlerts=command",context);
+ el('alerts-model-add').listeners.click();
+ runInContext("modelAlertRows[0].model.value='claude-sonnet';modelAlertRows[0].minRequests.value='20'",context);
+ runInContext("renderAlerts("+JSON.stringify(a)+")",context);
+ expect(runInContext('readModelAlertRules()[0].model',context)).toBe('claude-sonnet');
+ el('alerts-save').listeners.click();const saved=JSON.parse(runInContext('JSON.stringify(savedAlerts)',context));
+ expect(saved.settings.models).toEqual([{model:'claude-sonnet',failures:true,throttling:true,minRequests:20,minFailures:5,failurePercent:50}]);
+ runInContext("modelAlertRows[0].remove.listeners.click()",context);expect(runInContext('readModelAlertRules().length',context)).toBe(0);
+ runInContext("lockOperator()",context);el('alerts-model-add').listeners.click();expect(runInContext('readModelAlertRules().length',context)).toBe(0);
+});

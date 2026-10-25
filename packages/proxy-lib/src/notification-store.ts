@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { notificationDestination, notificationConfig, notificationRule, deliveryMessage, type NotificationDestination, type DeliveryMessage } from "./notification-schema.js";
 
-export interface NotificationEventRow { seq: number; incident_id: string; rule: string; event: string; at_ms: number; evidence: string }
+export interface NotificationEventRow { seq: number; incident_id: string; rule: string; event: string; at_ms: number; evidence: string; model?: string }
 export interface EventBatch { max: number; events: NotificationEventRow[] }
 const queued = "status='queued'";
 
@@ -68,7 +68,7 @@ export class NotificationStore {
     });
   }
   private add(db: DatabaseSync, destination: Record<string, unknown>, event: NotificationEventRow | null, now: number) {
-    const id = randomUUID(), message = event ? deliveryMessage(id, event.incident_id, event.rule, event.event, event.at_ms, event.evidence) : deliveryMessage(id, null, "test", "test", now);
+    const id = randomUUID(), message = event ? deliveryMessage(id, event.incident_id, event.rule, event.event, event.at_ms, event.evidence, event.model) : deliveryMessage(id, null, "test", "test", now);
     db.prepare("INSERT OR IGNORE INTO deliveries VALUES(?,?,?,?,?,?,?,'queued',0,?,NULL,NULL,?,?,NULL)")
       .run(id, destination.id as string, Number(destination.revision), event?.seq ?? null, event?.incident_id ?? null, event?.event ?? "test", JSON.stringify(message), now, now, now);
   }

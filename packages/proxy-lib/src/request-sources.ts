@@ -32,7 +32,13 @@ export class RequestSources {
           COALESCE(SUM(r.outcome=1 AND (${errorCategorySql})='throttling'),0) AS throttled
           FROM requests r WHERE r.self_check=0 AND r.endpoint=${entry.shape.endpoint.options.indexOf("/v1/chat/completions")} AND r.received_ms>? AND r.received_ms<=?`)
           .get(now - settings.windowMinutes * 60_000, now)!;
-        return { total: Number(r.total), failed: Number(r.failed), throttled: Number(r.throttled),
+        const models = settings.models.length ? this.open().db.prepare(`SELECT r.model,COUNT(*) AS total,
+          COALESCE(SUM(r.outcome=1),0) AS failed,COALESCE(SUM(r.outcome=1 AND (${errorCategorySql})='throttling'),0) AS throttled
+          FROM requests r WHERE r.self_check=0 AND r.endpoint=${entry.shape.endpoint.options.indexOf("/v1/chat/completions")}
+          AND r.received_ms>? AND r.received_ms<=? AND r.model IN (${settings.models.map(() => "?").join(",")}) GROUP BY r.model`)
+          .all(now - settings.windowMinutes * 60_000, now, ...settings.models.map(rule => rule.model))
+          .map(row => ({ model: String(row.model), total: Number(row.total), failed: Number(row.failed), throttled: Number(row.throttled) })) : [];
+        return { models, total: Number(r.total), failed: Number(r.failed), throttled: Number(r.throttled),
           freeBytes: settings.minFreeMiB > 0 ? filesystemCapacity(this.directory).freeBytes : null,
           storageError: !!this.error || !!this.pending.length || !!this.notSaved, authentication: authenticationStatus().status };
       } catch { return { total: 0, failed: 0, throttled: 0, storageError: true, authentication: authenticationStatus().status }; }

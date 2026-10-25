@@ -29,8 +29,8 @@ Capacity can be unknown if the OS cannot report it. Queries read aggregate count
 indexed time ranges and SQLite page metadata; they do not load raw history records.
 
 The status API adds `sources.storage.growth`. Values use bytes, milliseconds, request
-counts and daily rates; missing estimates/capacity are null. Activity/alert schemas
-and existing backup formats are unchanged. History backup/restore does not include
+counts and daily rates; missing estimates/capacity are null. The storage-planning feature does not change activity schemas or backup formats.
+Model alerts in 0.22.0 separately upgrade the alert store to schema 2. History backup/restore does not include
 the separate alert database or server settings.
 
 ## File footprint and low-capacity alerts (0.21.0)

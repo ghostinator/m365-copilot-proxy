@@ -267,3 +267,15 @@ notification routing. Existing settings load with threshold 0, so upgrades do no
 activate this check. Unknown capacity does not clear an incident. The shared-volume
 reading includes other programs, and notification delivery still requires a healthy
 running proxy and alert store. Unlimited retention remains unchanged.
+
+
+## Per-model monitoring (0.22.0)
+
+Settings → Opt-in alerts → Per-model alerts adds up to ten exact requested-model
+rules. Each row has its own failure/throttling and volume thresholds; global window
+and sustain time apply. No quota-consuming tests are run. Independent incidents
+appear in Alert center and use existing notification routing. Upgrades preserve
+settings and enable no model rules. See [configuration, privacy and migration](dashboard-operations.md#per-model-alert-rules-0220).
+Alert schema upgrades to 2; activity/notification schemas remain unchanged. Before
+downgrading, preserve a stopped-host copy of alerts.sqlite and its sidecars: older
+binaries cannot read the model-scoped alert store. Activity backups exclude it.
