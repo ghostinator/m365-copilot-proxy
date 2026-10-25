@@ -180,3 +180,43 @@ See [dashboard management](dashboard-operations.md) for operator grants, key act
 ## History management (0.11.0)
 
 [History management](history-management.md) covers full-history JSON/CSV exports, private online backups, integrity/checksum verification, explicit stopped-host restore, safety backups and maintenance recovery. Retention remains unlimited.
+
+## Observed model reliability (0.12.0)
+
+Open **Models → Observed model reliability**. Saved completed application chats
+are grouped by requested model and final proxy-observed served route. Unknown routes
+stay unknown; a fallback has its own row. This identifier does not verify the
+upstream model version. Manual model-test reports remain in Model test history.
+
+The time, model, system and Requests-tab application selectors apply. Request type,
+error category, request UUID and check type do not apply: error-only filters would
+bias success rates. No chat, login, quota probe or notification is triggered.
+
+Each route shows total, success, error and cancellation counts, observed success
+rate, mean response duration and exact nearest-rank p95 (including failures and
+cancellations). HTTP-200 streamed application errors count as errors. Success means
+no recorded proxy/application error, not answer quality or correct tool use.
+Cancellations count in the rate denominator and are also shown separately.
+Rates under 20 samples are marked limited; this is a visibility label, not a
+statistical significance test. Workloads, accounts and routes can change between
+periods. No improvement/regression verdict is inferred from percentage changes.
+
+Rolling ranges compare `(now - window, now]` with the immediately preceding equal
+window. Delta is percentage points, unknown if either period has zero samples.
+Previous-only routes show zero current samples. All time includes timestamped
+history through now and has no previous comparison; aggregate-only legacy imports
+are excluded. Future-dated requests are excluded. Ranges use request arrival time.
+
+The scrollable table shows the first 100 route pairs by current volume, then combined
+volume and identifiers; coverage is shown explicitly. Headline totals and the
+0–100% chart include **all** matching routes. Expand interval data for exact counts;
+there are at most 48 intervals, with empty gaps represented as no sample rather
+than zero-percent success. SQL aggregates the records without loading raw requests
+into a JavaScript array. All-time analysis still requires database scans/sorts;
+large-history performance needs separate profiling. Data retention stays unlimited.
+
+The status API adds `sources.reliability`: `current`, `previous`, `from`, `to`,
+`previousFrom`, `routes`, `routeCount`, `routeLimit`, `bucketMs` and `buckets`.
+Dates are epoch milliseconds, rates fractions, changes percentage points. All
+rates and missing timings are null when unobserved. Saved storage and schema are
+unchanged; the view is recomputed from requests, not persisted duplicate aggregates.

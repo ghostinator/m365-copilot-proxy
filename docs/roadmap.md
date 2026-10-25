@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.11.0. Source availability and portable
+The current source feature set is version 0.12.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.11.0 npm package. See [the README](../README.md) for current source/setup links.
+0.12.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -97,7 +97,7 @@ requested, serialized and quota-consuming. No automatic capability sweeps.
   (continues section 1).
 - [ ] Managed updates with release notes, staging, draining, readiness and rollback
   (continues section 4).
-- [ ] Consistent online SQLite backups, restore verification and CSV/JSON exports.
+- [x] Consistent online SQLite backups, restore verification and CSV/JSON exports (0.11.0).
 - [ ] Storage growth estimates; unlimited retention continues, no automatic deletion.
 - [ ] Opt-in alerts for sustained failures, auth, throttling and storage errors.
 - [ ] Optional Prometheus metrics with bounded labels; detailed client data stays in SQLite.
@@ -126,7 +126,8 @@ requested, serialized and quota-consuming. No automatic capability sweeps.
 - [x] Drain-before-restart, bounded wait/cancellation and detached same-version handoff.
 - [x] Full-history streaming JSON/CSV exports and verified online backup/restore preparation (0.11.0).
 - [ ] Retention controls; requests and backups remain unlimited with no automatic deletion.
-- [ ] Model reliability trends and optional sustained-failure alerts.
+- [x] Model reliability trends from saved application traffic (0.12.0).
+- [ ] Optional sustained-failure alerts.
 
 Tray status, interactive sign-in recovery, Linux systemd setup and versioned updates
 with rollback remain separate work. A stopped proxy is started from the host CLI.
@@ -141,4 +142,13 @@ with rollback remain separate work. A stopped proxy is started from the host CLI
 - [x] Paged backup inventory and dashboard verification/restore preparation.
 - [x] Explicit stopped-host CLI restore, staged validation, safety backup and startup interlock.
 - [ ] Download backup files / encrypted off-host destinations, scheduled backups and automated crash recovery.
-- [ ] Configurable retention and model reliability trends/alerts remain queued.
+- [ ] Configurable retention and optional alerts remain queued.
+
+## 11. Observed model reliability (0.12.0)
+
+- [x] Requested/served route outcomes, sample counts, mean and exact p95 response time.
+- [x] Adjacent equal-length rolling-period comparisons; no comparison for All time.
+- [x] Up to 48 time intervals, empty samples unknown, separate cancellations and SSE errors.
+- [x] Time/model/system/application filters; bounded 100-route table, complete totals.
+- [x] Offline evidence only; browsing sends no tests, keys stay optional, schema stays 5.
+- [ ] Opt-in sustained-failure alerts; no notifications or automatic probes enabled.

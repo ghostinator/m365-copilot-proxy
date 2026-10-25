@@ -312,3 +312,20 @@ performs JSON/CSV downloads, backup verification, active-restore refusal, detach
 restart, then explicit CLI restore only after shutdown and startup-maintenance refusal.
 State, keys and chats are synthetic and temporary. No production restore or deletion
 is performed, and no Microsoft quota is used.
+
+
+## Observed reliability accounting (offline, 0.12.0)
+
+```sh
+pnpm build
+pnpm exec vitest run packages/proxy-lib/src/model-reliability.test.ts packages/proxy-lib/src/dashboard.test.ts
+node scripts/test-installed-runtime.mjs
+```
+
+Fixtures check adjacent period boundaries, future exclusion, separate fallback and
+unknown routes, HTTP-200 stream errors, cancellations, application/system filters,
+previous-only routes, exact p95, empty samples and 130 route pairs with bounded
+output and complete totals. The installed runtime compares reliability totals to
+independent chat-performance totals through success, throttling, reconnect and
+cancellation. UI tests render hostile strings as text and clear observations when
+access is forgotten. These commands use synthetic offline traffic, not M365 quota.

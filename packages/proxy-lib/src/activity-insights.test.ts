@@ -42,6 +42,7 @@ it("excludes non-chat traffic, manual checks, future samples and other client/mo
 });
 
 it("upgrades schema 3 without inventing timings or losing old requests and check reports", () => {
+  vi.spyOn(Date, "now").mockReturnValue(now);
   const directory = mkdtempSync(join(tmpdir(), "m365-insights-upgrade-"));
   const original = new ActivityDatabase(directory);
   original.write([entry.parse(saved())]);

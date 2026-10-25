@@ -142,6 +142,13 @@ async function start(authenticated, extra = {}) {
     assert.equal(history.sources.storage.engine, "SQLite");
     assert.equal(history.sources.storage.retention, "unlimited");
     assert.equal(history.sources.recent.length, 1);
+    const reliability = history.sources.reliability;
+    assert.equal(reliability.current.total, history.sources.performance.total);
+    assert.equal(reliability.current.failed, history.sources.performance.failed);
+    assert.equal(reliability.current.cancelled, history.sources.performance.cancelled);
+    assert.equal(reliability.buckets.reduce((sum, row) => sum + row.total, 0), reliability.current.total);
+    assert(reliability.routes.length <= 100);
+    assert.equal(reliability.previous.total, 0, "fixture has no previous-period traffic");
     assert(history.sources.errorHistory.total >= 2, "validation failures must appear without internal logger errors");
     const invalid = history.sources.errors.find(event => event.status === 400);
     assert.equal(invalid.diagnostic.type, "invalid_request_error");

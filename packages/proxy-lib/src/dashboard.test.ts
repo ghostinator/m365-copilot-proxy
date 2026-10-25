@@ -28,6 +28,14 @@ it("renders chart data, request timelines and check comparisons safely and clear
   element("performance-metric").value = "successRate";
   element("performance-metric").listeners.change();
   expect(element("performance-chart").children[0].style.height).toBe("50%");
+  const observations = { total: 2, succeeded: 1, failed: 1, cancelled: 0, successRate: .5, averageDurationMs: 200, p95Ms: 300 };
+  runInContext('renderReliability('+JSON.stringify({ current: observations, previous: null, from: null, to: Date.now(), routeLimit: 100, routeCount: 1,
+    routes: [{ model: "<img src=x>", servedModel: null, current: observations, previous: null, changePoints: null }],
+    buckets: [{ at: Date.now(), ...observations }], bucketMs: 60000 })+')', context);
+  expect(element("reliability-routes").children[0].children[0].textContent).toBe("<img src=x> → unknown");
+  expect(element("reliability-summary").textContent).toContain("limited sample");
+  expect(element("reliability-chart").children[0].style.height).toBe("50%");
+  expect(element("reliability-period").textContent).toContain("Choose a rolling range");
   const report = { seq: 1, checkedAt: Date.now(), model: "claude-sonnet", kind: "function-tool", verdict: "passed", durationMs: 100, status: 200, evidence: "<img src=x>", previousVerdict: "failed", previousServedModel: "m365-copilot" };
   runInContext('renderCheckHistory('+JSON.stringify({ total: 2, offset: 0, limit: 1, summary: [], reports: [report] })+')', context);
   const evidence = element("check-history-records").children[0].children[0].children[1].textContent;
@@ -39,6 +47,8 @@ it("renders chart data, request timelines and check comparisons safely and clear
   runInContext("clearStatus('Unavailable')", context);
   expect(element("check-history-records").children).toHaveLength(0);
   expect(element("performance-chart").children).toHaveLength(0);
+  expect(element("reliability-chart").children).toHaveLength(0);
+  expect(element("reliability-routes").children).toHaveLength(0);
   expect(element("source-history").children).toHaveLength(0);
 });
 

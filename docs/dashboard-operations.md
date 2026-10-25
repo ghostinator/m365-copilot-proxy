@@ -77,6 +77,15 @@ full-history grouping and export allowlisting/redaction. No live Microsoft quota
 is used. Actual sign-out/reboot and long-running soak checks remain host validation.
 
 
+## Observed model reliability (0.12.0)
+
+Models now opens with saved chat outcomes grouped by requested/served route: sample
+counts, success/error/cancellation rates, mean and p95 latency, previous equal-length
+period comparisons and up to 48 chart intervals. Time/model/system/application
+filters apply; error-only and request UUID controls do not bias the rates. No probes
+or notifications run automatically. Keys stay optional and retention unlimited.
+Empty periods stay unknown, and small sample labels do not claim significance.
+
 ## Screenshots
 
 Synthetic data, isolated preview; no production credentials or model claims.

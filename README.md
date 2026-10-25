@@ -4,7 +4,7 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.11.0)
+## Dashboard and operations (0.12.0)
 
 New: export **all matching history** as streamed JSON/CSV, create verified online
 SQLite backups, and prepare an explicit offline restore with a safety snapshot.
@@ -812,6 +812,8 @@ Expand recent or saved requests to inspect timing, retries, fallback routes and
 persisted phase timelines. Models includes paged test history, evidence and
 per-check sample summaries, with previous-result comparisons. Tests remain
 manually requested. Missing historical timings are labeled unknown.
+**Models → Observed model reliability** compares application chat outcomes by requested/served route, with previous-period rates, sample counts, latency and time intervals. It uses saved traffic and sends no model probes.
+
 See the [dashboard guide](docs/dashboard.md) and [feature roadmap](docs/roadmap.md).
 
 New analytics views use synthetic documentation data, not live model evaluations:
@@ -834,3 +836,8 @@ list, with 20/50/100 saved rows per page and full-history type/application filte
 Named-key settings (synthetic documentation data):
 
 ![Application API keys and optional access mode](docs/images/dashboard-application-keys.jpg)
+
+<!-- Screenshot placeholder: Models > Observed model reliability, with Last 7 days
+selected. Capture the requested-to-served route table (including sample counts,
+previous-period rates and latency), success-rate chart and expanded interval data.
+Use synthetic/demo data; keep operator grants and application tokens out of view. -->

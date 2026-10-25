@@ -5902,3 +5902,18 @@ counts disagree with copied requests, a tampered backup verifies, an active mana
 instance can be replaced, or account configuration changes. Unit/runtime probes use
 isolated data, worker verification and an actual stopped-host restore. See
 scripts/test-operator-runtime.mjs and docs/experiments.md. No Microsoft traffic.
+
+
+### Observed reliability accounting — October 25, 2026
+
+H: adjacent rolling periods and final requested/served route pairs can describe
+saved chat outcomes without mixing model polls, manual tests or duplicate boundary
+requests. Falsification: a boundary appears twice, HTTP-200 SSE failure counts as
+success, cancelled requests disappear, application filters mix clients, or bounded
+route output truncates totals. Probe: model-reliability.test.ts plus installed
+runtime synthetic success/throttle/reconnect/cancel fixtures. No protocol inference
+or model quality claim is made. Four deterministic unit scenarios passed (including
+130 route groups), alongside the dashboard rendering/clearing scenario. Full Windows
+suite: 511 passed, six live tests skipped. This confirms accounting only; there
+is no new live-model reliability experiment. Installed-package validation is
+recorded separately in the release verification output.
