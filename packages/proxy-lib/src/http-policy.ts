@@ -42,5 +42,5 @@ export function callerIdentity(headers: Headers): string {
 }
 
 export function validateBind(host: string): void {
-  if (!["127.0.0.1", "::1", "localhost"].includes(host) && !process.env.M365_API_KEY) throw new Error("Set M365_API_KEY before binding to a non-loopback address");
+  if (!host || /[\s/'";]/.test(host)) throw new Error("Invalid bind host");
 }

@@ -71,7 +71,7 @@
           apps = [{
             name = "m365-copilot-proxy";
             path = "packages/proxy";
-            version = "0.4.0";
+            version = "0.4.1";
             script = "build"; # nitro build
             distDir = ".output"; # $out = contents of packages/proxy/.output
             preBuildPackages = [ "packages/core" "packages/proxy-lib" ];

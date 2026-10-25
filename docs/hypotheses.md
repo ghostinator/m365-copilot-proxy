@@ -5749,3 +5749,14 @@ cancellation; exact Unicode body-byte counts and correlation IDs are asserted.
 Unit suites: 453 passed, 6 live tests skipped on each OS. Commands:
 `pnpm test` and `node scripts/test-installed-runtime.mjs`.
 No additional Microsoft chat or model capability conclusion comes from fixtures.
+
+### Optional proxy authentication — Oct 25
+
+User-directed policy: API keys are optional for all bind addresses, including
+Tailscale/LAN/wildcard listeners. The former startup requirement for a key on a
+non-loopback address is removed; host validation and explicitly configured bearer
+key enforcement remain. Falsifier: a keyless network-address model-list request
+fails at the HTTP gate or startup rejects the bind. Boundary regression passes;
+the existing configured-key and origin rejection tests still pass. Windows unit
+suite: 454 passed, 6 live tests skipped. No Microsoft chat is needed for this check.
+Operational configuration instructions are updated in operations/windows docs.
