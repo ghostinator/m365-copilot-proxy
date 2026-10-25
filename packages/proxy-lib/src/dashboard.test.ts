@@ -6,6 +6,42 @@ import { dashboardResponse } from "./dashboard.js";
 
 afterEach(() => { vi.unstubAllEnvs(); resetPriorityAccessState(); });
 
+it("renders chart data, request timelines and check comparisons safely and clears them when forgetting access", async () => {
+  const elements = new Map<string, any>();
+  const node = () => ({
+    textContent: "", value: "", children: [] as any[], style: {} as Record<string, string>,
+    dataset: {} as Record<string, string>, listeners: {} as Record<string, Function>,
+    attributes: {} as Record<string, string>, setAttribute(key: string, value: string) { this.attributes[key] = value; },
+    focus() {}, querySelectorAll() { return []; },
+    addEventListener(event: string, callback: Function) { this.listeners[event] = callback; },
+    replaceChildren(...children: any[]) { this.children = children; },
+    append(...children: any[]) { this.children.push(...children); },
+  });
+  const element = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
+  const context = createContext({ document: { getElementById: element, createElement: node }, fetch: () => new Promise(() => {}), AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
+  runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
+  const performance = { total: 2, successRate: .5, failed: 1, cancelled: 0, p50Ms: 100, p95Ms: 300, firstByteMs: 20, firstByteSamples: 1, queueMs: 0, queueSamples: 1, buckets: [{ at: Date.now(), total: 2, succeeded: 1, failed: 1, cancelled: 0, durationMs: 200, firstByteMs: 20, queueMs: 0 }] };
+  runInContext('renderPerformance('+JSON.stringify(performance)+')', context);
+  expect(element("performance-summary").textContent).toContain("50.0% success");
+  expect(element("performance-latency").textContent).toContain("p95 300 ms");
+  expect(element("performance-data").children).toHaveLength(1);
+  element("performance-metric").value = "successRate";
+  element("performance-metric").listeners.change();
+  expect(element("performance-chart").children[0].style.height).toBe("50%");
+  const report = { seq: 1, checkedAt: Date.now(), model: "claude-sonnet", kind: "function-tool", verdict: "passed", durationMs: 100, status: 200, evidence: "<img src=x>", previousVerdict: "failed", previousServedModel: "m365-copilot" };
+  runInContext('renderCheckHistory('+JSON.stringify({ total: 2, offset: 0, limit: 1, summary: [], reports: [report] })+')', context);
+  const evidence = element("check-history-records").children[0].children[0].children[1].textContent;
+  expect(evidence).toContain("Previous stored sample: failed");
+  expect(evidence).toContain("Evidence: <img src=x>");
+  expect(element("check-next").disabled).toBe(false);
+  runInContext("sourceRecords=[{id:'example',address:'192.0.2.20',durationMs:50,firstByteMs:20,timeline:[{atMs:0,phase:'received'},{atMs:50,phase:'completed'}]}];renderSourceHistory()", context);
+  expect(element("source-history").children[0].children[0].children[1].textContent).toContain("+50 ms · completed");
+  runInContext("clearStatus('Unavailable')", context);
+  expect(element("check-history-records").children).toHaveLength(0);
+  expect(element("performance-chart").children).toHaveLength(0);
+  expect(element("source-history").children).toHaveLength(0);
+});
+
 it("organizes unique controls into accessible tabs and preserves filters when switching with keyboard or deep links", async () => {
   const page = await dashboardResponse("/dashboard")!.text();
   const ids = [...page.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
@@ -35,7 +71,7 @@ it("organizes unique controls into accessible tabs and preserves filters when sw
 
 it("pages recent requests in groups of 20 and resets pagination when the size or filter changes", async () => {
   const elements = new Map<string, any>();
-  const node = () => ({ textContent: "", value: "", disabled: false, children: [] as any[], listeners: {} as Record<string, Function>, setAttribute() {}, focus() {}, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
+  const node = () => ({ textContent: "", value: "", disabled: false, children: [] as any[], style: {} as Record<string,string>, dataset: {} as Record<string,string>, querySelectorAll() { return []; }, listeners: {} as Record<string, Function>, setAttribute() {}, focus() {}, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
   const element = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
   element("activity-page-size").value = "20"; element("activity-filter").value = "all";
   const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch: () => new Promise(() => {}), AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
@@ -127,7 +163,7 @@ it("loads history without probing models, then sends only the explicitly selecte
   status.models = ["claude-sonnet", "claude-opus"];
   status.sources.labels["192.0.2.30"] = "Production host · example-app (prod)";
   const elements = new Map<string, any>();
-  const node = () => ({ textContent: "", value: "", disabled: false, checked: false, children: [] as any[], listeners: {} as Record<string, Function>, setAttribute() {}, focus() {}, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, dataset: {} as Record<string, string>, querySelectorAll() { return []; }, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
+  const node = () => ({ textContent: "", value: "", disabled: false, checked: false, children: [] as any[], style: {} as Record<string,string>, listeners: {} as Record<string, Function>, setAttribute() {}, focus() {}, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, dataset: {} as Record<string, string>, querySelectorAll() { return []; }, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
   const element = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
   element("activity-range").value = "24h"; element("activity-page-size").value = "20"; element("activity-filter").value = "all";
   const calls: { url: string; options: any }[] = [];

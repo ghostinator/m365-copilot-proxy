@@ -32,3 +32,15 @@ inside their scroll boxes; there is no need to expand the entire registered-mode
 identifier list. Check every image for real addresses, host/client names, account
 identifiers, credentials, browser chrome and unrelated applications before
 committing it. Production screenshots are unnecessary for this gallery.
+
+## Analytics views (0.8.0)
+
+- `images/dashboard-performance.jpg`: Overview with Chat performance, latency
+  samples and a selected chart. Include the range, metric and scale labels.
+- `images/dashboard-request-inspector.jpg`: Requests with one streamed offline
+  fixture expanded, showing actual phase offsets and timing metadata.
+- `images/dashboard-check-history.jpg`: Models with Model test history, check-kind
+  filter and one expanded synthetic evidence report. Keep the demo evidence visible.
+
+These JPEG captures supplement the original six-tab PNG gallery. Use the isolated
+synthetic server above; do not capture production source IPs or error content.

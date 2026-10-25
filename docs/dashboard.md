@@ -12,10 +12,10 @@ every bind address. See [configuration and access](operations.md#configuration-a
 
 | Tab | Contents |
 | --- | --- |
-| Overview | Listener/version/PID/instance identity, readiness, token expiry, uptime, current-process HTTP/chat counters, saved summaries, database size, observed budgets and fallback route. |
-| Requests | Recent current-process requests and persistent request history, each in a scrollable box with 20/50/100-row pages. |
+| Overview | Listener/version/PID/instance identity, readiness, token expiry, uptime, current-process HTTP/chat counters, saved summaries, performance charts, database size, observed budgets and fallback route. |
+| Requests | Recent current-process requests and persistent request history, each in a scrollable box with 20/50/100-row pages and expandable request inspectors. |
 | Clients | Most active connection IPs, configured labels, this-device identification and requested/served-model usage by client software. |
-| Models | Registered identifiers, selected-model capability tests and their saved results/evidence. |
+| Models | Registered identifiers, selected-model capability tests, latest evidence, paged history and per-check sample summaries. |
 | Errors | Persistent failed/cancelled requests with expandable diagnostics, plus separate internal operational summaries. |
 | Settings | Optional API-key connection form and CLI recovery/startup instructions. |
 
@@ -81,7 +81,7 @@ compatibility checks, not a pi/OpenClaw coding benchmark.
 Each model row shows its latest result **for each check type**, independently:
 verdict, HTTP status, actual served route, timestamp, duration and turn count.
 The evidence column explains the result or contains the unverified identity.
-Older reports remain in SQLite; the UI shows the latest per model/check.
+The latest-per-model table is followed by **Model test history**, with 20/50/100-report pages, check-type selection, and summary pass/fail/error counts. Expand a report for evidence, served route, duration, turns and the previous stored verdict/route (which may precede the selected window). Identity/unknown reports are counted separately from graded samples. The pass-rate denominator includes passed, failed and error samples; reported/unknown samples are excluded. History follows time/model filters, but not System: reports are not attributed to clients. Browsing history never sends a test.
 
 Verdicts are **passed**, **failed**, **error** or **reported**. A request can return
 HTTP 200 while a capability check is **failed**: the request completed but its
@@ -120,3 +120,31 @@ processes. See [logging](logging.md) for local files and diagnostic limits.
 
 The [README gallery](../README.md#dashboard-screenshots) uses synthetic data, not
 live account/client telemetry. To refresh it, follow [the capture guide](screenshots.md).
+
+## Performance charts and request inspection (0.8.0)
+
+**Overview → Chat performance** charts request volume, success percentage, mean
+response duration, mean first HTTP body byte, or mean queue time. The global
+range/model/system filters apply. Up to 48 intervals include empty gaps; expand
+**Chart data and time buckets** for exact numbers and bucket start times. Hover a
+bar for its value. Headline response p50/p95 use exact nearest-rank samples;
+first-byte/queue means show their own sample counts. Empty samples stay unknown,
+including timing data that older versions did not save. First HTTP body byte is
+not necessarily the first model token. Completed application chat requests include
+errors and cancellations; health/model-list polls and manual model tests are excluded.
+Success describes transport/application completion, not answer correctness.
+
+**Requests → Inspect request**, or expanding a **Saved request history** row,
+shows request ID, client/software, statuses, requested/served models, stream mode,
+bytes, duration, queue/first-byte times, attempts/failures and an observed timeline.
+New requests retain phase offsets and per-attempt served routes across restart.
+A fallback or retry is visible through upstream attempts rather than inferred from
+unobserved protocol events. Timelines are capped at 128 points per request and
+explicitly flag truncation while retaining the final point. Older requests show
+missing timelines/timings rather than invented zero values. Saved failure reasons
+and stacks appear where recorded. Prompts, normal replies and tool arguments are
+not added to request storage. Expanded inspectors remain open across polling.
+
+The status API adds `sources.performance` and `sources.checkHistory`.
+`checkKind`, `checkOffset`, `checkLimit` select check history independently of
+request/error page controls. Limits are 1–100; invalid selectors return HTTP 400.

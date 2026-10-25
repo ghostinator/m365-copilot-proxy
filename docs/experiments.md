@@ -235,3 +235,24 @@ See [verification](fix-verification-2026-10-24.md) and [operations](operations.m
 2. Add a runnable recipe here (commands + readout + cost).
 3. Reuse `scripts/_probe-chat.mjs` (qualitative) or `scripts/bench/` (quantitative).
 4. Record the result back in `hypotheses.md` with sample size + evidence pointer.
+
+## Dashboard analytics / inspector / report history (offline)
+
+Hypothesis: saved successful requests lose timings, and latest-only model tables
+hide check regressions. Run after building:
+
+```sh
+pnpm exec vitest run packages/proxy-lib/src/activity-insights.test.ts packages/proxy-lib/src/dashboard.test.ts
+node scripts/activity-db-bench.mjs
+node scripts/test-installed-runtime.mjs
+node scripts/docs-screenshots-server.mjs
+```
+
+Expect exact percentile/filter counts, preserved retry/fallback timelines after
+restart, schema-3 upgrade preservation and separate reported-vs-graded samples.
+The benchmark reports actual storage/query costs for 10,000 temporary synthetic
+rows. The browser fixture uses an isolated temporary directory and fake backend,
+expires after ten minutes and never authenticates to Microsoft. Check Overview
+charts, expand Requests and browse Models history; no model test is needed.
+Cost: local CPU/disk only, zero Microsoft quota. Large all-time exact quantile
+queries should be measured separately before making scalability claims.

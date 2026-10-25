@@ -1,6 +1,6 @@
 # Activity storage
 
-Version 0.7.0 (schema 3) uses Node 24's built-in SQLite: no native addon or separate server.
+Version 0.8.0 (schema 4) uses Node 24's built-in SQLite: no native addon or separate server.
 `activity.sqlite` lives with existing private account state; credentials are not
 copied into it. `request-sources.json` is a preserved migration input.
 
@@ -65,3 +65,27 @@ The Recent errors panel reads persisted failures independently of internal logge
 ## Capability reports (0.7.0)
 
 Schema version 3 adds `kind`, `verdict`, `evidence` and `turns` to `model_checks`, with an index on `(model,kind,seq DESC)`. The additive transaction preserves old identities as `identity` / `unknown` reports; old HTTP success alone is not retroactively treated as a passed capability test. Latest results are returned independently per model and check; earlier rows remain stored indefinitely. Explicit synthetic test evidence is retained, separately from normal chat content.
+
+## Request timelines and analytics (0.8.0)
+
+Schema 4 adds `request_timings`, keyed by binary request UUID: nullable first-byte
+and queue milliseconds, upstream attempt/failure counts, compact JSON timeline
+and a truncation flag. New successful requests retain their timing details too.
+The transaction preserves schema-3 requests, errors, rollups and model reports;
+old rows without timing records remain unknown. Timelines contain only allowlisted
+phases, offsets and registered/masked models, capped at 128 points. No chat content
+or arbitrary client headers are added. Error diagnostics remain in the sparse table.
+
+Performance queries use exact timestamped application chat rows and existing
+range/model/system indexes. They exclude health/model-list requests and explicit
+self-checks; up to 48 buckets include gaps. Latency percentiles use SQLite window
+ranks (nearest rank), not averages of hourly averages. These exact quantiles scan
+and sort the selected samples; very large all-time datasets cost more than the
+existing rollup counters. First-byte and queue statistics count only recorded
+values. Legacy undated totals cannot contribute to dated charts or quantiles.
+
+Model report history is independently paged with `checkOffset`/`checkLimit` and
+`checkKind`, plus time/model filtering. Summary counts separate passed, failed,
+error and reported/unknown; a correlated indexed lookup compares each visible
+report to its previous stored sample for the same model/check. Route changes are
+shown, so unlike routes are not silently presented as identical configurations.

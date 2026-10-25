@@ -1,3 +1,4 @@
+import { activityInsights, modelCheckHistory } from "./activity-insights.js";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -43,7 +44,7 @@ export class ActivityDatabase {
     try {
       this.db.exec("PRAGMA busy_timeout=1000; PRAGMA foreign_keys=ON;");
       const version = Number(this.statement("PRAGMA user_version").get()!.user_version);
-      if (version > 3) throw new Error("Unsupported activity database version");
+      if (version > 4) throw new Error("Unsupported activity database version");
       this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA wal_autocheckpoint=1000;
         CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL) WITHOUT ROWID;
         CREATE TABLE IF NOT EXISTS systems(id INTEGER PRIMARY KEY, address TEXT NOT NULL UNIQUE);
@@ -64,6 +65,11 @@ export class ActivityDatabase {
         CREATE INDEX IF NOT EXISTS requests_errors_time ON requests(received_ms DESC,seq DESC) WHERE outcome<>0;
         `);
       if (version < 3) this.db.exec("BEGIN IMMEDIATE; ALTER TABLE model_checks ADD COLUMN kind TEXT NOT NULL DEFAULT 'identity'; ALTER TABLE model_checks ADD COLUMN verdict TEXT NOT NULL DEFAULT 'unknown'; ALTER TABLE model_checks ADD COLUMN evidence TEXT NOT NULL DEFAULT ''; ALTER TABLE model_checks ADD COLUMN turns INTEGER NOT NULL DEFAULT 1; CREATE INDEX model_checks_kind_latest ON model_checks(model,kind,seq DESC); PRAGMA user_version=3; COMMIT;");
+      if (version < 4) this.db.exec(`BEGIN IMMEDIATE;
+        CREATE TABLE request_timings(request_id BLOB PRIMARY KEY REFERENCES requests(request_id),
+          first_byte_ms INTEGER,queue_ms INTEGER,attempts INTEGER NOT NULL,failures INTEGER NOT NULL,
+          timeline TEXT NOT NULL,truncated INTEGER NOT NULL) WITHOUT ROWID;
+        PRAGMA user_version=4; COMMIT;`);
       this.statement("INSERT OR IGNORE INTO metadata VALUES('startedAt',?)").run(new Date().toISOString());
       for (const interfaces of Object.values(networkInterfaces())) for (const iface of interfaces ?? []) this.local.add(sourceAddress(iface.address));
       if (directory) {
@@ -99,6 +105,7 @@ export class ActivityDatabase {
     const result = this.statement("INSERT OR IGNORE INTO requests(request_id,received_ms,system_id,method,endpoint,self_check,status,outcome,bytes,duration_ms,model,servedModel,clientSoftware,streamed,application_status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
       .run(uuidBytes(request.id), at, id, methods.indexOf(request.method), endpoints.indexOf(request.endpoint), Number(request.source === "self-check"), request.status, outcomes.indexOf(request.outcome), request.responseBytes, request.durationMs, request.model ?? "", request.servedModel ?? "", request.clientSoftware, request.streamed === null ? null : Number(request.streamed), request.applicationStatus);
     if (!Number(result.changes)) return;
+    this.statement("INSERT INTO request_timings VALUES(?,?,?,?,?,?,?)").run(uuidBytes(request.id), request.firstByteMs, request.queueMs, request.upstreamAttempts, request.upstreamFailures, JSON.stringify(request.timeline), Number(request.timelineTruncated));
     if (request.outcome !== "success") this.statement("INSERT INTO request_errors(request_id,detail) VALUES(?,?)").run(uuidBytes(request.id), JSON.stringify({ diagnostic: request.diagnostic, firstByteMs: request.firstByteMs, queueMs: request.queueMs, upstreamAttempts: request.upstreamAttempts, upstreamFailures: request.upstreamFailures }));
     const value = metrics(request);
     this.add("hourly", id, value, Math.floor(at / hour) * hour, request); this.add("system_totals", id, value, undefined, request);
@@ -164,7 +171,7 @@ export class ActivityDatabase {
     const legacyUndated = Number(this.statement("SELECT COALESCE(SUM(total),0) AS count FROM legacy_totals").get()!.count);
     const totalRecords = query.address ? Number(this.statement(`SELECT COUNT(*) AS count ${from}`).get(...bindings)!.count) : Number(summary.total) - (query.range === "all" && !query.model ? legacyUndated : 0);
     const offset = Math.min(query.offset, Math.max(0, Math.ceil(totalRecords / query.limit) - 1) * query.limit);
-    const recent = this.statement(`SELECT r.*,s.address ${from} ORDER BY received_ms DESC,seq DESC LIMIT ? OFFSET ?`).all(...bindings, query.limit, offset).map(row => ({ id: uuidText(row.request_id as Uint8Array), address: String(row.address), receivedAt: new Date(Number(row.received_ms)).toISOString(), method: methods[Number(row.method)], endpoint: endpoints[Number(row.endpoint)], source: Number(row.self_check) ? "self-check" : "application", status: Number(row.status), outcome: outcomes[Number(row.outcome)], responseBytes: Number(row.bytes), durationMs: Number(row.duration_ms), model: row.model || null, servedModel: row.servedModel || null, clientSoftware: String(row.clientSoftware), streamed: row.streamed === null ? null : !!row.streamed, applicationStatus: row.application_status }));
+    const recent = this.statement(`SELECT r.*,s.address,t.first_byte_ms,t.queue_ms,t.attempts,t.failures,t.timeline,t.truncated,d.detail ${from.replace("JOIN systems s ON r.system_id=s.id", "JOIN systems s ON r.system_id=s.id LEFT JOIN request_timings t ON t.request_id=r.request_id LEFT JOIN request_errors d ON d.request_id=r.request_id")} ORDER BY received_ms DESC,seq DESC LIMIT ? OFFSET ?`).all(...bindings, query.limit, offset).map(row => ({ id: uuidText(row.request_id as Uint8Array), address: String(row.address), receivedAt: new Date(Number(row.received_ms)).toISOString(), method: methods[Number(row.method)], endpoint: endpoints[Number(row.endpoint)], source: Number(row.self_check) ? "self-check" : "application", status: Number(row.status), outcome: outcomes[Number(row.outcome)], responseBytes: Number(row.bytes), durationMs: Number(row.duration_ms), model: row.model || null, servedModel: row.servedModel || null, clientSoftware: String(row.clientSoftware), streamed: row.streamed === null ? null : !!row.streamed, applicationStatus: row.application_status, firstByteMs: row.first_byte_ms ?? null, queueMs: row.queue_ms ?? null, upstreamAttempts: row.attempts ?? null, upstreamFailures: row.failures ?? null, timeline: row.timeline ? JSON.parse(String(row.timeline)) : [], timelineTruncated: !!row.truncated, timingRecorded: row.timeline !== null, diagnostic: row.detail ? JSON.parse(String(row.detail)).diagnostic ?? null : null }));
     const errorFrom = from + (filters.length ? " AND " : " WHERE ") + "r.outcome<>0";
     const errorTotal = Number(this.statement(`SELECT COUNT(*) AS count ${errorFrom}`).get(...bindings)!.count);
     const errorOffset = Math.min(query.errorOffset, Math.max(0, Math.ceil(errorTotal / query.errorLimit) - 1) * query.errorLimit);
@@ -174,7 +181,7 @@ export class ActivityDatabase {
     const storedRecords = Number(this.statement("SELECT COALESCE(SUM(total),0) AS count FROM system_totals").get()!.count);
     const bytes = (suffix: string) => { try { return statSync(this.path + suffix).size; } catch { return 0; } };
     const databaseBytes = this.directory ? bytes("") : 0, walBytes = this.directory ? bytes("-wal") : 0, sharedMemoryBytes = this.directory ? bytes("-shm") : 0;
-    return { errors, errorHistory: { total: errorTotal, offset: errorOffset, limit: query.errorLimit }, startedAt: String(this.statement("SELECT value FROM metadata WHERE key='startedAt'").get()!.value), systems, recent, labels, modelActivity, modelChecks: this.statement("SELECT model,kind,verdict,evidence,turns,checked_ms AS checkedAt,status,identity,served_model AS servedModel,duration_ms AS durationMs FROM model_checks WHERE seq IN(SELECT MAX(seq) FROM model_checks GROUP BY model,kind) ORDER BY checked_ms DESC").all(), range: query.range, from: aggregate.since === null ? null : new Date(aggregate.since).toISOString(), to: new Date(now).toISOString(), summary: { ...summary, averageDurationMs: Number(summary.durationSamples) ? Number(summary.durationSum) / Number(summary.durationSamples) : null }, history: { total: totalRecords, limit: query.limit, offset }, legacyUndated, storage: { engine: "SQLite", retention: "unlimited", databaseBytes, walBytes, sharedMemoryBytes, totalBytes: databaseBytes + walBytes + sharedMemoryBytes, storedRecords, averageBytesPerRecord: storedRecords ? Math.round((databaseBytes + walBytes) / storedRecords) : null } };
+    return { performance: activityInsights(this.db, query, now), checkHistory: modelCheckHistory(this.db, query, now), errors, errorHistory: { total: errorTotal, offset: errorOffset, limit: query.errorLimit }, startedAt: String(this.statement("SELECT value FROM metadata WHERE key='startedAt'").get()!.value), systems, recent, labels, modelActivity, modelChecks: this.statement("SELECT model,kind,verdict,evidence,turns,checked_ms AS checkedAt,status,identity,served_model AS servedModel,duration_ms AS durationMs FROM model_checks WHERE seq IN(SELECT MAX(seq) FROM model_checks GROUP BY model,kind) ORDER BY checked_ms DESC").all(), range: query.range, from: aggregate.since === null ? null : new Date(aggregate.since).toISOString(), to: new Date(now).toISOString(), summary: { ...summary, averageDurationMs: Number(summary.durationSamples) ? Number(summary.durationSum) / Number(summary.durationSamples) : null }, history: { total: totalRecords, limit: query.limit, offset }, legacyUndated, storage: { engine: "SQLite", retention: "unlimited", databaseBytes, walBytes, sharedMemoryBytes, totalBytes: databaseBytes + walBytes + sharedMemoryBytes, storedRecords, averageBytesPerRecord: storedRecords ? Math.round((databaseBytes + walBytes) / storedRecords) : null } };
   }
   saveModelCheck(model: string, status: number, identity: string, durationMs: number, servedModel: string | null = null, kind = "identity", verdict = "unknown", evidence = "", turns = 1) {
     this.statement("INSERT INTO model_checks(model,checked_ms,status,identity,duration_ms,served_model,kind,verdict,evidence,turns) VALUES(?,?,?,?,?,?,?,?,?,?)").run(model, Date.now(), status, identity.slice(0, 1000), durationMs, servedModel, kind, verdict, evidence.slice(0,2000), turns);

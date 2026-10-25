@@ -5813,3 +5813,27 @@ Hypothesis: a successful chat reply alone does not establish usable tool support
 Hypothesis: Git Bash changes which tar Node resolves, and GNU tar interprets an absolute Windows archive path's drive-letter colon as a remote host. Falsification: package extraction succeeds under the same shell with unqualified GNU tar. GitHub run 40201624294 reproduced the failure (`Cannot connect to D`); explicitly selecting System32/tar.exe passed extracted-package/runtime validation under local Git Bash (one full run, outbound Microsoft HTTP disabled). The release builder now selects the same native tool for ZIP/tar.gz creation.
 
 A second CI run (40202202894) passed Linux and reached the Windows operations harness. Its assertions passed but the harness retained the intentionally tested nonzero child exit. Prediction: an explicit successful script exit makes Windows PowerShell -Command report zero while assertion throws remain fatal. Verified with the local CI-shaped invocation; the harness now exits zero only after all assertions pass. These are packaging/test-runner corrections, not protocol or model findings; no Microsoft chat was sent.
+
+### 2026-10-25: durable success timings and check-history interpretation
+
+Hypothesis: request success telemetry is lost after restart because only failures
+save first-byte, queue and upstream-attempt metadata. Falsification: complete a
+successful synthetic retry/fallback/stream request, reopen the database, and find
+the original timings already present in schema 3. Inspection confirms the missing
+success record. Schema 4 now preserves compact timing/timeline metadata for every
+new completed request. One deterministic persisted fallback trace, a 128-point
+truncation probe, schema-3 upgrade fixture and restart checks pass; old missing
+data remains unknown. Exact filtered quantile/bucket fixtures reject health polls,
+self-checks, future rows and other client/model selections. Six database tests and
+one UI rendering/privacy test cover these boundaries.
+
+History probes confirm that a reported identity is not a passed capability test:
+three saved samples (failed tool, passed tool on a different route, reported
+identity) retain their independent counts, evidence and prior route. Browsing is
+read-only. Windows and Linux suites each pass 484 tests, with six live tests skipped.
+A single Windows 10,000-row synthetic run took 2.31 seconds to ingest, 3,813,376
+committed bytes including indexes/rollups, and 4.75–66.14 ms per full filtered
+snapshot (31.91 ms all-time). This is one sample, not a large-dataset throughput
+guarantee; exact quantiles scan/sort selected samples. See dashboard.md and
+activity-database.md for durable semantics, and analytics-validation-2026-10-25.md
+for runnable evidence. No live model conclusion or protocol change follows.

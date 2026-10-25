@@ -4,7 +4,7 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.7.0)
+## Dashboard and operations (0.8.0)
 
 This fork adds a tabbed operations dashboard, persistent activity/error history,
 model capability checks, portable runtime packaging and Windows sign-in startup
@@ -788,3 +788,18 @@ node scripts/verify-release.mjs <release-directory>  # Verify hashes and isolate
 [MIT](LICENSE). Use at your own risk — this speaks to Microsoft's API with your own
 credentials, on your own account, and that's between you and your tenant's
 acceptable-use policy.
+
+### Dashboard analytics
+
+Overview now includes filtered chat performance charts and exact response p50/p95.
+Expand recent or saved requests to inspect timing, retries, fallback routes and
+persisted phase timelines. Models includes paged test history, evidence and
+per-check sample summaries, with previous-result comparisons. Tests remain
+manually requested. Missing historical timings are labeled unknown.
+See the [dashboard guide](docs/dashboard.md) and [feature roadmap](docs/roadmap.md).
+
+New analytics views use synthetic documentation data, not live model evaluations:
+
+![Chat performance charts](docs/images/dashboard-performance.jpg)
+![Request timeline inspector](docs/images/dashboard-request-inspector.jpg)
+![Model check history](docs/images/dashboard-check-history.jpg)

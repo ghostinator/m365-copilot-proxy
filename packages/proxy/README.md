@@ -35,3 +35,7 @@ The [project README and screenshot gallery](https://github.com/ghostinator/m365-
 and [logging guide](https://github.com/ghostinator/m365-copilot-proxy/blob/main/docs/logging.md)
 describe filters, result interpretation, storage, backups and troubleshooting.
 Source version 0.7.0 does not imply that this fork has published an npm package.
+
+Version 0.8 adds Overview performance charts, Requests timeline inspectors, and
+Models check-history paging/comparisons. Existing databases upgrade additively;
+older missing timing samples remain unknown. Model checks remain opt-in.

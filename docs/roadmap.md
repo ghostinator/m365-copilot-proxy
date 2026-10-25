@@ -68,6 +68,38 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.7.0. Source availability and portable
+The current source feature set is version 0.8.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.7.0 npm package. See [the README](../README.md) for current source/setup links.
+0.8.0 npm package. See [the README](../README.md) for current source/setup links.
+
+## 6. Analytics and diagnostic tools — current implementation priority
+
+Requested October 25, 2026. Keys remain optional; model checks are manually
+requested, serialized and quota-consuming. No automatic capability sweeps.
+
+- [x] Performance charts (0.8.0): filtered request volume, success/error/cancellation rates,
+  response p50/p95, first-byte and queue latency, with honest sample counts.
+- [x] Request inspector (0.8.0): durable metadata and observed timeline for queueing,
+  upstream attempts, fallback, streaming and final outcome; mark older missing data.
+- [x] Model test history (0.8.0): paged reports, per-kind pass/fail/error counts, evidence,
+  served routes and comparison with previous samples. No reliability claim from n=1.
+
+## 7. Follow-on operations features — queued after analytics
+
+- [ ] Live active/waiting request view, elapsed times and cancellation controls;
+  preserve one upstream turn at a time.
+- [ ] Error grouping by cause, frequency and affected clients/models, separating
+  authentication, throttling, transport and model failures.
+- [ ] Dashboard settings editor: source labels, aliases, fallbacks, listener and
+  optional keys; validate and preview changes with explicit apply/restart behavior.
+- [ ] Service controls and Windows tray: start/stop/restart, health and sign-in recovery
+  (continues section 1).
+- [ ] Managed updates with release notes, staging, draining, readiness and rollback
+  (continues section 4).
+- [ ] Consistent online SQLite backups, restore verification and CSV/JSON exports.
+- [ ] Storage growth estimates; unlimited retention continues, no automatic deletion.
+- [ ] Opt-in alerts for sustained failures, auth, throttling and storage errors.
+- [ ] Optional Prometheus metrics with bounded labels; detailed client data stays in SQLite.
+- [ ] Client profiles: separate default models, usage summaries and fair queue
+  priorities for production, development and agent clients.
+- [ ] Linux systemd installer parity (continues section 5).

@@ -9,6 +9,8 @@ import packageInfo from "../package.json" with { type: "json" };
 type Kind = "models" | "chat" | "health" | "other";
 type Phase = "received" | "queued" | "preparing" | "upstream" | "streaming" | "completed" | "failed" | "cancelled";
 export interface ActivityEvent {
+  timeline?: { atMs: number; phase: string; model?: string | null }[];
+  timelineTruncated?: boolean;
   diagnostic: { type: string; message: string; code?: string; stack?: string; phase: string } | null;
   clientAddress: string;
   clientSoftware: string;
@@ -55,13 +57,18 @@ export class HttpActivity {
     const known = Object.hasOwn(endpoints, pathname);
     const kind = known ? endpoints[pathname] : "other";
     selfCheck = selfCheck && ((method === "GET" && (kind === "models" || kind === "health")) || (method === "POST" && pathname === "/v1/proxy/model-check"));
-    const event: ActivityEvent = { diagnostic: null, clientSoftware: clientSoftware(userAgent), clientAddress: sourceAddress(remoteAddress), id: randomUUID(), method: /^(GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE)$/.test(method) ? method : "OTHER", endpoint: known ? pathname : "(other endpoint)", source: selfCheck ? "self-check" : "application", receivedAt: new Date(started).toISOString(), status: null, durationMs: null, phase: "received", outcome: "pending", model: null, servedModel: null, streamed: null, applicationStatus: null, responseBytes: 0, firstByteMs: null, queueMs: null, upstreamAttempts: 0, upstreamFailures: 0 };
+    const event: ActivityEvent = { timeline: [{ atMs: 0, phase: "received" }], timelineTruncated: false, diagnostic: null, clientSoftware: clientSoftware(userAgent), clientAddress: sourceAddress(remoteAddress), id: randomUUID(), method: /^(GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE)$/.test(method) ? method : "OTHER", endpoint: known ? pathname : "(other endpoint)", source: selfCheck ? "self-check" : "application", receivedAt: new Date(started).toISOString(), status: null, durationMs: null, phase: "received", outcome: "pending", model: null, servedModel: null, streamed: null, applicationStatus: null, responseBytes: 0, firstByteMs: null, queueMs: null, upstreamAttempts: 0, upstreamFailures: 0 };
     this.total++; if (selfCheck) this.selfChecks++;
     this.categories[kind]++;
     this.recent.push(event);
     if (this.recent.length > 100) this.recent.shift();
     let finished = false, validated = false, chatFinished = false, queuedAt = started, turnAttempts = 0;
     const knownModel = (model: string) => getAvailableModels().includes(model) ? model : "(custom model)";
+    const mark = (phase: string, model?: string) => {
+      const point = { atMs: Math.max(0, Date.now() - started), phase, ...(model ? { model: knownModel(model) } : {}) };
+      if (event.timeline!.length < 128) event.timeline!.push(point);
+      else { event.timelineTruncated = true; event.timeline![127] = point; }
+    };
     const finishChat = (status: number) => {
       if (!validated || chatFinished) return;
       chatFinished = true;
@@ -80,6 +87,7 @@ export class HttpActivity {
       if (result === 404) event.diagnostic = { type: "unsupported_endpoint", message: "No route matches this endpoint and method. Supported chat endpoint: POST /v1/chat/completions. Responses and Anthropic Messages APIs are not implemented.", phase: event.phase };
       if (event.outcome !== "success" && !event.diagnostic) event.diagnostic = { type: result === 499 ? "client_disconnected" : "http_error", message: result === 499 ? "Client connection closed before the response completed. Check client timeout and network connectivity." : result === 404 ? "No route matches this endpoint and method. Supported chat endpoint: POST /v1/chat/completions. Responses and Anthropic Messages APIs are not implemented." : `${STATUS_CODES[result] ?? "Request failed"} (status ${result}). No additional error payload was supplied.`, phase: event.phase };
       event.phase = event.outcome === "cancelled" ? "cancelled" : event.outcome === "error" ? "failed" : "completed";
+      mark(event.phase);
       this.completed++; if (event.outcome !== "success") this.failed++;
       this.sources.record(event);
     };
@@ -89,18 +97,18 @@ export class HttpActivity {
       errorBody: (text: string) => { if (finished || event.diagnostic) return; const error = errorPayload(text); if (error) event.diagnostic = { type: diagnosticText(error.type,200), message: diagnosticText(error.message), ...(error.code ? { code: diagnosticText(error.code,200) } : {}), phase: event.phase }; },
       route: () => event.servedModel,
       chat: (model: string, streamed: boolean) => { if (finished || validated) return; validated = true; event.model = knownModel(model); event.streamed = streamed; this.chat.validated++; if (streamed) this.chat.streamed++; else this.chat.nonStreamed++; },
-      phase: (value: Phase) => { if (finished) return; event.phase = value; if (value === "queued") queuedAt = Date.now(); },
-      admitted: () => { if (finished) return; event.queueMs = Math.max(0, Date.now() - queuedAt); event.phase = "preparing"; },
+      phase: (value: Phase) => { if (finished) return; event.phase = value; mark(value); if (value === "queued") queuedAt = Date.now(); },
+      admitted: () => { if (finished) return; event.queueMs = Math.max(0, Date.now() - queuedAt); event.phase = "preparing"; mark("preparing"); },
       nextTurn: () => { turnAttempts = 0; },
-      upstream: (model: string) => { if (finished) return; event.phase = "upstream"; event.servedModel = knownModel(model); if (turnAttempts++ > 0) this.chat.retries++; event.upstreamAttempts++; this.chat.upstreamAttempts++; },
-      upstreamFailed: () => { if (finished) return; event.upstreamFailures++; this.chat.upstreamFailures++; },
+      upstream: (model: string) => { if (finished) return; event.phase = "upstream"; event.servedModel = knownModel(model); mark("upstream", model); if (turnAttempts++ > 0) this.chat.retries++; event.upstreamAttempts++; this.chat.upstreamAttempts++; },
+      upstreamFailed: () => { if (finished) return; event.upstreamFailures++; mark("upstream-failed"); this.chat.upstreamFailures++; },
       result: (status: number) => { if (finished || event.applicationStatus === 499) return; event.applicationStatus = Number.isInteger(status) && status >= 100 && status <= 599 ? status : 500; },
-      output: (bytes: number) => { if (finished || !Number.isFinite(bytes) || bytes <= 0) return; event.responseBytes += bytes; event.firstByteMs ??= Math.max(0, Date.now() - started); if (event.streamed) event.phase = "streaming"; },
+      output: (bytes: number) => { if (finished || !Number.isFinite(bytes) || bytes <= 0) return; event.responseBytes += bytes; event.firstByteMs ??= Math.max(0, Date.now() - started); if (event.streamed && event.phase !== "streaming") { event.phase = "streaming"; mark("streaming"); } },
     });
   }
 
   snapshot() {
-    return { total: this.total, applicationRequests: this.total - this.selfChecks, selfChecks: this.selfChecks, active: this.total - this.completed, completed: this.completed, failed: this.failed, categories: { ...this.categories }, chats: { ...this.chat, active: this.chat.validated - this.chat.completed - this.chat.failed - this.chat.cancelled }, recent: this.recent.map(event => ({ ...event })).reverse() };
+    return { total: this.total, applicationRequests: this.total - this.selfChecks, selfChecks: this.selfChecks, active: this.total - this.completed, completed: this.completed, failed: this.failed, categories: { ...this.categories }, chats: { ...this.chat, active: this.chat.validated - this.chat.completed - this.chat.failed - this.chat.cancelled }, recent: this.recent.map(event => ({ ...event, timeline: event.timeline?.map(point => ({ ...point })) })).reverse() };
   }
 }
 export const httpActivity = new HttpActivity(new RequestSources(CONFIG_DIR));

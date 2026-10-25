@@ -27,3 +27,13 @@ example updates; local Markdown targets and all six gallery files were checked.
 The existing Windows/Linux and installed-package validation records remain linked
 from the roadmap. Production configuration, credentials and runtime were not
 changed for documentation capture.
+
+## Analytics additions (0.8.0)
+
+- Performance charts, exact percentiles and sample semantics: dashboard.md and activity-database.md;
+  implementation activity-insights.ts, tests activity-insights.test.ts.
+- Persistent request timing/timelines, legacy missing data and inspector controls:
+  dashboard.md and activity-database.md; http-activity.ts / activity-database.ts / dashboard-insights.ts.
+- Paged model-check history, previous samples/routes and graded denominators:
+  dashboard.md; activity-insights.ts / dashboard-insights.ts; offline database and UI tests.
+- Follow-on feature list and implementation priorities: roadmap.md sections 6–7.
