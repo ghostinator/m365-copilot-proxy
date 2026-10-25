@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.9.0. Source availability and portable
+The current source feature set is version 0.10.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.9.0 npm package. See [the README](../README.md) for current source/setup links.
+0.10.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -89,7 +89,7 @@ requested, serialized and quota-consuming. No automatic capability sweeps.
 - [x] Unified live/saved request list, elapsed times and queued-request visibility (0.9.0);
   active requests survive recent-buffer eviction and upstream turns remain serialized.
 - [ ] Operator cancellation controls for active/waiting requests.
-- [ ] Error grouping by cause, frequency and affected clients/models, separating
+- [x] Error grouping by observed category/type/code, frequency and affected clients/models (0.10.0), separating
   authentication, throttling, transport and model failures.
 - [ ] Dashboard settings editor: source labels, aliases, fallbacks, listener and
   optional keys; validate and preview changes with explicit apply/restart behavior.
@@ -114,3 +114,18 @@ requested, serialized and quota-consuming. No automatic capability sweeps.
 - [x] Persist application identity/label in normalized SQLite records; key/model/route usage.
 - [x] Filter the unified request list by application key across the entire saved history.
 - [x] Keep follow-on work on a separate branch; do not modify the existing draft PR.
+
+
+## 9. Dashboard operations (0.10.0)
+
+- [x] Host-issued expiring operator unlock, separate from optional application keys.
+- [x] Dashboard key create/name/rename/revoke with one-time new-token display.
+- [x] Application/system/model/type/category/UUID filters and full-history error groups.
+- [x] Redacted JSON export of the current saved request page.
+- [x] Windows sign-in task status, enable/disable without stopping active work.
+- [x] Drain-before-restart, bounded wait/cancellation and detached same-version handoff.
+- [ ] Full-history streaming exports, consistent backup/restore UI and retention controls.
+- [ ] Model reliability trends and optional sustained-failure alerts.
+
+Tray status, interactive sign-in recovery, Linux systemd setup and versioned updates
+with rollback remain separate work. A stopped proxy is started from the host CLI.

@@ -37,6 +37,13 @@ try {
     Invoke-Service 'install'; $installed=$true
     Invoke-Service 'start'
     $instance = Get-Content -LiteralPath (Join-Path $data 'instance.json') -Raw | ConvertFrom-Json
+    $inspection = Invoke-Service 'inspect' | ConvertFrom-Json
+    if (-not $inspection.installed -or -not $inspection.enabled) { throw 'Installed task status was incorrect' }
+    Invoke-Service 'disable'
+    $disabled = Invoke-Service 'inspect' | ConvertFrom-Json
+    if ($disabled.enabled) { throw 'Startup task remained enabled' }
+    if (-not (Get-Process -Id ([int]$instance.pid) -ErrorAction SilentlyContinue)) { throw 'Disabling startup interrupted the active proxy' }
+    Invoke-Service 'install'
     Stop-Process -Id ([int]$instance.pid) -Force
     $restarted=$false
     for ($i=0; $i -lt 50; $i++) {
@@ -50,7 +57,7 @@ try {
     }
     if (-not $restarted) { throw 'The service watchdog did not restart the failed Node child' }
     Invoke-Service 'stop'
-    Write-Output 'PASS: real task start, Node failure/restart, and graceful stop (local fake server only)'
+    Write-Output 'PASS: task inspect/disable preserves running process, start, Node failure/restart, and graceful stop (local fake server only)'
 } finally {
     if ($installed) { Invoke-Service 'uninstall' }
     if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) { throw 'Temporary startup task was not removed' }

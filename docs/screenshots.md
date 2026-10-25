@@ -56,3 +56,6 @@ synthetic server above; do not capture production source IPs or error content.
 
 The preview fixture creates keys only in its isolated temporary directory and
 seeds public example addresses/labels. Production keys are never created or captured.
+
+
+Version 0.10.0 adds `dashboard-troubleshooting.jpg` and `dashboard-error-groups.jpg`: synthetic Requests filters/export and error groups. Tokens were dismissed and operator access locked before capture.

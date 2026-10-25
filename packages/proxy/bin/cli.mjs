@@ -1,3 +1,4 @@
+import { serviceController } from "./service-host.mjs";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
@@ -53,13 +54,13 @@ export async function main(args) {
   let command = args[0] || "serve";
   if (/^\d+$/.test(command)) { process.env.NITRO_PORT = process.env.PORT = command; command = "serve"; }
   if (["--help", "-h", "help"].includes(command)) {
-    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy service install|status|start|stop|uninstall\nm365-proxy diagnostics [output.json]\nm365-proxy client setup pi|openclaw [--config path] [--base-url URL] [--api-key-env NAME] [--dry-run] [--replace]\nm365-proxy client info\nm365-proxy keys create <label>|list|revoke <id>|rename <id> <label>|mode optional|required\nDashboard: http://127.0.0.1:<port>/dashboard\n\nConfiguration: " + configPath);
+    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy operator authorize\nm365-proxy service install|status|start|stop|disable|uninstall\nm365-proxy diagnostics [output.json]\nm365-proxy client setup pi|openclaw [--config path] [--base-url URL] [--api-key-env NAME] [--dry-run] [--replace]\nm365-proxy client info\nm365-proxy keys create <label>|list|revoke <id>|rename <id> <label>|mode optional|required\nDashboard: http://127.0.0.1:<port>/dashboard\n\nConfiguration: " + configPath);
     return;
   }
   if (command === "service") {
     if (process.platform !== "win32") throw new Error("The service commands manage a Windows per-user sign-in task. See docs/operations.md for systemd.");
     const action = args[1];
-    if (!["install", "status", "start", "stop", "uninstall"].includes(action)) throw new Error("Choose service install, status, start, stop or uninstall");
+    if (!["install", "status", "start", "stop", "disable", "uninstall"].includes(action)) throw new Error("Choose service install, status, start, stop or uninstall");
     process.exitCode = run("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", join(root, "windows/Service.ps1"), "-Action", action, "-Launcher", launcher, "-NodePath", process.execPath, "-DataDir", dataDir], { allowFailure: action === "status", timeout: 180_000 });
     return;
   }
@@ -75,11 +76,17 @@ export async function main(args) {
     }
     throw new Error("Proxy did not acknowledge shutdown; use service stop to verify and stop a supervised process");
   }
-  if (!["serve", "setup", "login", "doctor", "diagnostics", "client", "keys"].includes(command)) throw new Error(`Unknown command: ${command}; use --help`);
+  if (!["serve", "setup", "login", "doctor", "diagnostics", "client", "keys", "operator"].includes(command)) throw new Error(`Unknown command: ${command}; use --help`);
   if (command === "serve" && args[1]) process.env.NITRO_PORT = process.env.PORT = args[1];
   const config = settings();
   const runtime = await import(runtimeUrl.href);
   runtime.validateBind(config.host);
+  if (command === "operator") {
+    if (args[1] !== "authorize" || args.length !== 2) throw new Error("Use operator authorize");
+    protectDataDir();
+    console.log(JSON.stringify({ ...runtime.operatorAccess.grant(), notice: "Paste into Dashboard Settings / Operator access. Expires in 15 minutes; a new grant invalidates the previous one. Application API keys stay optional." }, null, 2));
+    return;
+  }
   if (command === "keys") {
     const action = args[1], store = runtime.proxyApiKeys;
     if (["create", "revoke", "rename", "mode"].includes(action)) protectDataDir();
@@ -183,5 +190,6 @@ export async function main(args) {
     try { if (JSON.parse(readFileSync(instancePath, "utf8")).nonce === instance.nonce) rmSync(instancePath); } catch {}
     clearInterval(timer);
   });
+  runtime.registerServiceController(serviceController({ root, launcher, dataDir, instance }));
   await import(pathToFileURL(join(root, ".output/server/index.mjs")).href);
 }

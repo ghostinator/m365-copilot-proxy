@@ -1,6 +1,6 @@
 {
   "name": "@m365-copilot/proxy",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -11,6 +11,8 @@
     "bin",
     "windows",
     "OPERATIONS.md",
+    "dashboard-operations.md",
+    "api-keys.md",
     "LICENSE"
   ],
   "scripts": {

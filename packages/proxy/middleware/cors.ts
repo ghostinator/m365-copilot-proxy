@@ -1,5 +1,5 @@
 /** Share the exact origin and API-key policy used by the embeddable app. */
-import { corsHeaders, requestGate, httpActivity, proxyApiKeys } from "@m365-copilot/proxy-lib";
+import { corsHeaders, requestGate, httpActivity, proxyApiKeys, drainingResponse } from "@m365-copilot/proxy-lib";
 
 export default defineEventHandler((event) => {
   const request = new Request(getRequestURL(event), { method: event.method, headers: getRequestHeaders(event) as HeadersInit });
@@ -24,7 +24,7 @@ export default defineEventHandler((event) => {
     event.node.res.once("close", () => finish(event.node.res.writableFinished ? event.node.res.statusCode : 499));
   }
   for (const [key, value] of Object.entries(corsHeaders(request))) setResponseHeader(event, key, value);
-  const gate = requestGate(request);
-  if (!gate) finish?.applicationKey(proxyApiKeys.authorize(request.headers).application);
+  const gate = requestGate(request) ?? drainingResponse(request);
+  if (!gate && new URL(request.url).pathname !== "/v1/proxy/operator") finish?.applicationKey(proxyApiKeys.authorize(request.headers).application);
   return gate ?? undefined;
 });

@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('install','status','start','stop','uninstall')][string]$Action,
+    [Parameter(Mandatory=$true)][ValidateSet('install','status','start','stop','uninstall','inspect','disable')][string]$Action,
     [Parameter(Mandatory=$true)][string]$Launcher,
     [Parameter(Mandatory=$true)][string]$NodePath,
     [Parameter(Mandatory=$true)][string]$DataDir
@@ -45,6 +45,15 @@ switch ($Action) {
         Register-ScheduledTask -TaskName $taskName -InputObject $definition -Force | Out-Null
         Write-Output ('Installed sign-in task ' + $taskName + '. Run service start to start now.')
     }
+    'inspect' {
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        [pscustomobject]@{ supported=$true; installed=[bool]$task; enabled=([bool]$task -and $task.Settings.Enabled); state=$(if ($task) { [string]$task.State } else { 'Not installed' }); task=$taskName } | ConvertTo-Json -Compress
+    }
+    'disable' {
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($task) { Disable-ScheduledTask -TaskName $taskName | Out-Null }
+        Write-Output 'Sign-in startup disabled. The running proxy was preserved.'
+    }
     'status' {
         $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
         if (-not $task) { Write-Output 'Not installed'; exit 1 }
@@ -55,9 +64,11 @@ switch ($Action) {
         Start-ScheduledTask -TaskName $taskName
         $config = Get-Content -LiteralPath (Join-Path $DataDir 'server.json') -Raw | ConvertFrom-Json
         $port = if ($config.port) { [int]$config.port } else { 4141 }
+        $bindHost = if ($config.host -and $config.host -notin @('0.0.0.0','::')) { [string]$config.host } else { '127.0.0.1' }
+        if ($bindHost.Contains(':')) { $bindHost = '[' + $bindHost + ']' }
         $ready = $false
         for ($i=0; $i -lt 60; $i++) {
-            try { $r = Invoke-RestMethod -Uri ('http://127.0.0.1:' + $port + '/health/ready') -TimeoutSec 1; if ($r.status -eq 'ready') { $ready=$true; break } } catch {}
+            try { $r = Invoke-RestMethod -Uri ('http://' + $bindHost + ':' + $port + '/health/ready') -TimeoutSec 1; if ($r.status -eq 'ready') { $ready=$true; break } } catch {}
             Start-Sleep -Seconds 1
         }
         if (-not $ready) { throw ('Proxy did not become ready. Check ' + (Join-Path $DataDir 'service-logs\stderr.log') + '; run m365-proxy login if sign-in is required.') }

@@ -4,7 +4,15 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.9.0)
+## Dashboard and operations (0.10.0)
+
+New: **Settings** can create, rename and revoke application keys, configure Windows
+sign-in startup, and restart after active work finishes. Unlock management with a
+15-minute grant from `m365-proxy operator authorize` on the host. Application keys
+remain optional. **Requests** adds error-category/UUID filters and a redacted
+saved-page JSON export; **Errors** groups failures across matching history.
+See [dashboard management](docs/dashboard-operations.md).
+
 
 This fork adds a tabbed operations dashboard, persistent activity/error history,
 model capability checks, portable runtime packaging and Windows sign-in startup

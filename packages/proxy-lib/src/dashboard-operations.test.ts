@@ -1,0 +1,31 @@
+import { createContext, runInContext } from "node:vm";
+import { expect, it } from "vitest";
+import { dashboardResponse } from "./dashboard.js";
+async function dashboard() {
+  const elements = new Map<string, any>();
+  const node = () => ({ textContent: "", value: "", hidden: false, disabled: false, children: [] as any[], dataset: {}, style: {}, listeners: {} as Record<string, Function>, setAttribute() {}, querySelectorAll: () => [], addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(...children: any[]) { this.children.push(...children); }, focus() {} });
+  const el = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
+  const pending: { resolve: (value: any) => void; url: string }[] = [];
+  const context = createContext({ document: { getElementById: el, createElement: node }, fetch: (url: string) => new Promise(resolve => pending.push({ resolve, url })), AbortController, AbortSignal, URLSearchParams, setInterval: () => 0, clearTimeout: () => {}, setTimeout: () => 0 });
+  runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
+  return { el, context, pending };
+}
+it("exports only saved-page metadata and redacts diagnostics without leaking operator/application credentials", async () => {
+  const { context } = await dashboard();
+  const record = { id: "example", address: "192.0.2.1", endpoint: "/v1/chat/completions", diagnostic: { message: "Bearer private-token m365_operator_abcdefghijklmnopqrstuvwxyz0123456789 password=secret" }, headers: { authorization: "private-header" }, prompt: "private-prompt", apiKey: "private-key" };
+  runInContext(`sourceRecords=${JSON.stringify([record])}`, context);
+  const text = runInContext("JSON.stringify(exportRequestPage())", context);
+  expect(text).toContain("192.0.2.1"); expect(text).toContain("[redacted");
+  expect(text).not.toMatch(/private-token|abcdefghijklmnopqrstuvwxyz|password=secret|private-header|private-prompt|private-key/);
+  expect(JSON.parse(text).records).toHaveLength(1);
+});
+it("ignores a newly created token arriving after the operator locks the dashboard", async () => {
+  const { el, context, pending } = await dashboard();
+  runInContext("operatorToken='grant';operatorExpiry=Date.now()+60000;managementAction({action:'key-create',label:'Example'})", context);
+  expect(pending[1].url).toBe("/v1/proxy/operator");
+  runInContext("lockOperator()", context);
+  pending[1].resolve({ ok: true, json: async () => ({ token: "must-not-display" }) });
+  await new Promise(resolve => setImmediate(resolve));
+  expect(el("created-key-token").value).toBe(""); expect(el("created-key").hidden).toBe(true);
+  expect(el("key-management").disabled).toBe(true);
+});

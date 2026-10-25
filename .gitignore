@@ -58,3 +58,8 @@ scripts/harness/out/
 /browser-profile/
 
 /proxy-api-keys.json*
+
+/operator-access.json
+/restart-error.log
+packages/proxy/dashboard-operations.md
+packages/proxy/api-keys.md

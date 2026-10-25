@@ -22,6 +22,7 @@ jobs:
           pnpm --filter @m365-copilot/proxy pack --pack-destination "$GITHUB_WORKSPACE/release-npm" > package-contents.log
           node scripts/test-npm-package.mjs release-npm/*.tgz
       - run: node scripts/test-installed-runtime.mjs
+      - run: node scripts/test-operator-runtime.mjs
       - if: runner.os == 'Windows'
         shell: powershell
         run: .\scripts\test-windows-ops.ps1

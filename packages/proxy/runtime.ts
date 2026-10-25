@@ -6,3 +6,5 @@ const { chromium } = createRequire(import.meta.url)("playwright");
 export function browserExecutable() { return process.env.CHROMIUM_PATH || chromium.executablePath(); }
 
 export { proxyApiKeys } from "@m365-copilot/proxy-lib";
+
+export { operatorAccess, registerServiceController } from "@m365-copilot/proxy-lib";

@@ -1,3 +1,4 @@
+import { serviceState } from "./service-control.js";
 import { proxyApiKeys } from "./api-keys.js";
 import { html, script } from "./dashboard-ui.js";
 import { authenticationStatus, authenticationAccountKey, getAvailableModels, METERED_BUDGETS, activePriorityAccessExhaustion, priorityAccessFallbackModel, recentOperationalErrors, type MeteredBudget } from "@m365-copilot/core";
@@ -12,6 +13,7 @@ export function operatorStatus(pool: SessionPool, activity: HttpActivity = httpA
   const observed = usageObservations.snapshot(authenticationAccountKey());
   return {
     apiKeys: proxyApiKeys.status(),
+    service: serviceState(),
     authentication: authenticationStatus(),
     uptimeSeconds: Math.floor(process.uptime()),
     requests: pool.status,

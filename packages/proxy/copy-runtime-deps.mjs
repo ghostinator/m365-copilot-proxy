@@ -1,7 +1,7 @@
 // Nitro traces chat imports but misses Playwright's CLI and browser registry files.
 // Copy the exact locked packages, so a release works outside pnpm's workspace.
 import { createRequire } from "node:module";
-import { copyFileSync, cpSync, mkdirSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 const require = createRequire(new URL("../core/package.json", import.meta.url));
 const playwrightRequire = createRequire(require.resolve("playwright/package.json"));
@@ -13,3 +13,5 @@ for (const name of ["playwright", "playwright-core"]) {
 }
 copyFileSync(new URL("../../LICENSE", import.meta.url), new URL("./LICENSE", import.meta.url));
 copyFileSync(new URL("../../docs/operations.md", import.meta.url), new URL("./OPERATIONS.md", import.meta.url));
+
+for (const name of ["dashboard-operations.md", "api-keys.md"]) writeFileSync(new URL("./" + name, import.meta.url), readFileSync(new URL("../../docs/" + name, import.meta.url), "utf8").split("\n## Screenshots")[0]);

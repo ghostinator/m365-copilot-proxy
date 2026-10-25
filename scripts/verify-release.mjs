@@ -27,4 +27,5 @@ const doctor = spawnSync(executable, [launcher, "doctor"], { cwd: temp, env, enc
 const status = JSON.parse(doctor.stdout);
 if (!status.builtServer || ![0, 1].includes(doctor.status)) throw new Error("The installed doctor failed");
 execFileSync(executable, [join(import.meta.dirname, "test-installed-runtime.mjs"), launcher], { cwd: temp, env, windowsHide: true, stdio: "inherit" });
+execFileSync(executable, [join(import.meta.dirname, "test-operator-runtime.mjs"), launcher], { cwd: temp, env, windowsHide: true, stdio: "inherit" });
 console.log(`Verified ${manifest.files.length} hashes and isolated CLI startup in ${app}`);

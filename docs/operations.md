@@ -209,3 +209,15 @@ tokens are printed once. See [application keys](api-keys.md) for complete behavi
 Requests combines live/queued requests and saved history in one scrollable view.
 Request-type and application-key filters query the complete saved history. Clients
 adds application/model/served-route usage; Settings lists safe key metadata.
+
+
+## Dashboard management (0.10.0)
+
+See [dashboard management](dashboard-operations.md) for host-issued operator grants,
+Windows sign-in startup and safe restart. `m365-proxy service disable` disables the
+sign-in task without stopping the current proxy. Startup readiness uses the configured
+listener address, including Tailnet-only/IPv6 binds. The detached restart helper
+starts the same launcher under its watchdog only after the old process exits cleanly.
+Check `service-logs` and `restart-error.log` if replacement startup fails. Exit 78
+still requires `m365-proxy login` locally. A stopped dashboard must be started from
+the host with `service start` or `serve`.

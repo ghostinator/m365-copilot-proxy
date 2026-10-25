@@ -162,11 +162,16 @@ cancellation controls remain planned; no cancel button is shown yet.
 **Show** filters the entire stored history by chat, error/cancellation or explicit
 self-check, rather than filtering just a recent buffer or one page. **Application
 key** filters the same list by named key or keyless/unattributed traffic. These two
-filters apply to the request list, while global time/model/system filters also
+filters apply to request and error lists/groups, while global time/model/system filters also
 apply to summary charts, error history and client tables. Keyless and old records
 cannot be reliably assigned to an application retroactively.
 
 **Clients → Applications by API key** lists completed requests by key label,
 requested/served model and connected-system counts under the global filters.
 **Settings → Application API keys** lists labels, IDs and active/revoked status;
-it never returns tokens or stored digests. See [application keys](api-keys.md).
+stored digests and existing tokens are omitted. Authorized creation displays its new token once. See [application keys](api-keys.md).
+
+
+## Management and troubleshooting (0.10.0)
+
+See [dashboard management](dashboard-operations.md) for operator grants, key actions, error groups, category/UUID filters, page exports and service controls.

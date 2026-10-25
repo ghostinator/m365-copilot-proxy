@@ -18,7 +18,7 @@ it("renders chart data, request timelines and check comparisons safely and clear
     append(...children: any[]) { this.children.push(...children); },
   });
   const element = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
-  const context = createContext({ document: { getElementById: element, createElement: node }, fetch: () => new Promise(() => {}), AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
+  const context = createContext({ document: { getElementById: element, createElement: node }, fetch: () => new Promise(() => {}), AbortController, AbortSignal, URLSearchParams, clearTimeout, setTimeout, setInterval: () => 0 });
   runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
   const performance = { total: 2, successRate: .5, failed: 1, cancelled: 0, p50Ms: 100, p95Ms: 300, firstByteMs: 20, firstByteSamples: 1, queueMs: 0, queueSamples: 1, buckets: [{ at: Date.now(), total: 2, succeeded: 1, failed: 1, cancelled: 0, durationMs: 200, firstByteMs: 20, queueMs: 0 }] };
   runInContext('renderPerformance('+JSON.stringify(performance)+')', context);
@@ -54,7 +54,7 @@ it("organizes unique controls into accessible tabs and preserves filters when sw
     return elements.get(id);
   };
   const location = { hash: "#errors" };
-  const context = createContext({ document: { getElementById: element }, fetch: () => new Promise(() => {}), location, AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
+  const context = createContext({ document: { getElementById: element }, fetch: () => new Promise(() => {}), location, AbortController, AbortSignal, URLSearchParams, clearTimeout, setTimeout, setInterval: () => 0 });
   runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
   expect(element("panel-errors").hidden).toBe(false);
   expect(element("panel-models").hidden).toBe(true);
@@ -85,7 +85,7 @@ it("uses one persistent request list with live rows pinned, server paging and co
     if (url === "/v1/proxy/checks") return { ok: true, json: async () => ({ listeners: [], registeredModels: 0, authentication: { status: "starting" } }) };
     return app.fetch(new Request("http://localhost" + url));
   };
-  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch, AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
+  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch, AbortController, AbortSignal, URLSearchParams, clearTimeout, setTimeout, setInterval: () => 0 });
   const page = await dashboardResponse("/dashboard")!.text();
   expect(page).not.toContain('id="http-events"');
   expect(page).not.toContain('Saved request history</h2>');
@@ -155,7 +155,7 @@ it("forgets protected data immediately and discards a late response from the pre
     return elements.get(id);
   };
   const pending: { resolve: (value: any) => void; signal: AbortSignal }[] = [];
-  const context = createContext({ document: { getElementById: element, hidden: false, createElement: () => ({}) }, fetch: (_url: string, options: { signal: AbortSignal }) => new Promise(resolve => pending.push({ resolve, signal: options.signal })), AbortController, AbortSignal, URLSearchParams, setInterval: () => 0 });
+  const context = createContext({ document: { getElementById: element, hidden: false, createElement: () => ({}) }, fetch: (_url: string, options: { signal: AbortSignal }) => new Promise(resolve => pending.push({ resolve, signal: options.signal })), AbortController, AbortSignal, URLSearchParams, clearTimeout, setTimeout, setInterval: () => 0 });
   runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
   element("key").value = "old-key";
   element("connect").listeners.submit({ preventDefault() {} });
@@ -192,7 +192,7 @@ it("loads history without probing models, then sends only the explicitly selecte
     if (url === "/v1/proxy/model-check") return { ok: true, status: 200, json: async () => ({ model: "claude-sonnet", servedModel: "claude-sonnet", identity: "Unknown version", status: 200 }) };
     throw new Error("Unexpected URL");
   };
-  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch, AbortController, AbortSignal, URLSearchParams, setInterval: () => 0, setTimeout });
+  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch, AbortController, AbortSignal, URLSearchParams, clearTimeout, setTimeout, setInterval: () => 0, setTimeout });
   runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
   await new Promise(resolve => setImmediate(resolve));
   expect(calls.every(call => call.options.method !== "POST")).toBe(true);

@@ -1,3 +1,8 @@
+export { operatorAction } from "./operator-actions.js";
+export { operatorAccess } from "./operator-access.js";
+export { registerServiceController, serviceState, drainingResponse } from "./service-control.js";
+import { operatorAction } from "./operator-actions.js";
+import { drainingResponse } from "./service-control.js";
 export { incomingRequestBody } from "./incoming-body.js";
 import { proxyApiKeys } from "./api-keys.js";
 export { ApiKeyStore, proxyApiKeys } from "./api-keys.js";
@@ -107,6 +112,8 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
 
     const gate = requestGate(req);
     if (gate) return gate;
+    if (pathname === "/v1/proxy/operator") return operatorAction(req, activity);
+    const draining = drainingResponse(req); if (draining) return draining;
     trace?.applicationKey(proxyApiKeys.authorize(req.headers).application);
     if (method === "POST" && pathname === "/v1/proxy/model-check") {
       let value: unknown;

@@ -5869,3 +5869,20 @@ longer than the server keepalive period, so the next GET could reuse a closed so
 Prediction: asynchronous child commands let close events drain while CLI runs.
 The harness now awaits asynchronous `execFile`; it does not retry chat POSTs or
 mask server failures. Final extracted-runtime verification tests this correction.
+
+
+### Dashboard operations: separate host authorization and drain handoff (2026-10-25)
+
+H: separate operator grants preserve optional application keys without exposing
+unauthenticated management. Falsification: any mutation without an unexpired host
+grant or with a different Origin. Operator-actions tests reject absent, expired,
+replaced and cross-origin grants; key creation preserves optional mode. Browser
+script tests discard late token responses after locking. Evidence: operator-actions,
+dashboard-operations tests and scripts/test-operator-runtime.mjs (offline fixtures).
+
+H: restart can preserve admitted work without admitting new chats indefinitely.
+Falsification: restart during admitted work, or interrupting work at the drain
+deadline. Fake-clock tests cover both completion-before-restart and two-minute
+cancel/resume paths. The offline runtime test verifies an actual detached restart,
+new instance identity, saved history and unchanged optional key mode. These are
+local service/HTTP behaviors; no M365 protocol probes or quota were required.

@@ -57,7 +57,7 @@ export class HttpActivity {
   private activeRequests = new Map<string, ActivityEvent>();
 
   begin(method: string, pathname: string, selfCheck = false, remoteAddress?: string, userAgent?: string): RequestTrace | null {
-    if (ignored.has(pathname)) return null;
+    if (ignored.has(pathname) || pathname === "/v1/proxy/operator") return null;
     const started = Date.now();
     const known = Object.hasOwn(endpoints, pathname);
     const kind = known ? endpoints[pathname] : "other";

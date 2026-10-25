@@ -10,6 +10,30 @@ import { createApp } from "./index.js";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
+it("groups errors across saved pages and combines application, cause and exact request filters", () => {
+  const activity = new HttpActivity(), app = randomUUID(), other = randomUUID();
+  let quotaId = "";
+  for (let i = 0; i < 35; i++) {
+    const trace = activity.begin("POST", "/v1/chat/completions", false, "192.0.2.10")!;
+    trace.applicationKey({ id: i < 30 ? app : other, label: i < 30 ? "Production" : "Development" });
+    trace.chat("claude-sonnet", true);
+    trace.errorBody(JSON.stringify({ error: { type: "m365_throttled", code: "PerUserThrottled", message: "Quota fixture" } }));
+    trace.result(429); trace(200); quotaId = trace.id;
+  }
+  const auth = activity.begin("GET", "/v1/models", false, "192.0.2.11")!;
+  auth.applicationKey({ id: app, label: "Production" }); auth(401);
+  const all = activity.sources.snapshot();
+  expect(all.errorGroups.find(row => row.category === "throttling")).toMatchObject({ total: 35, systems: 1, models: 1 });
+  const production = activity.sources.snapshot({ requestKey: app, errorCategory: "throttling", limit: 20 });
+  expect(production.error).toBeNull(); expect(production.history.total).toBe(30); expect(production.errorHistory.total).toBe(30);
+  expect(production.recent).toHaveLength(20);
+  expect(production.errorGroups).toHaveLength(1); expect(production.errorGroups[0].total).toBe(30);
+  expect(activity.sources.snapshot({ requestId: quotaId }).recent).toHaveLength(1);
+  expect(activity.sources.snapshot({ requestId: quotaId, requestKey: app }).recent).toHaveLength(0);
+  expect(activity.sources.snapshot({ errorCategory: "authentication" }).recent).toHaveLength(1);
+  activity.sources.close();
+});
+
 it("canonicalizes real IP addresses without retaining arbitrary client strings", () => {
   expect(sourceAddress("::ffff:100.64.0.2")).toBe("100.64.0.2");
   expect(sourceAddress("::ffff:6440:2")).toBe("100.64.0.2");

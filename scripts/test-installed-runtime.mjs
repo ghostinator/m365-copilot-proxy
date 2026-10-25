@@ -37,7 +37,7 @@ async function start(authenticated, extra = {}) {
     for (let i = 0; i < 100 && !logs.includes("Listening on") && child.exitCode === null; i++) await delay(100);
     if (!authenticated) {
       const code = await Promise.race([exit, delay(5000).then(() => "timeout")]);
-      assert.equal(code, 78, logs);
+      assert.equal(code, 78, logs || "No startup diagnostics were emitted before the timeout");
       assert.match(logs, /Authentication failed/);
       console.log("PASS: missing credentials fail startup with configuration exit 78");
       return;

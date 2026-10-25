@@ -273,3 +273,25 @@ and type filters; Clients shows named-key usage; Settings lists safe metadata.
 The oversized-body fixture must receive 413 and leave the server alive instead of
 an incoming-stream enqueue exception. See incoming-body.test.ts for the late-chunk
 cancellation probe and api-keys.test.ts for schema-4 migration/attribution.
+
+
+## Dashboard operator grants and service handoff (offline)
+
+Prediction: keyless applications cannot mutate keys/startup; a host-issued grant
+permits exact-origin management only until expiry. Restart refuses new chats,
+waits for admitted work, and preserves saved data and key mode across processes.
+
+```sh
+pnpm build
+pnpm exec vitest run
+node scripts/test-operator-runtime.mjs
+powershell.exe -NoProfile -File scripts/test-windows-service.ps1
+```
+
+The runtime uses temporary state and an explicit offline MSAL/WebSocket loader
+with outbound HTTP disabled, including in the replacement watchdog/child. It
+creates/revokes only fixture keys and restarts only the temporary instance. The
+Windows script registers/removes a uniquely named task and fake HTTP server;
+it does not alter real startup. Unit probes cover expiry, exact-origin checks,
+drain timeout, late-response token clearing, full-history grouping and export
+allowlisting/redaction. Cost: local CPU/disk only, zero Microsoft quota.

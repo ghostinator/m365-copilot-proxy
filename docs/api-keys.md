@@ -23,7 +23,7 @@ Clients using different keys also retain separate caller identities for conversa
 
 The private `proxy-api-keys.json` file stores only SHA-256 digests, IDs, labels,
 creation/revocation timestamps and the explicit required-mode flag. Tokens have
-32 random bytes of entropy. List/dashboard responses omit digests and raw tokens.
+32 random bytes of entropy. List/status responses omit digests and raw tokens; authorized creation displays its new token once.
 If a token is lost, create a replacement and revoke the old ID.
 
 ## Manage
@@ -38,7 +38,7 @@ m365-proxy keys mode optional
 
 Changes apply to subsequent requests without restart. Revocation does not cancel
 an existing chat. Renaming affects new request labels; historical labels remain
-unchanged. A local file lock serializes CLI mutations; concurrent updates fail
+unchanged. A local file lock serializes CLI and dashboard mutations; concurrent updates fail
 without overwriting another writer. Repair a leftover lock only after confirming
 no key-management process is running. Invalid key configuration fails closed.
 
@@ -56,8 +56,11 @@ supported; request history still has unlimited retention.
 
 ## Dashboard and storage
 
-Settings lists named key metadata and current access mode; management commands
-run locally on the proxy host. There is no unauthenticated remote key-management
+Settings lists key metadata and offers create/rename/revoke controls after a
+short-lived operator unlock. Run `m365-proxy operator authorize` on the host, then
+paste the generated token in Settings. See [dashboard management](dashboard-operations.md)
+for expiry, origin checks and one-time token display. CLI management remains
+available. There is no unauthenticated remote key-management
 endpoint. These keys identify applications; they do not implement tenant-specific
 permissions or restrict access to an individual application's dashboard records.
 

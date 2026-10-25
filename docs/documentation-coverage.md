@@ -47,3 +47,8 @@ changed for documentation capture.
   activity-database.md; migration/restart/filter tests in api-keys.test.ts.
 - Live rows surviving recent-buffer eviction: http-activity.test.ts; queue display
   and merged-list paging: dashboard.test.ts. Cancellation controls remain queued.
+
+
+## Dashboard operations (0.10.0)
+
+[Dashboard management](dashboard-operations.md) covers operator grants, one-time key creation, grouped errors, combined filters, scoped exports, sign-in startup and restart/recovery limits.

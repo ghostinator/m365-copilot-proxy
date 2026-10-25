@@ -50,3 +50,13 @@ Revocation applies to new requests and does not cancel existing chats.
 Only safe key metadata is visible in the dashboard. Management remains a local
 CLI operation; key scopes/tenant isolation are not implemented. Operator request
 cancellation and the remaining roadmap operations features are still queued.
+
+
+### Deployment follow-up
+
+Version 0.9.0 was subsequently deployed with explicit user authorization. Readiness,
+optional keyless access and the existing Tailnet listener passed. A consistent
+backup and schema-5 integrity verification preserved all 424 pre-deployment request
+UUIDs and 34 model reports; configuration bytes were unchanged. The earlier pending
+activation note above describes the pre-deployment test stage. Version 0.10.0 adds
+separately authorized dashboard management; see dashboard-operations.md.
