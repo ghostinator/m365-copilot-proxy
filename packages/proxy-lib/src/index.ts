@@ -4,6 +4,7 @@ import { SessionPool, handleChatCompletion } from "./handler.js";
 import { dashboardResponse, operatorStatus } from "./dashboard.js";
 import { HttpActivity, trackHttpResponse, type RequestTrace } from "./http-activity.js";
 export { HttpActivity, httpActivity, type RequestTrace } from "./http-activity.js";
+export { RequestSources, sourceAddress } from "./request-sources.js";
 import { operatorChecks } from "./operator-checks.js";
 export { operatorChecks } from "./operator-checks.js";
 export { dashboardResponse, operatorStatus } from "./dashboard.js";
@@ -77,7 +78,7 @@ function json(status: number, body: unknown): Response {
 
 /** A minimal Web fetch handler — the same shape Hono exposed via `app.fetch`. */
 export interface FetchApp {
-  fetch(req: Request): Promise<Response>;
+  fetch(req: Request, connection?: { remoteAddress?: string }): Promise<Response>;
   close(): void;
 }
 
@@ -137,9 +138,9 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
     );
   }
 
-  return { async fetch(req) {
-    const finish = activity.begin(req.method.toUpperCase(), new URL(req.url).pathname, req.headers.get("x-m365-check") === "1");
+  return { async fetch(req, connection) {
+    const finish = activity.begin(req.method.toUpperCase(), new URL(req.url).pathname, req.headers.get("x-m365-check") === "1", connection?.remoteAddress);
     try { const response = trackHttpResponse(await fetch(req, finish), finish); response.headers.set("X-M365-Proxy-Instance", activity.instance.id); response.headers.set("X-M365-Proxy-Version", activity.instance.version); return response; }
     catch (error) { finish?.(500); throw error; }
-  }, close: () => pool.close() };
+  }, close: () => { pool.close(); activity.sources.flush(); } };
 }

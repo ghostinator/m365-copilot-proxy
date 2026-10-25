@@ -5760,3 +5760,19 @@ fails at the HTTP gate or startup rejects the bind. Boundary regression passes;
 the existing configured-key and origin rejection tests still pass. Windows unit
 suite: 454 passed, 6 live tests skipped. No Microsoft chat is needed for this check.
 Operational configuration instructions are updated in operations/windows docs.
+
+### Request source attribution and saved rankings — Oct 25
+
+Hypothesis: socket-level peer addresses allow useful per-system accounting without
+trusting caller-controlled forwarding headers. Falsifier: forged X-Forwarded-For
+or X-Real-IP changes attribution, or restart loses flushed source totals. The
+standalone middleware now records the socket address; the bounded source store
+persists only allowlisted completed-request metadata and rankings. IPv4/IPv6
+normalization, forged headers, persistence/reload, bounded retention and write
+failure behavior are covered in request-sources.test.ts and the installed-runtime
+probe. This is local proxy telemetry, not a Microsoft protocol finding. Storage
+semantics and limits are documented in operations.md. No chat quota is required.
+
+The Recent requests UI defaults to 20 entries in a scrollable box with 20/50/100
+page sizes and Previous/Next controls. dashboard.test.ts exercises page boundaries,
+size changes and filter resets; it also keeps the forgotten-key regression check.

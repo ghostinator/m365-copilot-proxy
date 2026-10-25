@@ -6,6 +6,33 @@ import { dashboardResponse } from "./dashboard.js";
 
 afterEach(() => { vi.unstubAllEnvs(); resetPriorityAccessState(); });
 
+it("pages recent requests in groups of 20 and resets pagination when the size or filter changes", async () => {
+  const elements = new Map<string, any>();
+  const node = () => ({ textContent: "", value: "", disabled: false, children: [] as any[], listeners: {} as Record<string, Function>, addEventListener(event: string, callback: Function) { this.listeners[event] = callback; }, replaceChildren(...children: any[]) { this.children = children; }, append(child: any) { this.children.push(child); } });
+  const element = (id: string) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
+  element("activity-page-size").value = "20"; element("activity-filter").value = "all";
+  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch: () => new Promise(() => {}), AbortController, AbortSignal, setInterval: () => 0 });
+  const page = await dashboardResponse("/dashboard")!.text();
+  expect(page).toContain('class="request-box"');
+  expect(page).toContain('max-height:480px;overflow:auto');
+  runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
+  const events = Array.from({ length: 55 }, (_, id) => ({ id: String(id), receivedAt: new Date().toISOString(), method: "GET", endpoint: "/v1/models", clientAddress: "100.64.0.2", source: "application", streamed: null, status: 200, phase: "completed", outcome: "success", applicationStatus: null, responseBytes: 123, firstByteMs: 1, queueMs: null, durationMs: 2, upstreamAttempts: 0 }));
+  runInContext(`records=${JSON.stringify(events)};renderEvents()`, context);
+  expect(element("http-events").children).toHaveLength(20);
+  expect(element("activity-page").textContent).toContain("1–20 of 55");
+  element("activity-next").listeners.click();
+  expect(element("activity-page").textContent).toContain("21–40 of 55");
+  element("activity-next").listeners.click();
+  expect(element("http-events").children).toHaveLength(15);
+  expect(element("activity-next").disabled).toBe(true);
+  element("activity-page-size").value = "50"; element("activity-page-size").listeners.change();
+  expect(element("http-events").children).toHaveLength(50);
+  expect(element("activity-page").textContent).toContain("1–50 of 55");
+  element("activity-filter").value = "errors"; element("activity-filter").listeners.change();
+  expect(element("activity-page").textContent).toContain("0–0 of 0");
+  expect(element("activity-previous").disabled).toBe(true);
+});
+
 it("protects operator data with the API key and never injects credentials into the page", async () => {
   vi.stubEnv("M365_API_KEY", "secret-for-dashboard-test");
   const app = createApp();

@@ -69,6 +69,13 @@ async function start(authenticated, extra = {}) {
     assert(observed.activity.failed >= 3);
     const unchanged = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
     assert.equal(unchanged.activity.total, observed.activity.total, "dashboard polls must not inflate activity");
+    assert.equal(unchanged.sources.persistent, true);
+    assert.equal(unchanged.sources.systems[0].address, "127.0.0.1");
+    const beforeForged = unchanged.sources.systems[0].applicationRequests;
+    await (await fetch(base + "/v1/models", { headers: { ...headers, "x-forwarded-for": "100.64.99.99", "x-real-ip": "100.64.99.99" } })).text();
+    const afterForged = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
+    assert.equal(afterForged.sources.systems[0].applicationRequests, beforeForged + 1);
+    assert(!JSON.stringify(afterForged.sources).includes("100.64.99.99"));
     assert.equal(unchanged.instance.id, operator.headers.get("x-m365-proxy-instance"));
       const inspection = await fetch(base + "/v1/proxy/checks", { headers });
       assert.equal(inspection.status, 200);
@@ -80,7 +87,7 @@ async function start(authenticated, extra = {}) {
       await selfCheck.text();
       const afterCheck = await statusJson(await fetch(base + "/v1/proxy/status", { headers }));
       assert.equal(afterCheck.activity.selfChecks, unchanged.activity.selfChecks + 1);
-      assert.equal(afterCheck.activity.applicationRequests, unchanged.activity.applicationRequests);
+      assert.equal(afterCheck.activity.applicationRequests, afterForged.activity.applicationRequests);
       assert.equal(afterCheck.activity.chats.upstreamAttempts, 0, "local checks must not start an upstream chat");
     const mode = extra.M365_TEST_CHAT_MODE || "success";
     const chatBody = { model: "claude-sonnet", messages: [{ role: "user", content: "private-offline-prompt" }] };
@@ -129,6 +136,11 @@ async function start(authenticated, extra = {}) {
     const instance = JSON.parse(readFileSync(join(dir, "instance.json"), "utf8"));
     writeFileSync(join(dir, `shutdown-${instance.nonce}`), "stop");
     assert.notEqual(await Promise.race([exit, delay(10_000).then(() => "timeout")]), "timeout", logs);
+    const sourceHistory = JSON.parse(readFileSync(join(dir, "request-sources.json"), "utf8"));
+    assert.equal(sourceHistory.systems[0].address, "127.0.0.1");
+    assert(sourceHistory.systems[0].total > 0);
+    assert(sourceHistory.recent.length > 0);
+    assert(!JSON.stringify(sourceHistory).includes("private-offline-prompt"));
     console.log("PASS: loopback listener, readiness, origin/key policy, and graceful stop");
   } finally { if (child.exitCode === null) child.kill(); await Promise.race([exit, delay(1000)]); }
 }

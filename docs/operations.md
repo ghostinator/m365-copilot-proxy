@@ -80,6 +80,31 @@ or reloading the page clears it. Up to 20 in-memory error summaries show fixed
 categories instead of raw log messages. Tray controls and browser-managed
 start/stop remain tracked in [the roadmap](roadmap.md).
 
+Version 0.5.0 adds **Most active systems**, ranked by completed application
+requests from the actual socket IP. Explicit self-checks have separate counts;
+chat endpoint counts include invalid/rejected requests. First/last seen times,
+HTTP body bytes, error/cancellation counts and request categories are saved in
+private `request-sources.json` under the data directory. No headers, hostnames,
+credentials, queries, prompts or replies are stored. Forwarded-IP headers are
+ignored: reverse proxies/shared gateways appear as one system. IPv4-mapped IPv6
+addresses are grouped with their IPv4 form. Missing transport metadata is unknown.
+The standalone Nitro server supplies socket metadata; embedded `createApp` callers
+can pass trusted `{ remoteAddress }` context. Embedded histories are in memory.
+
+The source file holds up to 512 systems (least recently seen evicted when full)
+and 500 completed request records. Systems inactive for 30 days and request
+records older than 30 days expire. A retained active system's totals cover its
+saved lifetime, not a rolling 30-day count. Records are batched for up to 500 ms
+and flushed on graceful shutdown; an abrupt crash can lose the pending batch.
+Persistence failures appear in the dashboard without failing a chat. Source
+rankings/history survive restart; current-process HTTP/chat counters still reset.
+Use the system filter in **Saved request history** to inspect a source's latest
+50 matching records inside a scrollable box.
+
+**Recent requests** has a 480-pixel scrollable region, initially 20 requests per
+page, with 20/50/100 choices and Previous/Next controls. Changing its filter or
+page size returns to page one. Its current-process buffer remains capped at 100.
+
 Quota observations persist atomically in private `quota-observations-<hash>.json`
 files under the data directory. The hash scopes them to the authenticated tenant
 and account; raw identifiers/tokens are not stored in these files or exposed by

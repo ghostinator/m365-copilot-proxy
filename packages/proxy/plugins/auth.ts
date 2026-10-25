@@ -1,6 +1,6 @@
 import { getToken, createLogger, startAuthenticationMaintenance } from "@m365-copilot/core";
 import { pool } from "../server-pool";
-import { validateBind } from "@m365-copilot/proxy-lib";
+import { validateBind, httpActivity } from "@m365-copilot/proxy-lib";
 
 /**
  * Authenticate against M365 once, at server startup. A failure here throws and
@@ -21,5 +21,5 @@ export default defineNitroPlugin((app) => {
   // Keep readiness valid across idle token expiry, without generating chat turns
   // or repeatedly launching a browser when a tenant requires human reapproval.
   const stopMaintenance = startAuthenticationMaintenance();
-  app.hooks.hook("close", () => { stopMaintenance(); pool.close(); });
+  app.hooks.hook("close", () => { stopMaintenance(); pool.close(); httpActivity.sources.flush(); });
 });

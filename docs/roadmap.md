@@ -11,6 +11,8 @@ not completion of the entire feature group.
 - [x] Recent sanitized error summaries, with bounded retention (20, in-memory, fixed categories).
 - [x] HTTP and chat lifecycle activity: streaming/errors/cancellations, queue/response timing, body bytes, upstream attempts and request IDs (0.4.0).
 - [x] Instance identity, detection of other local listeners, request filters and separate no-chat self-checks (0.4.0).
+- [x] Persist request-source IPs, per-system rankings and bounded source history (0.5.0).
+- [x] Scrollable recent requests with 20/50/100 page sizes and pagination (0.5.0).
 - [ ] Start/stop/restart and sign-in recovery controls with explicit local authorization.
 - [ ] Optional Windows tray icon, including offline/stopped status.
 

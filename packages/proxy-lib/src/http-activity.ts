@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { getAvailableModels } from "@m365-copilot/core";
+import { CONFIG_DIR, getAvailableModels } from "@m365-copilot/core";
+import { RequestSources, sourceAddress } from "./request-sources.js";
 import packageInfo from "../package.json" with { type: "json" };
 
 type Kind = "models" | "chat" | "health" | "other";
 type Phase = "received" | "queued" | "preparing" | "upstream" | "streaming" | "completed" | "failed" | "cancelled";
 export interface ActivityEvent {
+  clientAddress: string;
   id: string; method: string; endpoint: string; source: "application" | "self-check";
   receivedAt: string; status: number | null; durationMs: number | null; phase: Phase;
   outcome: "pending" | "success" | "error" | "cancelled";
@@ -28,6 +30,7 @@ const endpoints: Record<string, Kind> = { "/v1/models": "models", "/v1/chat/comp
 
 /** Bounded metadata only. No prompts, answers, headers, keys or query strings. */
 export class HttpActivity {
+  constructor(readonly sources = new RequestSources()) {}
   readonly instance = { id: randomUUID(), pid: process.pid, version: packageInfo.version, startedAt: new Date().toISOString() };
   private total = 0;
   private completed = 0;
@@ -37,13 +40,13 @@ export class HttpActivity {
   private categories = { models: 0, chat: 0, health: 0, other: 0 };
   private recent: ActivityEvent[] = [];
 
-  begin(method: string, pathname: string, selfCheck = false): RequestTrace | null {
+  begin(method: string, pathname: string, selfCheck = false, remoteAddress?: string): RequestTrace | null {
     if (ignored.has(pathname)) return null;
     const started = Date.now();
     const known = Object.hasOwn(endpoints, pathname);
     const kind = known ? endpoints[pathname] : "other";
     selfCheck = selfCheck && method === "GET" && (kind === "models" || kind === "health");
-    const event: ActivityEvent = { id: randomUUID(), method: /^(GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE)$/.test(method) ? method : "OTHER", endpoint: known ? pathname : "(other endpoint)", source: selfCheck ? "self-check" : "application", receivedAt: new Date(started).toISOString(), status: null, durationMs: null, phase: "received", outcome: "pending", model: null, servedModel: null, streamed: null, applicationStatus: null, responseBytes: 0, firstByteMs: null, queueMs: null, upstreamAttempts: 0, upstreamFailures: 0 };
+    const event: ActivityEvent = { clientAddress: sourceAddress(remoteAddress), id: randomUUID(), method: /^(GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE)$/.test(method) ? method : "OTHER", endpoint: known ? pathname : "(other endpoint)", source: selfCheck ? "self-check" : "application", receivedAt: new Date(started).toISOString(), status: null, durationMs: null, phase: "received", outcome: "pending", model: null, servedModel: null, streamed: null, applicationStatus: null, responseBytes: 0, firstByteMs: null, queueMs: null, upstreamAttempts: 0, upstreamFailures: 0 };
     this.total++; if (selfCheck) this.selfChecks++;
     this.categories[kind]++;
     this.recent.push(event);
@@ -67,6 +70,7 @@ export class HttpActivity {
       event.outcome = result === 499 ? "cancelled" : result >= 400 ? "error" : "success";
       event.phase = event.outcome === "cancelled" ? "cancelled" : event.outcome === "error" ? "failed" : "completed";
       this.completed++; if (event.outcome !== "success") this.failed++;
+      this.sources.record(event);
     };
     return Object.assign(finish, {
       id: event.id,
@@ -84,7 +88,7 @@ export class HttpActivity {
     return { total: this.total, applicationRequests: this.total - this.selfChecks, selfChecks: this.selfChecks, active: this.total - this.completed, completed: this.completed, failed: this.failed, categories: { ...this.categories }, chats: { ...this.chat, active: this.chat.validated - this.chat.completed - this.chat.failed - this.chat.cancelled }, recent: this.recent.map(event => ({ ...event })).reverse() };
   }
 }
-export const httpActivity = new HttpActivity();
+export const httpActivity = new HttpActivity(new RequestSources(CONFIG_DIR));
 
 /** Preserve backpressure/cancellation; do not consume a streamed body early. */
 export function trackHttpResponse(response: Response, finish: RequestTrace | null): Response {
