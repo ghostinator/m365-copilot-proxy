@@ -128,7 +128,8 @@ describe("turn-budget", () => {
   it("reads the proxy's M365_LOG_FILE, relative to the config dir, whatever it is named", () => {
     const cfgDir = join(homedir(), ".config", "opencode-m365");
     expect(budgetConfig({ M365_LOG_FILE: "my/log.log" }).dirs).toContain(join(cfgDir, "my", "log.log"));
-    expect(budgetConfig({ M365_LOG_FILE: "/abs/x.log" }).dirs).toContain("/abs/x.log");
+    const absolute = join(cfgDir, "absolute", "x.log");
+    expect(budgetConfig({ M365_LOG_FILE: absolute }).dirs).toContain(absolute);
     const dir = mkdtempSync(join(tmpdir(), "turn-budget-"));
     mkdirSync(join(dir, "sub"));
     writeFileSync(join(dir, "proxy.log"), turnLine(T0) + "\n");

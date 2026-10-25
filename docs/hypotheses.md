@@ -5640,3 +5640,170 @@ bursty. Falsifier: fresh-conversation retries failing at the same rate as same-c
 Cost to watch: each such retry starts a conversation, which is what the F13 thread-rate throttle
 counts. Bounded to one per dropped turn, but on a bad `InternalError` day it adds up; the same
 afternoon's benching (one conversation per run) did trip `PerUserThrottled`.
+
+## 39. Oct 24 2026 — offline packaging and service-lifecycle review
+
+No M365 calls or protocol/framing changes. Full findings, implementation priorities and
+reproduction commands: [repository review](review-2026-10-24.md). Evidence:
+`review-offline-evidence-2026-10-24.json`, `scripts/review/offline-review.mjs` and
+`scripts/review/offline-session.test.ts`.
+
+| Hypothesis / falsifier | Probe | Result |
+| --- | --- | --- |
+| Auth failure prevents a healthy listener; falsified by a 200 health response with no account | Built Nitro server with absent cache/secrets and interactive login disabled | Disproved, 2/2 launches: auth rejection logged, listener alive, health 200 |
+| Independent histories cannot share pool state; falsified by identical state/conversation IDs | Divergent histories with same opener; deterministic `Aa`/`BB` hash collision | Disproved, 1 case each; local state only, no live-content leakage measured |
+| A pre-handshake socket close settles chat; falsified by a pending promise after close | Mock WebSocket closes without error before handshake | Disproved, 1 deterministic case; no general deadline in source |
+| Windows drive paths survive budget-log parsing; falsified by splitting drive letters | `budgetConfig` with Windows absolute paths | Disproved, 1 deterministic case |
+
+These are local application/lifecycle findings, not new conclusions about the undocumented
+M365 API. Promote fixes into the operator/setup docs once implemented and verified.
+
+### Implementation follow-up — Oct 24
+
+The lifecycle fixes now live on `fix/service-readiness-packaging`. Startup failure
+exits nonzero; readiness and liveness are separate; the launcher defaults to
+loopback and requires a key for other binds. Sessions use acknowledged histories
+and SHA-256 message digests, with serialized turns and bounded state. Shared bots
+are preserved on publication failure. Cache writes are atomic, browser profile
+ownership is coordinated, and native budget-log paths survive parsing.
+
+Evidence is deterministic/offline: `packages/core/src/session-connection.test.ts`,
+`storage.test.ts`, `agent-preservation.test.ts`, proxy-lib policy/session tests,
+OpenClaw config-preservation tests, `scripts/test-installed-runtime.mjs` and
+`scripts/test-windows-ops.ps1`. The original review's fake-socket test was moved
+into the core package so its `ws` mock resolves the same dependency as production;
+the new test asserts that the mock was constructed. No live M365 conclusion is
+drawn from that fixture. `scripts/review/offline-review.mjs` now verifies fixes;
+the baseline evidence file remains unchanged.
+
+Packaging check discovered a further reproducible defect: Nitro's traced runtime
+omitted Playwright entry/CLI/browser-registry files. The build now copies the full
+locked Playwright and Playwright-core packages. Isolated release verification runs
+outside the checkout, with empty account state and paths containing spaces.
+Operational documentation: [operations](operations.md); local transport and
+conversation changes are promoted into API reference sections 6 and 8.
+
+### Windows package live smoke — Oct 24
+
+Hypothesis: the packaged Windows runtime can reuse the existing sign-in and drive
+a real pi file-write loop. Falsifier: startup/auth fails or the isolated workdir
+lacks the exact unique sentinel. With the user's explicit Nix-rule exception,
+`scripts/windows/Test-Proxy.ps1 -Tools` served one `claude-sonnet` conversation:
+the exact sentinel exists and pi reported its readback (n=1). No framing/model
+changes or additional conversations were tested. Evidence:
+[`live-smoke-evidence-2026-10-24.json`](live-smoke-evidence-2026-10-24.json).
+
+The wrapper had a false negative because Windows PowerShell lost the child's exit
+code after waiting. Retaining its native handle fixes that local issue; separate
+children returning 0 and 17 verified both outcomes without API calls. The server
+was stopped gracefully. This single sample supports install/runtime usability;
+it does not establish reliability, solve rate or long-running startup behavior.
+
+### Dashboard activity follow-up — Oct 24
+
+Hypothesis: the Activity card indicates application connectivity checks. Falsifier:
+`GET /v1/models` succeeds but no retained count changes. The initial implementation
+only exposed the current chat-admission count (`SessionPool.waiting`), so model and
+health probes were invisible and completed chat requests disappeared between polls.
+Source inspection and a running zero-session proxy confirmed the mismatch.
+
+The HTTP boundary now records cumulative model/chat/health/other counts, failures,
+in-flight requests and the latest 20 bounded request-metadata events. Dashboard
+polling/assets are excluded; unknown paths are masked and no headers, query strings
+or bodies are retained. Two sequential model-list checks changed the running
+proxy's total from 0 to 2 and appeared in the refreshed dashboard, without an M365
+chat. Deterministic coverage: `proxy-lib/src/http-activity.test.ts` and the expanded
+installed-runtime probe. Windows and Linux unit suites: 449 passed, 6 live skipped.
+
+The additional post-rejection probe found an HTTP keep-alive defect: after the
+oversized-body rejection, a subsequent valid status request could get an empty
+400. Consuming the error responses did not fix the reproduction. Explicitly closing
+the connection on Nitro body-validation errors made the sequence pass for both
+keyed and unkeyed startup fixtures. This is a local HTTP lifecycle finding, not
+new Microsoft protocol behavior. The runnable probe is
+`node scripts/test-installed-runtime.mjs`.
+
+### Dashboard chat tracking and instance mismatch — Oct 25
+
+Hypothesis: successful application chats bypass the process shown by the local
+operator dashboard. Falsifier: a completed application request has the same
+instance ID and endpoint but no matching event. Local socket/process inspection
+found two listeners on port 4141: a legacy snapshot on a Tailnet address, and the
+0.3.1 dashboard runtime on 127.0.0.1. The latter had zero remembered conversations
+and only the previous day's two model probes. This establishes separate listeners,
+not which endpoint the user's application used; that endpoint still needs confirmation.
+Yesterday's model-only checks did not establish chat tracking for that application.
+
+Version 0.4.0 adds instance/request identity, listener inspection and explicit
+no-chat checks, separating those self-checks from application traffic. Chat
+metadata covers validation, admission/queue time, upstream attempts/reconnects,
+stream mode, HTTP body bytes and completion/error/cancellation. HTTP-200 SSE errors
+retain transport status but count as application failures. Metadata excludes
+prompts, replies, arguments, headers and query strings. History is bounded at 100
+and resets at startup. Operational semantics graduate to docs/operations.md.
+
+Falsifiable lifecycle tests use the built Nitro server with an explicit fake MSAL
+and WebSocket loader; outbound HTTP is disabled. Windows and Linux both passed
+success (keyed and unkeyed), upstream throttling, one reconnect and client
+cancellation; exact Unicode body-byte counts and correlation IDs are asserted.
+Unit suites: 453 passed, 6 live tests skipped on each OS. Commands:
+`pnpm test` and `node scripts/test-installed-runtime.mjs`.
+No additional Microsoft chat or model capability conclusion comes from fixtures.
+
+### Optional proxy authentication — Oct 25
+
+User-directed policy: API keys are optional for all bind addresses, including
+Tailscale/LAN/wildcard listeners. The former startup requirement for a key on a
+non-loopback address is removed; host validation and explicitly configured bearer
+key enforcement remain. Falsifier: a keyless network-address model-list request
+fails at the HTTP gate or startup rejects the bind. Boundary regression passes;
+the existing configured-key and origin rejection tests still pass. Windows unit
+suite: 454 passed, 6 live tests skipped. No Microsoft chat is needed for this check.
+Operational configuration instructions are updated in operations/windows docs.
+
+### Request source attribution and saved rankings — Oct 25
+
+Hypothesis: socket-level peer addresses allow useful per-system accounting without
+trusting caller-controlled forwarding headers. Falsifier: forged X-Forwarded-For
+or X-Real-IP changes attribution, or restart loses flushed source totals. The
+standalone middleware now records the socket address; the bounded source store
+persists only allowlisted completed-request metadata and rankings. IPv4/IPv6
+normalization, forged headers, persistence/reload, bounded retention and write
+failure behavior are covered in request-sources.test.ts and the installed-runtime
+probe. This is local proxy telemetry, not a Microsoft protocol finding. Storage
+semantics and limits are documented in operations.md. No chat quota is required.
+
+The Recent requests UI defaults to 20 entries in a scrollable box with 20/50/100
+page sizes and Previous/Next controls. dashboard.test.ts exercises page boundaries,
+size changes and filter resets; it also keeps the forgotten-key regression check.
+
+### Unlimited SQLite history, model/client accounting and explicit model checks — Oct 25
+
+User-directed expansion: retain activity indefinitely and summarize rolling time
+windows, identify configured systems/local interfaces, and offer model self-ID
+checks only on explicit dashboard selection. Hypothesis: normalized SQLite rows
+plus hourly/all-time rollups produce exact range statistics without repeatedly
+scanning the full log. Falsifiers: boundary errors, duplicate migration counts,
+missing flushed records after reopen, or a model POST caused by page refresh.
+
+Deterministic tests cover cutoff milliseconds, partial-hour edges, >512 systems,
+>500 requests, unlimited age, migration/remainder handling, replay deduplication,
+model/client filters, named devices, private database mode and integrity checks.
+The browser-script test confirms polling only performs reads, and posts only the
+explicitly selected model. Model-check tests use a mocked handler; built-server
+checks use the offline MSAL/WebSocket fixture with outbound HTTP disabled.
+
+Synthetic 10,000-row Windows sample: 3,379,200 committed bytes including indexes
+and rollups (337.92 bytes/row), 1.25 s ingest, 2.06 ms all-time query and 6.35 ms
+24-hour query; one sample, not a throughput guarantee. Runnable evidence:
+`node scripts/activity-db-bench.mjs`. Model self-reports remain unverified, and no
+live identity conclusion comes from fixtures. Reference: operations.md and
+activity-database.md. No model sweep is automatically run on deployment.
+
+### 2026-10-25: HTTP failures absent from dashboard error panel
+
+Hypothesis: Recent errors reads only core ERROR logger summaries, while HTTP 4xx and SSE application failures are counted through separate request instrumentation. Prediction: malformed JSON/unsupported endpoints increment failures without a logger entry. Offline Fetch and packaged Nitro probes reproduce this. Fix: sparse persistent error details plus status/source/model-filtered paging, including existing failed rows. Four targeted unit tests cover restart, v1 migration, HTTP-200/application-429, redaction and HTTP validation. No Microsoft model probe is required or run for this instrumentation change. See `activity-database.md` for the schema and diagnostic limits.
+
+### 2026-10-25: opt-in capability grading
+
+Hypothesis: a successful chat reply alone does not establish usable tool support. Falsification/probe: return HTTP 200 with prose but no function call; the dashboard tool check must fail. Deterministic offline tests confirm this, validate exact tool arguments, require a fresh receipt from the synthetic tool result, grade fragmented SSE with DONE/error handling, and test JSON/instruction/recall mismatches. Round trips preserve tool choice and conversation scope so the pool reuses one upstream thread. Shell commands are never executed. Actual model behavior remains unmeasured until a user explicitly runs a selected dashboard check; no Microsoft sweep was run during development. One sample is not a reliability claim. See operations.md for check meanings and limits.

@@ -1,6 +1,6 @@
 import { closeSync, openSync, readdirSync, readSync, statSync } from "node:fs";
-import { homedir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, delimiter, join, resolve } from "node:path";
+import { CONFIG_DIR } from "./storage.js";
 import { createLogger, fileLoggingEnabled, LOG_PATH } from "./log.js";
 
 const log = createLogger("turn-budget");
@@ -90,7 +90,6 @@ export interface BudgetDecision {
 
 const num = (v: string | undefined, d: number) => (v !== undefined && v !== "" && Number.isFinite(Number(v)) ? Number(v) : d);
 
-const CONFIG_DIR = join(homedir(), ".config", "opencode-m365");
 /** The furthest back the replay reads (72 h). */
 const MAX_WINDOW_MIN = 4320;
 
@@ -107,7 +106,7 @@ export function budgetConfig(env: Record<string, string | undefined> = process.e
     dirs: [
       CONFIG_DIR,
       ...(env.M365_LOG_FILE ? [resolve(CONFIG_DIR, env.M365_LOG_FILE)] : []),
-      ...(env.M365_BUDGET_LOGS ?? "").split(":").filter(Boolean),
+      ...(env.M365_BUDGET_LOGS ?? "").split(delimiter).filter(Boolean),
     ],
   };
 }

@@ -1,6 +1,9 @@
+import { SessionPool } from "./session-pool.js";
+import { recordUsageObservation } from "./usage-observations.js";
+import type { RequestTrace } from "./http-activity.js";
+export { SessionPool } from "./session-pool.js";
 import {
-  ModelSession,
-  type ModelSessionOptions,
+  abortable,
   createLogger,
   trunc,
   getToneForModel,
@@ -57,17 +60,18 @@ const log = createLogger("handler");
 // fetch the bytes ourselves and embed a self-contained data URI — a bare URL would
 // be useless to the client. On fetch failure we fall back to the raw URL so the
 // response is never silently empty.
-async function renderImagesMarkdown(images: CapturedImage[]): Promise<string> {
+async function renderImagesMarkdown(images: CapturedImage[], signal?: AbortSignal): Promise<string> {
   if (images.length === 0) return "";
   let artifactToken: string | null = null;
-  try { artifactToken = await getImageArtifactToken(); } catch (e: any) { log.info(`image token failed: ${e.message}`); }
+  try { artifactToken = await abortable(getImageArtifactToken(), signal); } catch (e: any) { signal?.throwIfAborted(); log.info(`image token failed: ${e.message}`); }
   const parts: string[] = [];
   for (const img of images) {
+    signal?.throwIfAborted();
     const url = img.referenceUrls[0];
     if (!url) continue;
     if (artifactToken) {
       try {
-        const { data, contentType } = await fetchImageBytes(url, artifactToken);
+        const { data, contentType } = await fetchImageBytes(url, artifactToken, signal);
         parts.push(`![generated image](data:${contentType};base64,${data.toString("base64")})`);
         continue;
       } catch (e: any) { log.info(`image fetch failed: ${e.message}`); }
@@ -143,19 +147,6 @@ type ParsedMessage = ChatBody["messages"][number];
 
 // --- Per-conversation state ---
 
-interface ConversationState {
-  session: ModelSession;
-  sentMessageCount: number;
-  lastAccessedAt: number;
-  /** Sent ahead of the next tool result when the proxy executed less than the
-   *  model wrote last turn (see executedOnlyFirstNote). */
-  pendingNote: string | null;
-  /** The model that last answered in this conversation. A different one (the
-   *  Opus fallback, #18) can't continue the M365 conversation — it may need
-   *  another scenario — so it starts a fresh one with the full history. */
-  servedModel?: string;
-}
-
 /**
  * The note that corrects the model's view of what actually ran.
  *
@@ -183,103 +174,6 @@ export function executedOnlyFirstNote(fabricated: boolean, droppedCalls: number,
     return "(Note: only the tool call in your previous reply was acted on; anything you wrote after it was written before its result existed. Here is the real output of that call:)";
   }
   return null;
-}
-
-// --- Session pool: maps conversation fingerprint → M365 session ---
-
-const MAX_IDLE_MS = 30 * 60 * 1000; // evict after 30 min idle
-
-export class SessionPool {
-  private conversations = new Map<string, ConversationState>();
-  private sessionOptions: ModelSessionOptions;
-
-  constructor(sessionOptions: ModelSessionOptions = {}) {
-    this.sessionOptions = sessionOptions;
-  }
-
-  /**
-   * Resolve the conversation state for an incoming request.
-   * Fingerprint is the hash of the first user message and the request's tool
-   * names — same opener and same tool set = same conversation.
-   */
-  resolve(messages: ParsedMessage[], tools?: ChatBody["tools"]): ConversationState {
-    this.evictStale();
-
-    const fingerprint = this.fingerprint(messages, tools);
-    const existing = this.conversations.get(fingerprint);
-
-    if (existing) {
-      // A request that carries no more messages than this conversation already
-      // sent is not its continuation (a harness re-sends the whole history and
-      // only ever appends). It's a new session that shares the first user message
-      // — two pi sessions opened with the same prompt, even in different
-      // directories — or a re-sent request. Either way it needs a FRESH M365
-      // conversation: reset() kept the conversationId, so the full prompt went
-      // into the old thread, and at equal length nothing reset at all and
-      // "Please continue." went there. Measured (Windows / pi, 30 runs of 2
-      // prompts): later sessions answered from earlier ones — "notlar.docx was
-      // already created and verified" in an empty directory — and the pass rate
-      // fell 7/10 → 4/10 → 3/10 over the sweep. The full prompt re-sends the
-      // whole history, so nothing the harness holds is lost.
-      if (messages.length <= existing.sentMessageCount) {
-        log.info(`Conversation ${fingerprint}: not a continuation (${messages.length} <= ${existing.sentMessageCount} sent), starting a fresh M365 conversation`);
-        existing.session.newConversation();
-        existing.sentMessageCount = 0;
-        existing.pendingNote = null;
-      }
-      existing.lastAccessedAt = Date.now();
-      return existing;
-    }
-
-    // New conversation
-    log.info(`New conversation ${fingerprint}, ${this.conversations.size} active`);
-    const state: ConversationState = {
-      session: new ModelSession(this.sessionOptions),
-      sentMessageCount: 0,
-      pendingNote: null,
-      lastAccessedAt: Date.now(),
-    };
-    this.conversations.set(fingerprint, state);
-    return state;
-  }
-
-  // The tool names are in the key because a harness's side requests can share
-  // the session's first user message. opencode sends a title request ("You are
-  // a title generator…", no tools) 4 ms before the task (12 tools): keyed on the
-  // opener alone both went into one M365 conversation, as turns 0 and 1 run at
-  // the same time (#83). pi's and opencode's tool sets don't change within a
-  // session; one that does starts a fresh conversation with the full history,
-  // which costs a thread, not the answer. Names, not definitions: descriptions
-  // can carry per-turn text. The system prompt would separate the title request
-  // too, but it is the likelier place for a date, a time or a git status.
-  private fingerprint(messages: ParsedMessage[], tools?: ChatBody["tools"]): string {
-    const firstUser = messages.find(m => m.role === "user");
-    const text = firstUser ? getMessageContent(firstUser) : "";
-    const toolNames = [...new Set((tools ?? []).map(t => t.function.name))].sort().join(",");
-    return simpleHash(`${toolNames}\n${text}`);
-  }
-
-  private evictStale() {
-    const now = Date.now();
-    for (const [key, state] of this.conversations) {
-      if (now - state.lastAccessedAt > MAX_IDLE_MS) {
-        log.info(`Evicting idle conversation ${key}`);
-        this.conversations.delete(key);
-      }
-    }
-  }
-
-  get size(): number {
-    return this.conversations.size;
-  }
-}
-
-function simpleHash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
-  }
-  return String(hash);
 }
 
 /** Parse a tool-mode reply, with the document guard applied.
@@ -345,9 +239,35 @@ export function formatDeltaMessages(messages: ParsedMessage[], history: ParsedMe
 export async function handleChatCompletion(
   body: ChatBody,
   pool: SessionPool,
-  opts: { signal?: AbortSignal } = {},
+  opts: { signal?: AbortSignal; conversationId?: string; callerId?: string; activity?: RequestTrace } = {},
 ): Promise<Response> {
-  const conv = pool.resolve(body.messages, body.tools);
+  const cancellation = new AbortController();
+  opts.activity?.chat(body.model, body.stream);
+  opts.activity?.phase("queued");
+  opts = { ...opts, signal: AbortSignal.any([...(opts.signal ? [opts.signal] : []), pool.shutdown.signal, cancellation.signal]) };
+  let release: () => void;
+  try { release = await pool.acquire(opts.signal); }
+  catch (error: any) { opts.activity?.diagnostic("proxy_busy", error.message, error.stack); opts.activity?.result(opts.signal?.aborted ? 499 : 503); return jsonResponse(opts.signal?.aborted ? 499 : 503, { error: { message: error.message, type: "proxy_busy" } }); }
+  opts.activity?.admitted();
+  let streaming = false;
+  try {
+    const response = await handleLocked(body, pool, { ...opts, ownStream: () => { streaming = true; }, release, cancel: () => cancellation.abort() });
+    if (!streaming) { opts.activity?.result(response.status); if (response.status >= 400) opts.activity?.errorBody(await response.clone().text()); }
+    return response;
+  } catch (error) {
+    opts.activity?.diagnostic("unhandled_error", error instanceof Error ? error.message : "Unhandled request failure", error instanceof Error ? error.stack : undefined);
+    opts.activity?.result(opts.signal?.aborted ? 499 : 500);
+    throw error;
+  } finally { if (!streaming) release(); }
+}
+
+async function handleLocked(
+  body: ChatBody,
+  pool: SessionPool,
+  opts: { signal?: AbortSignal; conversationId?: string; callerId?: string; activity?: RequestTrace; ownStream: () => void; release: () => void; cancel: () => void },
+): Promise<Response> {
+  body = structuredClone(body);
+  const conv = pool.resolve(body.messages, body.tools, JSON.stringify([opts.callerId ?? "local", opts.conversationId ?? body.conversation_id ?? "", body.tool_choice ?? "auto"]));
   const { session } = conv;
   const hasTools = body.tools && body.tools.length > 0 && body.tool_choice !== "none";
   const requestedModel = body.model;
@@ -474,7 +394,7 @@ export async function handleChatCompletion(
     // starting fresh turns into the throttle and let it self-heal (H-R1). This
     // replaced the old auto-reauth, which didn't clear the throttle and raised our
     // detection profile. A single long pi thread never trips the trigger.
-    await awaitDegradationBackoff();
+    await abortable(awaitDegradationBackoff(), opts.signal);
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       // A <tool_response> the model writes after a real call is a stop sequence
       // (truncateAtFabricatedToolResponse), but the cut in produce() only runs
@@ -506,9 +426,11 @@ export async function handleChatCompletion(
         // The agent overrides `tone` (forces GPT-5), so tool-less requests must
         // skip it to reach the model the tone selects (e.g. Claude). See
         // ModelSession.run / docs H8.6.
-        copilotStream = await session.run(text, model, signal, useToolAgent, inputImages, waitForBudget);
+        copilotStream = await session.run(text, model, signal, useToolAgent, inputImages, waitForBudget, () => opts.activity?.upstream(model), () => opts.activity?.upstreamFailed());
       } catch (err: any) {
+        if (!(err instanceof TurnBudgetHold)) opts.activity?.upstreamFailed();
         if (err instanceof TurnBudgetHold) return { error: turnBudgetHoldResponse(err) };
+        opts.activity?.diagnostic("upstream_error", err.message, err.stack);
         return { error: jsonResponse(502, { error: { message: err.message, type: "upstream_error" } }) };
       }
 
@@ -535,6 +457,8 @@ export async function handleChatCompletion(
           fullText = copilotStream.fullText;
         }
       } catch (err: any) {
+        opts.activity?.upstreamFailed();
+        opts.activity?.diagnostic("upstream_error", err.message, err.stack);
         return { error: jsonResponse(502, { error: { message: err.message, type: "upstream_error" } }) };
       }
 
@@ -544,7 +468,7 @@ export async function handleChatCompletion(
       // emit the markdown as a trailing delta so the client isn't left with nothing.
       const images = copilotStream.images ?? [];
       if (images.length > 0) {
-        const imageMd = await renderImagesMarkdown(images);
+        const imageMd = await renderImagesMarkdown(images, opts.signal);
         if (imageMd) {
           const addition = fullText.length > 0 ? `\n\n${imageMd}` : imageMd;
           fullText += addition;
@@ -558,6 +482,8 @@ export async function handleChatCompletion(
       lastScores = copilotStream.scores;
       lastTurnCount = copilotStream.turnCount;
       lastMetering = copilotStream.metering;
+      if ((copilotStream.result && copilotStream.result.value !== "Success") || !fullText) opts.activity?.upstreamFailed();
+      recordUsageObservation(requestedModel, model, lastMetering);
 
       // M365 SAYS when it throttles: the final item's result is `Throttled` /
       // `PerUserThrottled` (#35). Checked BEFORE the content check so
@@ -927,6 +853,7 @@ export async function handleChatCompletion(
   if (!body.stream) {
     const p = await produce();
     if (p.kind === "error") return p.resp;
+    pool.acknowledge(conv, body.messages, p.kind === "tools" ? { role: "assistant", content: null, tool_calls: p.toolCalls } : { role: "assistant", content: p.text });
     if (p.kind === "tools") {
       return jsonResponse(200, {
         id: completionId, object: "chat.completion", created, model,
@@ -949,7 +876,9 @@ export async function handleChatCompletion(
   // `stream:true` is genuinely incremental. Tool mode still buffers: the raw text is
   // parsed for tool-call fences and can't be shown verbatim, so its tool_calls (or a
   // prose fallback) are emitted once at the end.
+  opts.ownStream();
   return sseResponse(new ReadableStream({
+    cancel() { opts.activity?.result(499); opts.cancel(); },
     async start(controller) {
       const enc = new TextEncoder();
       const send = (obj: unknown) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
@@ -990,7 +919,9 @@ export async function handleChatCompletion(
 
       let p: Produced;
       try { p = await produce(liveDelta); }
-      catch (err: any) { p = { kind: "error", resp: jsonResponse(502, { error: { message: err?.message ?? "stream error", type: "upstream_error" } }) }; }
+      catch (err: any) { opts.activity?.diagnostic("upstream_error", err?.message ?? "Stream error", err?.stack); p = { kind: "error", resp: jsonResponse(502, { error: { message: err?.message ?? "stream error", type: "upstream_error" } }) }; }
+      opts.activity?.result(opts.signal?.aborted ? 499 : p.kind === "error" ? p.resp.status : 200);
+      if (p.kind !== "error") pool.acknowledge(conv, body.messages, p.kind === "tools" ? { role: "assistant", content: null, tool_calls: p.toolCalls } : { role: "assistant", content: p.text });
       clearInterval(hb);
       try {
         if (p.kind === "error") {
@@ -1007,6 +938,7 @@ export async function handleChatCompletion(
             if (parsed?.type) type = parsed.type;
             if (parsed?.code) code = parsed.code;
           } catch {}
+          opts.activity?.diagnostic(type, message, undefined, code);
           const retryAfter = p.resp.headers.get("Retry-After");
           // HTTP 200 is already committed, so surface the failure as an in-stream error chunk.
           send({ ...base, error: { message, type, ...(code ? { code } : {}), ...(retryAfter ? { retry_after: Number(retryAfter) } : {}) } });
@@ -1031,6 +963,7 @@ export async function handleChatCompletion(
         // client likely disconnected mid-emit — nothing more to do
       } finally {
         try { controller.enqueue(enc.encode("data: [DONE]\n\n")); controller.close(); } catch {}
+        opts.release();
       }
     },
   }));

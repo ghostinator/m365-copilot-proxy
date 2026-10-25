@@ -6,7 +6,14 @@ export {
   loginAutomated,
   loadSecrets,
   forceReauth,
+  authenticationStatus,
+  authenticationAccountKey,
+  refreshAuthenticationSilently,
+  startAuthenticationMaintenance,
 } from "./auth.js";
+
+export { CONFIG_DIR, atomicWritePrivate, statePaths } from "./storage.js";
+export { abortable, positiveInt, boundedBytes, requestSignal } from "./limits.js";
 
 export {
   generateImage,
@@ -136,7 +143,7 @@ export {
   type ParseResult,
 } from "./tools.js";
 
-export { createLogger, trunc, LOG_PATH, FRAME_DIR, fileLoggingEnabled } from "./log.js";
+export { createLogger, trunc, LOG_PATH, FRAME_DIR, fileLoggingEnabled, recentOperationalErrors } from "./log.js";
 export {
   budgetConfig,
   parseEvents,

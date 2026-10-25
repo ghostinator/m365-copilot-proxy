@@ -1,4 +1,9 @@
 node_modules
+release/
+release-npm/
+package-contents.log
+packages/proxy/LICENSE
+packages/proxy/OPERATIONS.md
 dist
 .output
 .nitro
@@ -41,3 +46,13 @@ scripts/da-app/gui-out/
 scripts/da-app/pkg/
 scripts/da-app/sentinel-agent.zip
 scripts/harness/out/
+
+# Runtime state if M365_DATA_DIR is pointed at this checkout
+/server.json
+/activity.sqlite*
+/request-sources.json
+/quota-observations-*.json
+/instance.json
+/shutdown-*
+/service-logs/
+/browser-profile/

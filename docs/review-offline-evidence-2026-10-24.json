@@ -1,0 +1,42 @@
+{
+  "testedAt": "2026-10-24T15:58:50.034Z",
+  "findings": {
+    "unrelatedHistoriesShareState": {
+      "reproduced": true,
+      "sameConversationId": true,
+      "sentMessageCount": 3
+    },
+    "hashCollision": {
+      "reproduced": true,
+      "openers": [
+        "Aa",
+        "BB"
+      ],
+      "poolSize": 1
+    },
+    "windowsBudgetLogPaths": [
+      "C",
+      "\\logs\\one;D",
+      "\\logs\\two"
+    ],
+    "authFailureStartup": {
+      "url": "http://127.0.0.1:58366",
+      "exitCode": null,
+      "authFailureLogged": true,
+      "healthStatus": 200,
+      "healthBody": "{\"status\":\"ok\"}",
+      "stdout": "Authenticating...\nListening on http://127.0.0.1:58366\n",
+      "stderr": "Auth failed: No cached token and no secrets.json \u2014 cannot authenticate. Provide email/password/mfaSecret for automated login, or set M365_ENABLE_INTERACTIVE_APPROVAL=1 to sign in by hand in a visible browser (needed for tenants without TOTP: push-only MFA, FIDO2, Okta/Ping/Duo).\n[unhandledRejection] Error: No cached token and no secrets.json \u2014 cannot authenticate. Provide email/password/mfaSecret for automated login, or set M365_ENABLE_INTERACTIVE_APPROVAL=1 to sign in by hand in a visible browser (needed for tenants without TOTP: push-only MFA, FIDO2, Okta/Ping/Duo).\n    at doGetToken (file:///C:/Users/ExampleUser/Desktop/m365-copilot-proxy-upstream/packages/proxy/.output/server/chunks/_/nitro.mjs:4837:9)\n    at async file:///C:/Users/ExampleUser/Desktop/m365-copilot-proxy-upstream/packages/proxy/.output/server/chunks/_/nitro.mjs:8465:5\n"
+    },
+    "defaultBind": {
+      "url": "http://[::]:58368",
+      "exitCode": null,
+      "authFailureLogged": true,
+      "healthStatus": 200,
+      "healthBody": "{\"status\":\"ok\"}",
+      "stdout": "Authenticating...\nListening on http://[::]:58368\n",
+      "stderr": "Auth failed: No cached token and no secrets.json \u2014 cannot authenticate. Provide email/password/mfaSecret for automated login, or set M365_ENABLE_INTERACTIVE_APPROVAL=1 to sign in by hand in a visible browser (needed for tenants without TOTP: push-only MFA, FIDO2, Okta/Ping/Duo).\n[unhandledRejection] Error: No cached token and no secrets.json \u2014 cannot authenticate. Provide email/password/mfaSecret for automated login, or set M365_ENABLE_INTERACTIVE_APPROVAL=1 to sign in by hand in a visible browser (needed for tenants without TOTP: push-only MFA, FIDO2, Okta/Ping/Duo).\n    at doGetToken (file:///C:/Users/ExampleUser/Desktop/m365-copilot-proxy-upstream/packages/proxy/.output/server/chunks/_/nitro.mjs:4837:9)\n    at async file:///C:/Users/ExampleUser/Desktop/m365-copilot-proxy-upstream/packages/proxy/.output/server/chunks/_/nitro.mjs:8465:5\n"
+    }
+  },
+  "publicationNote": "Local host/user paths anonymized; measured outcomes unchanged."
+}

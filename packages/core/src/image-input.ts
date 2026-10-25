@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createLogger } from "./log.js";
 import type { Message } from "./tools.js";
+import { boundedBytes, positiveInt, requestSignal } from "./limits.js";
 
 const log = createLogger("image-input");
 
@@ -20,13 +21,15 @@ export interface ImageAnnotation {
 
 /** Upload one image (a `data:image/...;base64,` URL) and return the annotation
  *  that attaches it to a chat message. */
-export async function uploadImage(token: string, conversationId: string, dataUrl: string): Promise<ImageAnnotation> {
+export async function uploadImage(token: string, conversationId: string, dataUrl: string, signal?: AbortSignal): Promise<ImageAnnotation> {
+  if (dataUrl.length > positiveInt(process.env.M365_MAX_IMAGE_BYTES, 20 * 1024 * 1024) * 4 / 3 + 256) throw new Error("Attached image exceeds the configured size limit");
   const type = /^data:image\/([a-z0-9.+-]+);base64,/i.exec(dataUrl)?.[1]?.toLowerCase();
   if (!type) throw new Error("not a base64 image data URL");
   const form = new URLSearchParams({ scenario: "UploadImage", conversationId, FileBase64: dataUrl });
   for (const o of ["cwcgptvsan", "flux_v3_gptv_enable_upload_multi_image_in_turn_wo_ch"]) form.append("optionsSets", o);
   const res = await fetch(UPLOAD_URL, {
     method: "POST",
+    signal: requestSignal(signal),
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/x-www-form-urlencoded",
@@ -37,7 +40,7 @@ export async function uploadImage(token: string, conversationId: string, dataUrl
     },
     body: form,
   });
-  const body = await res.text();
+  const body = (await boundedBytes(res, 1024 * 1024)).toString("utf8");
   if (!res.ok) throw new Error(`UploadFile ${res.status}: ${body.slice(0, 200)}`);
   let docId: string | undefined;
   try { docId = JSON.parse(body).docId; } catch {}

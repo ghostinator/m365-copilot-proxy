@@ -1,0 +1,7 @@
+{
+  "testedAt": "2026-10-24T17:27:31.699Z",
+  "independentHistoriesIsolated": true,
+  "oldHashCollisionsIsolated": true,
+  "nativeBudgetPathsPreserved": true,
+  "builtStartupAndPolicies": "passed; explicit offline auth fixture only"
+}

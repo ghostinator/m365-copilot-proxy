@@ -25,6 +25,7 @@ import {
 } from "./native-actions.js";
 import { createLogger, trunc, FRAME_DIR } from "./log.js";
 import { recordThrottle, recordTurn } from "./turn-budget.js";
+import { positiveInt } from "./limits.js";
 import { parseMetering, meteredAllowance, METERED_BUDGETS, type MeteredBudget } from "./priority-access.js";
 
 const RS = "\x1E";
@@ -77,7 +78,7 @@ const IMAGE_GEN_OPTIONS_SETS = [
 // per-request NDJSON file under FRAME_DIR (~/.config/opencode-m365/frames/, or
 // M365_FRAME_DIR). Cheap to run in production; gives us forensic data when M365
 // starts emitting new fields.
-const DUMP_FRAMES = !!process.env.M365_DUMP_FRAMES;
+const DUMP_FRAMES = !!process.env.M365_DUMP_FRAMES && !/^(0|false|no|off)$/i.test(process.env.M365_DUMP_FRAMES);
 function dumpFrame(requestId: string, parsed: unknown, direction: "recv" | "send") {
   if (!DUMP_FRAMES) return;
   try {
@@ -327,12 +328,14 @@ export class CopilotSession {
    * Session/conversation IDs are reused so M365 maintains server-side context.
    */
   chat(token: string, text: string, model: string = "m365-copilot", signal?: AbortSignal, opts?: ChatTurnOptions): Promise<CopilotStream> {
+    signal?.throwIfAborted();
     const isFirst = this._turnCount === 0;
     this._turnCount++;
     const wantImages = opts?.generateImages ?? false;
     const images = opts?.images ?? [];
 
-    log.info(`Chat turn ${this._turnCount - 1}: model=${model}, isFirst=${isFirst}, text=${JSON.stringify(trunc(text, 200))}`);
+    log.info(`Chat turn ${this._turnCount - 1}: model=${model}, isFirst=${isFirst}`);
+    log.debug("Turn input:", trunc(text, 200));
     recordTurn(); // the throttle-avoidance bucket counts what that line counts (turn-budget.ts)
 
     const claims = decodeJwt(token);
@@ -474,6 +477,7 @@ export class CopilotSession {
       // Fold a token delta OR a full-text snapshot into `answer` and stream the
       // newly-appended suffix (see foldStreamText for the prefix-safe rules).
       const advance = (next: string) => {
+        if (next.length > positiveInt(process.env.M365_MAX_RESPONSE_CHARS, 2_000_000)) { fail(new Error("M365 response exceeds the configured size limit")); return; }
         const r = foldStreamText(answer, next);
         if (r.answer !== answer) {
           answer = r.answer;
@@ -543,10 +547,22 @@ export class CopilotSession {
         },
       };
 
-      const ws = new WebSocket(wsUrl, { headers: buildCopilotWebSocketHeaders(conversationId) });
+      const ws = new WebSocket(wsUrl, { headers: buildCopilotWebSocketHeaders(conversationId), handshakeTimeout: positiveInt(process.env.M365_CONNECT_TIMEOUT_MS, 30_000), maxPayload: 16 * 1024 * 1024 });
 
       let handshakeDone = false;
       let stopped = false;
+      let streamStarted = false;
+      let completed = false;
+      let stopTimer: ReturnType<typeof setTimeout> | undefined;
+      const fail = (error: Error) => {
+        if (streamStarted) onError(error); else reject(error);
+        clearTimers();
+        try { ws.terminate(); } catch { ws.close(); }
+      };
+      const handshakeTimer = setTimeout(() => fail(new Error("M365 handshake timed out")), positiveInt(process.env.M365_CONNECT_TIMEOUT_MS, 30_000));
+      const turnTimer = setTimeout(() => fail(new Error("M365 turn timed out")), positiveInt(process.env.M365_TURN_TIMEOUT_MS, 600_000));
+      let idleTimer = setTimeout(() => fail(new Error("M365 connection stalled")), positiveInt(process.env.M365_IDLE_TIMEOUT_MS, 180_000));
+      const clearTimers = () => { clearTimeout(handshakeTimer); clearTimeout(turnTimer); clearTimeout(idleTimer); clearTimeout(stopTimer); };
 
       // Cancellation: when the caller's signal aborts (HTTP client disconnected),
       // cancel the in-flight M365 turn the same way the real UI does — send the
@@ -561,7 +577,7 @@ export class CopilotSession {
             log.info("Aborted — sending Stop frame to cancel the turn");
             dumpFrame(requestId, { target: "stop", type: 1 }, "send");
             ws.send(STOP_FRAME);
-            setTimeout(() => { try { ws.close(); } catch {} }, 2_000);
+            stopTimer = setTimeout(() => { try { ws.terminate(); } catch { ws.close(); } }, 2_000);
           } else {
             try { ws.close(); } catch {}
           }
@@ -581,6 +597,8 @@ export class CopilotSession {
       });
 
       ws.on("message", (data: WebSocket.RawData) => {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => fail(new Error("M365 connection stalled")), positiveInt(process.env.M365_IDLE_TIMEOUT_MS, 180_000));
         const raw = data.toString();
         log.debug("WS recv:", trunc(raw, 500));
         const frames = raw.split(RS).filter((f) => f.length > 0);
@@ -617,21 +635,22 @@ export class CopilotSession {
       ws.on("error", (err: Error) => {
         const msg = err.message || "connection failed";
         log.error("WS error:", msg);
-        if (!handshakeDone) {
-          reject(new Error(`WebSocket error: ${msg}`));
-        } else {
-          onError(new Error(`WebSocket error: ${msg}`));
-        }
+        fail(new Error(`WebSocket error: ${msg}`));
       });
 
       ws.on("close", () => {
+        clearTimers();
         clearAbort();
         log.info("WS closed, answer length:", answer.length);
         log.debug("Final response:", trunc(answer, 1000));
-        onDone();
+        if (!streamStarted) reject(new Error(stopped ? "M365 request cancelled" : "M365 connection closed before the handshake completed"));
+        else if (!completed && !stopped && !streamError) onError(new Error("M365 connection closed before the turn completed"));
+        else onDone();
       });
 
       const sendChat = () => {
+        clearTimeout(handshakeTimer);
+        if (stopped) { reject(new Error("M365 request cancelled")); return; }
         const args = {
               source: "officeweb",
               clientCorrelationId: requestId,
@@ -779,6 +798,7 @@ export class CopilotSession {
         dumpFrame(requestId, chatMsg, "send");
         dumpFrame(requestId, metrics, "send");
         ws.send(payload);
+        streamStarted = true;
         resolve(stream);
       };
 
@@ -815,6 +835,7 @@ export class CopilotSession {
         }
 
         if (base.type === 7) {
+          completed = true;
           const frame = CloseFrame.safeParse(raw);
           if (frame.success && frame.data.error) {
             onError(new Error(`Server close: ${frame.data.error}`));
@@ -824,6 +845,7 @@ export class CopilotSession {
         }
 
         if (base.type === 3) {
+          completed = true;
           const frame = CompletionFrame.safeParse(raw);
           if (frame.success && frame.data.error) {
             onError(new Error(`Completion error: ${frame.data.error}`));
@@ -833,6 +855,7 @@ export class CopilotSession {
         }
 
         if (base.type === 2) {
+          completed = true;
           // Stream item — the FINAL state of the conversation, with authoritative
           // throttle/turnCount/scores. Mine it before closing.
           const item = (raw as { item?: { messages?: any[]; throttling?: any; turnState?: string; result?: { value?: unknown; errorCode?: unknown; message?: unknown } } }).item;

@@ -215,6 +215,22 @@ Sonnet 5.5, which has the same sandbox and a metered budget (80/day) — §26.
 
 ## Adding an experiment
 
+### Offline lifecycle and packaging regression suite (Oct 24, 2026)
+
+```text
+pnpm test
+node scripts/test-installed-runtime.mjs
+node scripts/build-release.mjs --include-node
+node scripts/verify-release.mjs <release-directory>
+powershell -NoProfile -File scripts/test-windows-ops.ps1
+powershell -NoProfile -File scripts/test-windows-install.ps1 -ReleaseDirectory <release-directory>
+```
+
+These checks use temporary state and explicit local auth fixtures, not M365 chat.
+`scripts/test-windows-service.ps1` additionally registers a uniquely named temporary
+sign-in task with a fake local server, tests restart/stop, then removes the task.
+See [verification](fix-verification-2026-10-24.md) and [operations](operations.md).
+
 1. State the hypothesis + falsification criterion in `hypotheses.md`.
 2. Add a runnable recipe here (commands + readout + cost).
 3. Reuse `scripts/_probe-chat.mjs` (qualitative) or `scripts/bench/` (quantitative).

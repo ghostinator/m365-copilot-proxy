@@ -1,0 +1,11 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+if (!process.argv[2]) throw new Error("Usage: node scripts/test-npm-package.mjs <proxy.tgz>");
+const temp = mkdtempSync(join(tmpdir(), "m365-npm-check-"));
+execFileSync("tar", ["-xf", resolve(process.argv[2]), "-C", temp], { windowsHide: true });
+const launcher = join(temp, "package/bin/m365-proxy.mjs");
+execFileSync(process.execPath, [launcher, "--help"], { cwd: temp, windowsHide: true });
+execFileSync(process.execPath, [join(import.meta.dirname, "test-installed-runtime.mjs"), launcher], { cwd: temp, windowsHide: true, stdio: "inherit" });
+console.log("PASS: extracted npm package runs outside the workspace");

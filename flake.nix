@@ -71,7 +71,7 @@
           apps = [{
             name = "m365-copilot-proxy";
             path = "packages/proxy";
-            version = "0.2.0";
+            version = "0.7.0";
             script = "build"; # nitro build
             distDir = ".output"; # $out = contents of packages/proxy/.output
             preBuildPackages = [ "packages/core" "packages/proxy-lib" ];
@@ -89,6 +89,7 @@
           runtimeInputs = [ pkgs.nodejs ];
           text = ''
             export CHROMIUM_PATH="''${CHROMIUM_PATH:-${pkgs.chromium}/bin/chromium}"
+            export PORT="''${PORT:-4141}"
             exec node ${m365-proxy-unwrapped}/server/index.mjs "$@"
           '';
         };

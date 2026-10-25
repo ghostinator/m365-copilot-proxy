@@ -4,6 +4,78 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
+## Dashboard and operations (0.7.0)
+
+This fork adds a tabbed operations dashboard, persistent activity/error history,
+model capability checks, portable runtime packaging and Windows sign-in startup
+on top of [cramt/m365-copilot-proxy](https://github.com/cramt/m365-copilot-proxy).
+The original protocol research and model-routing behavior remain the foundation.
+This source version is **not an npm publication**; build this checkout or use an
+archive explicitly built from this fork to get these features.
+
+| Feature | What is included |
+| --- | --- |
+| Dashboard | Overview, Requests, Clients, Models, Errors and Settings tabs, shared filters, keyboard navigation and direct links. |
+| Activity | HTTP/chat outcomes, streaming errors, cancellations, request IDs, timings, body bytes and upstream attempts; scrollable 20/50/100-row pages. |
+| History | Built-in SQLite, rolling 24-hour/7-day/30-day/90-day/year/all-time summaries, unlimited retention, storage-size reporting and migration from older JSON history. |
+| Clients and models | Connection IP rankings, friendly labels, this-device detection, recognized client software and requested/served-model breakdowns. |
+| Model checks | Eight explicitly requested checks: identity, function tool, shell tool, tool-result round trip, streaming, JSON, instruction following and multi-turn recall. Results and evidence persist per model/check. |
+| Errors and logging | Saved HTTP/application failures (including HTTP-200 SSE errors), expandable diagnostics and separate operational/debug logs. |
+| Setup and startup | `setup`, `login`, `doctor`, `diagnostics`, guided pi/OpenClaw configuration, portable archives and supervised Windows startup at sign-in. |
+
+Start from source:
+
+```sh
+git clone https://github.com/ghostinator/m365-copilot-proxy.git
+cd m365-copilot-proxy
+pnpm install
+pnpm build
+pnpm proxy setup
+pnpm proxy login
+pnpm proxy serve 4141
+```
+
+Open **[http://127.0.0.1:4141/dashboard](http://127.0.0.1:4141/dashboard)**, or
+use your configured listener address. Source builds require Node 24+ and pnpm 10+;
+portable archives can bundle Node. Setup/login can require tenant SSO/MFA. The
+legacy account directory stays `~/.config/opencode-m365` across upgrades.
+
+API keys are optional on every bind address. If you configure one, enter it under
+**Settings → Connection**; the page holds it only in memory. Dashboard polling and
+local health/model-list checks do not start chats. Capability checks run only
+after you select models/checks and click **Test selected models**. They consume
+Microsoft quota, run sequentially with a 30-second cooldown, and never execute
+model-generated commands. A passing synthetic sample is not a reliability claim;
+identity is self-reported, and configured retries/fallbacks can apply.
+
+**Where do check results appear?** In **Models**, each model row has
+**Latest checks / served route** (verdict, status, route, time, duration, turns)
+and **Evidence / identity** (why it passed/failed or the reported version).
+Results are kept independently per check type. Request failures also appear in
+**Errors**. HTTP 200 with prose can still be a failed tool check.
+
+- [Dashboard, filters, tests and troubleshooting](docs/dashboard.md)
+- [Install, configure, operate, update and roll back](docs/operations.md)
+- [Logging, diagnostic limits and privacy](docs/logging.md)
+- [SQLite storage, migration, retention and backups](docs/activity-database.md)
+- [Implemented features and remaining roadmap](docs/roadmap.md)
+- [Validation evidence](docs/dashboard-capabilities-validation-2026-10-25.md)
+
+### Dashboard screenshots
+
+These screenshots use synthetic clients, requests and model reports with an
+**offline fixture**. They are UI examples, not live model benchmarks or account
+telemetry. [Capture instructions and the expected content of every image](docs/screenshots.md)
+are included for future updates.
+
+| Overview | Requests |
+| --- | --- |
+| ![Overview: instance health, activity summaries and storage](docs/images/dashboard-overview.png) | ![Requests: scrollable recent and saved history](docs/images/dashboard-requests.png) |
+| **Clients** | **Models** |
+| ![Clients: labeled source systems and model usage](docs/images/dashboard-clients.png) | ![Models: selected capability checks and saved evidence](docs/images/dashboard-models.png) |
+| **Errors** | **Settings** |
+| ![Errors: saved failures with expanded diagnostics](docs/images/dashboard-errors.png) | ![Settings: optional key and recovery instructions](docs/images/dashboard-settings.png) |
+
 ## How it works
 
 M365 Copilot uses a SignalR WebSocket protocol, not the OpenAI API. This project translates between the two:
@@ -28,12 +100,12 @@ it scored 0/5 on real agentic tasks; see [hypotheses §9](docs/hypotheses.md)):
   whole step by writing one ```` ```bash ```` block" framing and routes that block to the
   shell tool. This exploits the one agentic behavior Microsoft's system prompt permits, and
   is what turns 0/5 into real multi-turn loops (verified 9-tool-call bug fix).
-- **Reliability comes from the Copilot Studio agent (below) + the fenced/shell framing** —
-  without the agent, M365 ignores tool instructions and answers in prose
+- **Reliability depends on model routing + the fenced/shell framing** —
+  routing is model/account-specific: some routes use the agent, while Claude and GPT-6 routes often work agent-less. See [prompting findings](docs/prompt-engineering.md) and the model notes below
 
 ### Agent mode
 
-On first use, the system creates a **Copilot Studio agent** with tool-calling instructions baked into its server-side system prompt. This is done via the PowerPlatform API:
+For routes that use the tool agent, the system discovers or creates a **Copilot Studio agent** with tool-calling instructions baked into its server-side system prompt. This is done via the PowerPlatform API:
 
 1. Discovers the environment URL via the BAP API (`api.bap.microsoft.com`)
 2. Creates a bot with instructions in the Copilot Studio `minimalBots` API
@@ -43,17 +115,23 @@ On first use, the system creates a **Copilot Studio agent** with tool-calling in
 
 ### Conversation reuse
 
-Each agent session reuses the same M365 conversation (same `sessionId` + `conversationId`). The WebSocket reconnects per turn but M365 maintains server-side context. This saves quota — the 600 message limit applies per-conversation.
+Verified continuation histories reuse the same M365 conversation (same `sessionId` + `conversationId`), scoped to caller/conversation identity and tool definitions. Ambiguous histories start fresh. The WebSocket reconnects per turn but M365 maintains server-side context. This saves quota — the 600 message limit applies per-conversation.
 
 ## Packages
 
-```
-@m365-copilot/core          — Shared: auth, WebSocket client, tool formatting, proxy server, agent management, session
-├── @m365-copilot/proxy     — Standalone HTTP proxy binary
-└── @m365-copilot/openclaw-plugin  — OpenClaw config generator + setup CLI + skill
-```
+| Package | Role |
+| --- | --- |
+| `@m365-copilot/core` | Authentication, SignalR/WebSocket sessions, model/agent routing and tool formatting. |
+| `@m365-copilot/proxy-lib` | OpenAI translation, serialized session pool, dashboard, activity database and model checks; embeddable fetch handler. |
+| `@m365-copilot/proxy` | Standalone Nitro server, `m365-proxy` CLI, portable packaging and Windows runner. |
+| `@m365-copilot/openclaw-plugin` | OpenClaw configuration generator and setup CLI. |
 
 ## Setup
+
+For a prebuilt runtime, Windows sign-in startup, diagnostics and update/rollback,
+see [Install and operate the proxy](docs/operations.md). The CLI provides `setup`,
+`login`, `doctor`, `serve` and `service` commands. The default listener is loopback;
+API keys are optional on all bind addresses; set `M365_API_KEY` to require bearer authentication.
 
 ### Prerequisites
 
@@ -77,7 +155,7 @@ Each agent session reuses the same M365 conversation (same `sessionId` + `conver
 ### 1. Install
 
 ```sh
-git clone https://github.com/cramt/m365-copilot-proxy
+git clone https://github.com/ghostinator/m365-copilot-proxy
 cd m365-copilot-proxy
 pnpm install
 pnpm build
@@ -202,8 +280,8 @@ Point [pi](https://pi.dev/) at it via `~/.pi/agent/models.json`:
 }
 ```
 
-> `apiKey` is a placeholder. The proxy binds to localhost and validates no
-> credential — the field exists only because the OpenAI client schema requires it.
+> `apiKey` is a client-schema placeholder when the proxy is keyless. If you enable
+> `M365_API_KEY` or `server.json` authentication, supply that configured key instead.
 
 To let the model see images — a screenshot, a chart the agent drew, a PNG it `read`s — add
 `"input": ["text", "image"]` to each model entry. pi then sends them as `image_url` parts and the proxy
@@ -237,12 +315,12 @@ m365-openclaw-setup
 m365-proxy 4141
 ```
 
-The proxy uses session reuse and delta messages — follow-up turns only send new messages, saving M365 quota. New conversations are detected automatically when the message array shrinks or the first user message changes.
+The proxy uses session reuse and delta messages — follow-up turns only send new messages, saving M365 quota. Reuse requires the exact acknowledged history and assistant reply; unrelated or ambiguous histories start a new conversation.
 
 ### 5. Use as standalone proxy
 
 ```sh
-npx m365-proxy 4141
+pnpm proxy serve 4141
 # or
 pnpm run dev
 ```
@@ -266,7 +344,7 @@ module:
 ```nix
 # flake.nix
 {
-  inputs.m365.url = "github:cramt/m365-copilot-proxy";
+  inputs.m365.url = "github:ghostinator/m365-copilot-proxy";
 
   outputs = { nixpkgs, m365, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
@@ -292,7 +370,7 @@ module:
 The service runs as a hardened `DynamicUser` unit. Auth state (`msal-cache.json`,
 `agent-id.json`) persists in `/var/lib/m365-copilot-proxy`; a fresh deploy self-bootstraps
 via headless login using `secretsFile` + the bundled Chromium. To run the package directly
-without NixOS: `nix run github:cramt/m365-copilot-proxy -- 4141`.
+without NixOS: `nix run github:ghostinator/m365-copilot-proxy -- 4141`.
 
 ## Available models
 
@@ -599,7 +677,7 @@ Three token scopes are acquired:
 | `M365_DEBUG` | Set to `1` to enable debug logging to `~/.config/opencode-m365/debug.log` (truncated payloads) |
 | `M365_LOG_FILE` | Debug log name, relative to `~/.config/opencode-m365/` (default `debug.log`; an absolute path is used as is). `M365_LOG_FILE=my/log.log` logs to `~/.config/opencode-m365/my/log.log`. |
 | `M365_TRACE` | Set to `1` for full, untruncated debug logging (every WS frame/prompt/response) — implies `M365_DEBUG`. For reverse engineering. |
-| `M365_LOG_STDOUT` | Set to `1` to mirror debug lines to the proxy's stdout as well as the log file, so you can watch a run without tailing it in a second terminal. Needs `M365_DEBUG` or `M365_TRACE` — on its own it logs nothing. |
+| `M365_LOG_STDOUT` | Set to `1` to write INFO/ERROR lines to process stderr as well as the local log file. DEBUG lines additionally require `M365_DEBUG` or `M365_TRACE`; see [logging](docs/logging.md). |
 | `M365_DUMP_FRAMES` | Set to `1` to write every WebSocket frame (both directions) to `~/.config/opencode-m365/frames/<requestId>.ndjson`. For offline diffing of new M365 fields. |
 | `M365_FRAME_DIR` | Frame dump directory, relative to `~/.config/opencode-m365/` (default `frames`; an absolute path is used as is). `M365_FRAME_DIR=my/frames` dumps to `~/.config/opencode-m365/my/frames/`. |
 | `M365_ALLOW_MULTI_TOOL` | Allow the model to emit multiple tool calls per turn (default: only the first is kept) |
@@ -672,7 +750,14 @@ All stored in `~/.config/opencode-m365/`:
 | `secrets.json` | Login credentials (email, password, mfaSecret) |
 | `msal-cache.json` | MSAL token cache (auto-managed) |
 | `agent-id.json` | Cached Copilot Studio agent ID |
-| `debug.log` | Debug log (when `M365_DEBUG=1`; renamed by `M365_LOG_FILE`) |
+| `server.json` | Listener, optional API key/origins and source labels |
+| `activity.sqlite`, `activity.sqlite-wal`, `activity.sqlite-shm` | Persistent request/error history, rollups and explicit model-check reports |
+| `request-sources.json` | Preserved one-time migration input from older versions |
+| `quota-observations-<hash>.json` | Expiring account-scoped allowance/fallback observations |
+| `browser-profile/` | Private sign-in browser profile |
+| `instance.json`, `shutdown-<nonce>` | Runtime identity and graceful-stop control |
+| `service-logs/` | Windows sign-in runner logs |
+| `debug.log`, `debug.log.1` | Rotated local logging; ERROR lines are written even without debug flags |
 | `frames/` | WebSocket frame dumps (when `M365_DUMP_FRAMES=1`; moved by `M365_FRAME_DIR`) |
 
 ## Development
@@ -682,13 +767,16 @@ pnpm install
 pnpm build            # Build all packages
 pnpm run dev          # Start standalone proxy on :4141
 pnpm run test:unit    # Run vitest unit tests (no auth/network)
-pnpm run test:live    # Run live integration tests against M365
+pnpm run test:live    # Live M365 tests: account/quota required; use the Nix dev shell
+node scripts/test-installed-runtime.mjs  # Built-server checks, offline fake backend
+node scripts/build-release.mjs --include-node  # Portable runtime + manifest/checksums
+node scripts/verify-release.mjs <release-directory>  # Verify hashes and isolated startup
 ```
 
 ## Known limitations
 
 - **M365 "disengages" on large tool payloads** — heavy agent harnesses (e.g. opencode's ~15-tool prompt) get empty `Disengaged` responses. Keep the toolset lean (this is why [pi](https://pi.dev/) works well). A heavy harness can be trimmed to fit, though opencode in particular needs that done in the proxy rather than through its own config, and its tool count has since dropped — see [docs/m365-copilot-api.md](docs/m365-copilot-api.md#the-disengaged-filter).
-- Tool calling is emulated (prompt injection + a Copilot Studio agent), not native function calling — robust with the agent, unreliable without it
+- Tool calling is prompt-emulated, not native function calling. Model/account-specific routing and framing determine whether an agent or agent-less route works; check the current model notes and real harness evidence
 - The `think-deeper` / `*_Reasoning` models take 10-30s per response
 - Hard quota of ~600 messages **per conversation** (mitigated by session reuse + delta sends)
 - `claude-opus` needs a paid/premium seat and has its own small priority-access quota (40 turns a day, 75 a week; every tool call is a turn) that resets at midnight UTC (weekly on Monday); exhaustion surfaces as a 429, or as a switch to `M365_OPUS_FALLBACK_MODEL`. `claude-opus-4.8` needs a premium account too, but has no such quota

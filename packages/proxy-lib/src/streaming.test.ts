@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { recordUsageObservation } from "./usage-observations.js";
+vi.mock("./usage-observations.js", () => ({ recordUsageObservation: vi.fn() }));
 
 // Replace core's ModelSession with a scripted fake so we can exercise the handler's
 // streaming path with no auth/WebSocket. Everything else in core stays real.
@@ -451,7 +453,8 @@ describe("M365_AVOID_THROTTLING holds a turn it would have to wait too long for"
     const body = ChatCompletionRequest.parse({ model: "m365-copilot", stream: false, messages: [{ role: "user", content: "hi" }] });
     await handleChatCompletion(body, new SessionPool(), { signal: ac.signal });
     expect(scripted.awaitTurnBudgetCalls.map((c) => c.maxWaitMs)).toEqual([undefined, 2 * 60_000]);
-    expect(scripted.awaitTurnBudgetCalls[1]!.signal).toBe(ac.signal);
+    ac.abort();
+    expect(scripted.awaitTurnBudgetCalls[1]!.signal?.aborted).toBe(true);
   });
 
   it("makes the forcing retry wait for the budget too: every upstream turn goes through awaitTurnBudget", async () => {
@@ -483,7 +486,8 @@ describe("M365_AVOID_THROTTLING holds a turn it would have to wait too long for"
     expect(scripted.awaitTurnBudgetCalls).toHaveLength(2);
     expect(scripted.awaitTurnBudgetCalls[1]).toEqual(scripted.awaitTurnBudgetCalls[0]);
     expect(scripted.awaitTurnBudgetCalls[1]!.maxWaitMs).toBe(2 * 60_000);
-    expect(scripted.awaitTurnBudgetCalls[1]!.signal).toBe(ac.signal);
+    ac.abort();
+    expect(scripted.awaitTurnBudgetCalls[1]!.signal?.aborted).toBe(true);
   });
 });
 
@@ -778,7 +782,7 @@ describe("a new harness session that shares the first user message", () => {
     first.push({ role: "tool", tool_call_id: m1.tool_calls[0].id, content: "notlar.md" });
     await ask(first, pool);
     await ask([{ role: "user", content: prompt }], pool); // a new session, same opener
-    expect(scripted.newConversations).toBe(1);
+    expect(pool.size).toBe(2); // independent state, not a reset of the other client
     expect(scripted.texts[2]).toContain(prompt); // the full prompt, not a delta
     scripted.queue = [];
   });
@@ -792,7 +796,7 @@ describe("a new harness session that shares the first user message", () => {
     const prompt = `make a docx ${Math.random()}`;
     await ask([{ role: "user", content: prompt }], pool);
     await ask([{ role: "user", content: prompt }], pool);
-    expect(scripted.newConversations).toBe(1);
+    expect(pool.size).toBe(2);
     expect(scripted.texts[scripted.texts.length - 1]).not.toBe("Please continue.");
     expect(scripted.texts[scripted.texts.length - 1]).toContain(prompt);
     scripted.queue = [];
@@ -1062,6 +1066,7 @@ describe("Priority access (Opus 5.5, Sonnet 5.5): OutOfCredits, remembering it, 
     expect(usage.x_m365_sonnet55_daily_remaining).toBe(79);
     expect(usage.x_m365_sonnet55_weekly_remaining).toBe(149);
     expect(usage.x_m365_opus_daily_remaining).toBe(12);
+    expect(recordUsageObservation).toHaveBeenCalledWith("claude-sonnet-5.5", "claude-sonnet-5.5", expect.objectContaining({ ClaudeSonnet55QueryDaily: 79 }));
   });
 
   it("keeps the Sonnet 5.5 and Opus walls apart", async () => {
@@ -1214,7 +1219,7 @@ describe("stopping a turn that writes its own <tool_response> (early stop)", () 
 
   it("leaves a request without tools alone", async () => {
     await toolTurn(runaway, false);
-    expect(scripted.signals.at(-1)).toBeUndefined();
+    expect(scripted.signals.at(-1)?.aborted).toBe(false); // shutdown signal, no early stop
     expect(scripted.stoppedAfter).toBeNull();
   });
 
