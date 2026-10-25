@@ -7,18 +7,19 @@ export const alertSettingsHtml = `<section><h2>Opt-in alerts</h2><p>Runs every 3
 <fieldset id="alert-settings" disabled><legend>Alert settings · operator access required</legend>
 <label><input id="alerts-enabled" type="checkbox"> Enable background alert monitoring</label>
 <label><input id="alerts-failures" type="checkbox"> Sustained chat failures</label><label><input id="alerts-throttling" type="checkbox"> Sustained throttling</label>
-<label><input id="alerts-authentication" type="checkbox"> Sign-in recovery required</label><label><input id="alerts-storage" type="checkbox"> Activity storage unavailable</label>
+<label><input id="alerts-authentication" type="checkbox"> Sign-in recovery required</label><label><input id="alerts-storage" type="checkbox"> Activity storage or low free space</label>
+<label>Low free-space threshold (MiB; 0 = off)<input id="alerts-minFreeMiB" type="number" min="0" max="1048576"></label>
 <label>Rolling window (minutes)<input id="alerts-windowMinutes" type="number" min="1" max="60"></label>
 <label>Minimum completed chats<input id="alerts-minRequests" type="number" min="1" max="10000"></label>
 <label>Minimum errors / throttled chats<input id="alerts-minFailures" type="number" min="1" max="10000"></label>
 <label>Error percentage threshold<input id="alerts-failurePercent" type="number" min="1" max="100"></label>
 <label>Condition must persist (seconds)<input id="alerts-sustainSeconds" type="number" min="30" max="3600"></label>
 <button id="alerts-save" type="button">Apply alert settings</button><button id="alerts-reset-form" type="button">Reload saved settings</button></fieldset>
-<p id="alerts-settings-message" role="status"></p><small>Defaults: 5-minute window, at least 10 chats and 5 errors, 50% errors, sustained 60 seconds. Throttling uses the minimum chat/error counts without the percentage threshold. Cancellations count toward volume but are not errors. Auth/storage use the same sustain time. Unknown observations do not imply recovery. Changing settings closes existing incidents and restarts the sustain timer; disabling closes them as disabled. Pending sustain timers restart after process restart. Incidents, acknowledgement and event history persist in a separate private alerts.sqlite, with unlimited retention; activity backups do not include this file.</small></section>`;
+<p id="alerts-settings-message" role="status"></p><small>Defaults: 5-minute window, at least 10 chats and 5 errors, 50% errors, sustained 60 seconds. Throttling uses the minimum chat/error counts without the percentage threshold. Cancellations count toward volume but are not errors. Auth/storage use the same sustain time. Low-space alerts require monitoring and the storage rule enabled; threshold 0 disables capacity checking. The threshold measures space available on the shared data volume, including other programs. Unknown observations do not imply recovery. Changing settings closes existing incidents and restarts the sustain timer; disabling closes them as disabled. Pending sustain timers restart after process restart. Incidents, acknowledgement and event history persist in a separate private alerts.sqlite, with unlimited retention; activity backups do not include this file.</small></section>`;
 
 export const alertsScript = String.raw`
 let alertData=null,alertOffset=0,alertDirty=false,alertInitialized=false,incidentButtons=[];
-const alertBooleans=['enabled','failures','throttling','authentication','storage'],alertNumbers=['windowMinutes','minRequests','minFailures','failurePercent','sustainSeconds'];
+const alertBooleans=['enabled','failures','throttling','authentication','storage'],alertNumbers=['windowMinutes','minRequests','minFailures','failurePercent','sustainSeconds','minFreeMiB'];
 function fillAlertSettings(){if(!alertData?.settings)return;for(const name of alertBooleans)el('alerts-'+name).checked=alertData.settings[name];for(const name of alertNumbers)el('alerts-'+name).value=String(alertData.settings[name]);alertDirty=false;alertInitialized=true}
 function alertAccess(unlocked){el('alert-settings').disabled=!unlocked;el('alerts-previous').disabled=!unlocked||!alertOffset;el('alerts-next').disabled=!unlocked||!alertData||alertOffset+20>=alertData.total;for(const button of incidentButtons)button.disabled=!unlocked||button.dataset.acknowledged==='true';if(!unlocked)alertOffset=0}
 function renderAlerts(a,history=false){

@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.20.0. Source availability and portable
+The current source feature set is version 0.21.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.20.0 npm package. See [the README](../README.md) for current source/setup links.
+0.21.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -173,7 +173,9 @@ with rollback remain separate work. A stopped proxy is started from the host CLI
 - [x] Opt-in Prometheus endpoint, config/environment enablement and existing optional-key policy.
 - [x] Fixed counter/gauge/histogram labels; no client/model/key identifiers or request text.
 - [x] Scrape exclusion, explicit unavailable history, restart counter semantics and setup guide.
-- [ ] Measured historical growth series, backup/alert/log footprint inventory and low-capacity alerts.
+- [x] Bounded file footprint inventory for activity/operations databases, backups and logs (0.21.0).
+- [x] Optional sustained low-capacity threshold with existing storage incident/destination routing (0.21.0).
+- [ ] Measured historical growth series.
 
 ## 14. Notification delivery (0.17.0)
 

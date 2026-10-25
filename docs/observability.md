@@ -1,4 +1,4 @@
-# Storage planning and Prometheus metrics (0.14.0)
+# Storage planning and Prometheus metrics (updated 0.21.0)
 
 ## Storage planning
 
@@ -24,7 +24,7 @@ Daily growth multiplies that rate by current logical density; 30 days and 365 da
 are fixed planning periods. Backups, alert history, logs, changing error detail,
 model reports, page reuse, schema changes and other programs can change actual usage.
 The filesystem is shared. The API's activity-only capacity-days estimate is not a
-disk-exhaustion forecast. No storage alert, quota or retention limit is enabled.
+disk-exhaustion forecast. No low-capacity threshold, quota or retention limit is enabled by default.
 Capacity can be unknown if the OS cannot report it. Queries read aggregate counts,
 indexed time ranges and SQLite page metadata; they do not load raw history records.
 
@@ -32,6 +32,43 @@ The status API adds `sources.storage.growth`. Values use bytes, milliseconds, re
 counts and daily rates; missing estimates/capacity are null. Activity/alert schemas
 and existing backup formats are unchanged. History backup/restore does not include
 the separate alert database or server settings.
+
+## File footprint and low-capacity alerts (0.21.0)
+
+Overview → **Storage planning** now shows physical file lengths by category:
+
+- **Activity:** activity.sqlite and its WAL/shared-memory/journal files.
+- **Operations:** other root SQLite files, including alerts, notifications and backup scheduling, plus SQLite sidecars.
+- **Backups:** regular files immediately inside history-backups, including manifests and partial copies.
+- **Logs:** root files ending in .log or .log.N, including debug and redirected service logs.
+
+This is a metadata-only inventory: no file contents, paths, names or credentials are
+returned. It excludes links/junctions, other subdirectories (including frame dumps),
+configuration/credential files, external log paths and unrelated files. It counts
+file lengths rather than allocated blocks; compression, sparse files and hard links
+can make this differ from physical disk consumption. Sizes can change during a scan.
+Scans refresh at most every 30 seconds and stop after 2,000 directory entries or a
+25 ms budget checked between filesystem operations. A slow OS operation can take
+longer. Capped or inaccessible scans explicitly report a **partial lower bound**;
+this total is not the size of the entire data directory or filesystem. Missing backup
+directories count as empty. These measurements do not change retention or delete files.
+The status API exposes this under `sources.storage.footprint`.
+
+In Settings → **Opt-in alerts**, unlock administrator access, enable monitoring and
+**Activity storage or low free space**, then set **Low free-space threshold (MiB)**.
+For example, 2048 means alert when available space is below 2 GiB. **0 disables the
+capacity check**, including when older saved settings omit the new field. The limit
+is 1,048,576 MiB. Existing alerts are not enabled or reconfigured during upgrades.
+
+Available space is measured for the proxy account on the shared data volume, including
+consumption by other programs. Checks use the normal 30-second monitor and configured
+sustain period. Low space and activity-save failures share the existing **storage**
+incident and destination routing; evidence identifies the current reason. A capacity
+reading at or above the threshold resolves a capacity incident only when activity
+storage is healthy too. Missing/invalid capacity is unknown, never zero and never
+an invented recovery. Capacity checking makes no M365 calls. Monitoring still depends
+on the proxy and alert database being available: it cannot guarantee delivery after
+the disk is already full. Keep the threshold above zero with enough headroom if used.
 
 ## Enable optional metrics
 
@@ -103,6 +140,6 @@ activity-file size metric; filesystem free space includes all users of the volum
 
 ## Screenshots
 
-Placeholder: capture Overview → Storage planning with sample coverage, logical size,
+Placeholder: capture Overview → Storage planning with the file-category breakdown, sample coverage, logical size,
 filesystem availability and estimated growth visible. Capture Settings → Prometheus
 metrics showing enabled/disabled status. Use synthetic data; never include tokens.

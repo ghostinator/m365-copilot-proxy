@@ -33,7 +33,7 @@ it("ignores a newly created token arriving after the operator locks the dashboar
 it("renders alert evidence as text, preserves draft settings, and locks acknowledgement controls", async () => {
   const { el, context } = await dashboard();
   const alerts = { settings: { enabled: true, failures: true, throttling: true, authentication: true, storage: true,
-    windowMinutes: 5, minRequests: 10, minFailures: 5, failurePercent: 50, sustainSeconds: 60 },
+    windowMinutes: 5, minRequests: 10, minFailures: 5, failurePercent: 50, sustainSeconds: 60, minFreeMiB: 0 },
     active: [{ id: "incident", rule: "failures", opened_ms: 1000, last_seen_ms: 2000, acknowledged_ms: null, evidence: "<img src=x>" }],
     events: [{ seq: 1, rule: "failures", event: "opened", at_ms: 1000, evidence: "<script>private text</script>" }],
     total: 1, offset: 0, limit: 20, checkedAt: 2000, running: true, error: null };
@@ -132,4 +132,16 @@ it("preserves schedule drafts during status refresh and locks scheduling control
  el("backup-schedule-enabled").checked=true;el("backup-schedule-hours").value="6";el("backup-schedule-hours").listeners.change();
  runInContext("renderBackupSchedule("+JSON.stringify(state)+")",context);expect(el("backup-schedule-enabled").checked).toBe(true);expect(el("backup-schedule-hours").value).toBe("6");
  runInContext("lockOperator()",context);expect(el("backup-schedule-controls").disabled).toBe(true);expect(el("backup-schedule-runs").children).toHaveLength(0);
+});
+
+
+it("preserves a low-space threshold draft and renders partial storage measurements explicitly", async () => {
+  const { el, context } = await dashboard();
+  runInContext("operatorToken='grant';renderAlerts({settings:{minFreeMiB:0},active:[],events:[],total:0,offset:0})", context);
+  el("alerts-minFreeMiB").value = "2048"; el("alerts-minFreeMiB").listeners.input();
+  runInContext("renderAlerts({settings:{minFreeMiB:0},active:[],events:[],total:0,offset:0})", context);
+  expect(el("alerts-minFreeMiB").value).toBe("2048");
+  runInContext("renderStoragePlanning({growth:{freeBytes:null,logicalBytes:0,records:0,status:'insufficient-samples',recentRequests:0,observedMs:0},footprint:{persistent:true,complete:false,totalBytes:100,checkedAt:0,categories:{backups:{bytes:100,files:1}}}})", context);
+  expect(el("storage-footprint").textContent).toContain("lower bound"); expect(el("storage-footprint").textContent).toContain("backups");
+  runInContext("renderStoragePlanning(null)", context); expect(el("storage-footprint").textContent).toBe("");
 });

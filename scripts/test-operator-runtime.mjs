@@ -54,6 +54,10 @@ try {
   assert.equal(afterScrape.activity.total, beforeScrape.activity.total);
   assert.equal(afterScrape.sources.storage.storedRecords, beforeScrape.sources.storage.storedRecords);
   assert(afterScrape.sources.storage.growth.logicalBytes > 0);
+  assert.equal(afterScrape.alerts.settings.minFreeMiB, 0);
+  assert.equal(afterScrape.sources.storage.footprint.persistent, true);
+  assert(afterScrape.sources.storage.footprint.categories.activity.files > 0);
+  assert(afterScrape.sources.storage.footprint.totalBytes > 0);
   const grant = JSON.parse(await command("operator", "authorize"));
   assert(!readFileSync(join(data, "operator-access.json"), "utf8").includes(grant.token));
   const operator = async (value, headers = {}) => fetch(base + "/v1/proxy/operator", { method: "POST", headers: { origin: base, "content-type": "application/json", "x-m365-operator": grant.token, ...headers }, body: JSON.stringify(value) });
@@ -76,10 +80,11 @@ try {
   assert.equal((await operator({ action: "key-revoke", id: key.id })).status, 200);
   const service = await operator({ action: "status" }); assert.equal(service.status, 200);
   assert.equal((await service.json()).available, true);
-  const alertSettings = { ...before.alerts.settings, enabled: true };
+  const alertSettings = { ...before.alerts.settings, enabled: true, minFreeMiB: 1 };
   const configuredAlerts = await operator({ action: "alerts-configure", settings: alertSettings });
   assert.equal(configuredAlerts.status, 200);
-  assert.equal((await configuredAlerts.json()).settings.enabled, true);
+  const savedAlertSettings = (await configuredAlerts.json()).settings;
+  assert.equal(savedAlertSettings.enabled, true); assert.equal(savedAlertSettings.minFreeMiB, 1);
   assert.equal((await operator({ action: "alerts-configure", settings: { ...alertSettings, webhook: "https://unrequested.invalid" } })).status, 400);
   for (const type of ["postal", "sendgrid"]) {
     const config = { type, apiKey: "synthetic-provider-key", from: "sender@example.invalid", to: ["recipient@example.invalid"], ...(type === "postal" ? { url: "https://postal.example.invalid" } : { region: "eu" }) };

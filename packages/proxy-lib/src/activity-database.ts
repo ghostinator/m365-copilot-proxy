@@ -1,6 +1,7 @@
 import { requestSelection, requestColumns, withRequestDetails, decodeRequest, errorTypeSql, errorCodeSql, errorCategorySql } from "./activity-records.js";
 import { activityInsights, modelCheckHistory } from "./activity-insights.js";
 import { modelReliability } from "./model-reliability.js";
+import { StorageFootprint } from "./storage-footprint.js";
 import { storageGrowth } from "./storage-growth.js";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync } from "node:fs";
@@ -33,10 +34,12 @@ export class ActivityDatabase {
   readonly db: DatabaseSync;
   readonly path: string;
   migrationWarning: string | null = null;
+  private footprint: StorageFootprint;
   private statements = new Map<string, StatementSync>();
   private labels = new Map<string, string>();
   private local = new Set(["127.0.0.1", "::1"]);
   constructor(private directory?: string) {
+    this.footprint = new StorageFootprint(directory);
     this.path = directory ? join(directory, "activity.sqlite") : ":memory:";
     if (directory) {
       mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -209,7 +212,7 @@ export class ActivityDatabase {
     const databaseBytes = this.directory ? bytes("") : 0, walBytes = this.directory ? bytes("-wal") : 0, sharedMemoryBytes = this.directory ? bytes("-shm") : 0;
     return { engine: "SQLite", retention: "unlimited", databaseBytes, walBytes, sharedMemoryBytes, totalBytes: databaseBytes + walBytes + sharedMemoryBytes,
       storedRecords, averageBytesPerRecord: storedRecords ? Math.round((databaseBytes + walBytes) / storedRecords) : null,
-      growth: storageGrowth(this.db, this.directory, now) };
+      footprint: this.footprint.snapshot(), growth: storageGrowth(this.db, this.directory, now) };
   }
   close() { this.db.close(); }
 }

@@ -252,3 +252,18 @@ Windows archives include a bundled-runtime m365-proxy.cmd launcher.
 [Scheduled backups](history-management.md#scheduled-backups-0200) are opt-in and
 require a running proxy. Normal shutdown drains a scheduled copy; forced exit may
 leave a backup lock. No automatic lock deletion or history retention is enabled.
+
+
+## Storage footprint and optional capacity threshold (0.21.0)
+
+Overview → Storage planning counts activity/operations SQLite files, managed backups
+and root log files. Metadata scans are bounded and cached; partial totals are lower
+bounds. It never reads credentials or deletes history. See [the exact scope and
+limitations](observability.md#file-footprint-and-low-capacity-alerts-0210).
+
+Settings → Opt-in alerts adds **Low free-space threshold (MiB; 0 = off)**. Monitoring
+and the storage rule must also be enabled. It uses the normal sustain time and storage
+notification routing. Existing settings load with threshold 0, so upgrades do not
+activate this check. Unknown capacity does not clear an incident. The shared-volume
+reading includes other programs, and notification delivery still requires a healthy
+running proxy and alert store. Unlimited retention remains unchanged.

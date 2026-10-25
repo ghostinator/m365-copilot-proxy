@@ -115,3 +115,31 @@ it("requires the host grant for alert changes and acknowledgement without forcin
   expect((await operatorAction(request({ action: "alerts-configure", settings: { ...enabled, sustainSeconds: 0 } }), activity, access, keys)).status).toBe(400);
   expect(keys.status().required).toBe(false); activity.sources.close();
 });
+
+
+it("keeps low-space checks off for legacy settings and validates explicit thresholds", () => {
+  const { minFreeMiB, ...legacy } = defaultAlerts;
+  expect(alertSettings.parse(legacy).minFreeMiB).toBe(0);
+  for (const value of [-1, 0.5, 1048577]) expect(() => alertSettings.parse({ ...enabled, minFreeMiB: value })).toThrow();
+  const f = fixture(); f.sample({ freeBytes: 0 }); f.monitor.configure(enabled); f.at(60_000); f.monitor.tick();
+  expect(f.monitor.snapshot().active).toHaveLength(0); f.monitor.close();
+});
+
+it("sustains low-space incidents, preserves them on unknown capacity, and resolves on measured recovery", () => {
+  const f = fixture(); f.sample({ freeBytes: 99 * 1048576 }); f.monitor.configure({ ...enabled, minFreeMiB: 100 });
+  f.at(30_000); f.monitor.tick(); expect(f.monitor.snapshot().active).toHaveLength(0);
+  f.at(60_000); f.monitor.tick(); const first = f.monitor.snapshot();
+  expect(first.active).toHaveLength(1); expect(first.active[0]).toMatchObject({ rule: "storage" });
+  expect(first.active[0].evidence).toContain("99.0 MiB");
+  f.sample({ freeBytes: null }); f.at(90_000); f.monitor.tick(); expect(f.monitor.snapshot().active).toHaveLength(1);
+  f.sample({ freeBytes: NaN }); f.monitor.tick(); expect(f.monitor.snapshot().active).toHaveLength(1);
+  f.sample({ freeBytes: 100 * 1048576 }); f.monitor.tick(); expect(f.monitor.snapshot().active).toHaveLength(0);
+  expect(f.monitor.snapshot().events.map(e => e.event)).toEqual(["resolved", "opened"]); f.monitor.close();
+});
+
+it("keeps storage failure detection independent of missing capacity and respects the storage-rule toggle", () => {
+  const f = fixture(); f.sample({ storageError: true, freeBytes: null }); f.monitor.configure({ ...enabled, minFreeMiB: 100 });
+  f.at(60_000); f.monitor.tick(); expect(f.monitor.snapshot().active.map(r => r.rule)).toEqual(["storage"]);
+  f.monitor.configure({ ...enabled, minFreeMiB: 100, storage: false }); f.at(120_000); f.monitor.tick();
+  expect(f.monitor.snapshot().active).toHaveLength(0); f.monitor.close();
+});

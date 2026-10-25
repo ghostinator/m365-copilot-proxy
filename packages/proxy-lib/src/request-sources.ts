@@ -1,3 +1,4 @@
+import { filesystemCapacity } from "./storage-footprint.js";
 import { BackupScheduler } from "./backup-scheduler.js";
 import { HistoryCursor } from "./history-export.js";
 import { HistoryBackups } from "./history-backups.js";
@@ -32,6 +33,7 @@ export class RequestSources {
           FROM requests r WHERE r.self_check=0 AND r.endpoint=${entry.shape.endpoint.options.indexOf("/v1/chat/completions")} AND r.received_ms>? AND r.received_ms<=?`)
           .get(now - settings.windowMinutes * 60_000, now)!;
         return { total: Number(r.total), failed: Number(r.failed), throttled: Number(r.throttled),
+          freeBytes: settings.minFreeMiB > 0 ? filesystemCapacity(this.directory).freeBytes : null,
           storageError: !!this.error || !!this.pending.length || !!this.notSaved, authentication: authenticationStatus().status };
       } catch { return { total: 0, failed: 0, throttled: 0, storageError: true, authentication: authenticationStatus().status }; }
     });

@@ -8,11 +8,12 @@ import type { EventBatch, NotificationEventRow } from "./notification-store.js";
 export const alertSettings = z.object({ enabled: z.boolean(), windowMinutes: z.number().int().min(1).max(60),
   minRequests: z.number().int().min(1).max(10000), minFailures: z.number().int().min(1).max(10000),
   failurePercent: z.number().int().min(1).max(100), sustainSeconds: z.number().int().min(30).max(3600),
+  minFreeMiB: z.number().int().min(0).max(1048576).default(0),
   failures: z.boolean(), throttling: z.boolean(), authentication: z.boolean(), storage: z.boolean(),
 }).strict().refine(s => s.minFailures <= s.minRequests, { message: "Minimum failures must not exceed minimum requests" });
 export type AlertSettings = z.infer<typeof alertSettings>;
 export const defaultAlerts: AlertSettings = { enabled: false, windowMinutes: 5, minRequests: 10, minFailures: 5,
-  failurePercent: 50, sustainSeconds: 60, failures: true, throttling: true, authentication: true, storage: true };
+  failurePercent: 50, sustainSeconds: 60, minFreeMiB: 0, failures: true, throttling: true, authentication: true, storage: true };
 export type AlertRule = "failures" | "throttling" | "authentication" | "storage";
 export interface AlertFact { rule: AlertRule; triggered: boolean | null; evidence: string }
 

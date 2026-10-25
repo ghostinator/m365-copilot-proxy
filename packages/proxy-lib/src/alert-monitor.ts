@@ -1,7 +1,7 @@
 import { AlertStore, defaultAlerts, type AlertSettings, type AlertRule, type AlertFact } from "./alert-store.js";
 import { Notifications } from "./notifications.js";
 
-export interface AlertSample { total: number; failed: number; throttled: number; storageError: boolean; authentication: "ready" | "starting" | "auth_required" }
+export interface AlertSample { total: number; failed: number; throttled: number; storageError: boolean; freeBytes?: number | null; authentication: "ready" | "starting" | "auth_required" }
 /** Background observations only; the sampler never refreshes auth or calls a model. */
 export class AlertMonitor {
   private store: AlertStore;
@@ -29,6 +29,14 @@ export class AlertMonitor {
       if (!settings.enabled) { this.pending.clear(); this.error = null; return; }
       const now = this.now(), s = this.sample(settings, now);
       const traffic = !s.storageError && s.total >= settings.minRequests;
+      const capacityKnown = s.freeBytes != null && Number.isFinite(s.freeBytes) && s.freeBytes >= 0;
+      const lowDisk = settings.minFreeMiB > 0 && capacityKnown && s.freeBytes! < settings.minFreeMiB * 1048576;
+      const storageTriggered = !settings.storage ? false : s.storageError || lowDisk ? true
+        : settings.minFreeMiB > 0 && !capacityKnown ? null : false;
+      const storageEvidence = s.storageError ? "Activity storage is unavailable or has unsaved/lost records. Inspect host storage and logs."
+        : lowDisk ? `Shared data volume has ${(s.freeBytes! / 1048576).toFixed(1)} MiB available, below the configured ${settings.minFreeMiB} MiB threshold.`
+        : settings.minFreeMiB > 0 && !capacityKnown ? "Filesystem capacity is unknown; this is not a recovery observation."
+        : "Activity storage is available with no pending save error; configured capacity threshold is satisfied or disabled.";
       const facts: AlertFact[] = [
         { rule: "failures", triggered: settings.failures ? s.storageError ? null : traffic && s.failed >= settings.minFailures && s.failed / s.total * 100 >= settings.failurePercent : false,
           evidence: `${s.failed} errors / ${s.total} completed application chats in ${settings.windowMinutes} minutes.` },
@@ -36,7 +44,7 @@ export class AlertMonitor {
           evidence: `${s.throttled} throttled requests / ${s.total} completed application chats in ${settings.windowMinutes} minutes.` },
         { rule: "authentication", triggered: settings.authentication ? s.authentication === "starting" ? null : s.authentication === "auth_required" : false,
           evidence: s.authentication === "auth_required" ? "Existing sign-in requires recovery on the proxy host." : "Authentication is ready." },
-        { rule: "storage", triggered: settings.storage && s.storageError, evidence: s.storageError ? "Activity storage is unavailable or has unsaved/lost records. Inspect host storage and logs." : "Activity storage is available with no pending save error." },
+        { rule: "storage", triggered: storageTriggered, evidence: storageEvidence },
       ];
       this.store.apply(facts, this.pending, settings.sustainSeconds * 1000, now);
       this.checkedAt = now; this.error = null;

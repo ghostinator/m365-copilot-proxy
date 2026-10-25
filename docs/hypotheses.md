@@ -6064,3 +6064,21 @@ real scheduled snapshot across restart. Production scheduling stays disabled.
 Result: full Windows offline suite passed 573 tests, with six live M365 tests
 skipped. Nine new cases cover scheduler state, UI drafts and manual-backup restart
 draining. Packaged runtime validation separately exercises real snapshot creation.
+
+
+### Bounded storage inventory and optional capacity alerts — October 25, 2026
+
+H: a cached, metadata-only inventory can expose operational/backup/log overhead
+without opening credentials or unbounded directory traversal, while the storage
+rule can warn before exhaustion without inventing recovery from missing capacity.
+Falsification: linked backup folders are traversed, truncated totals claim completeness,
+private filenames leak, old settings enable a threshold, or unknown capacity resolves
+an incident. Offline probes: storage-footprint.test.ts (four cases), alerts.test.ts
+(three capacity cases), and dashboard-operations.test.ts (draft/partial-state case).
+
+Result: Windows offline suite passed 581 tests, six live M365 tests skipped. Category
+sizes, cache refresh, scan limits, junction exclusion, default-off validation,
+sustained opening, threshold-boundary recovery, unknown samples and storage toggle
+all passed. Reference scope/limitations promoted to docs/observability.md. Installed
+runtime checks also assert inventory availability and explicit threshold configuration;
+no production alert or model probe is enabled by this change.

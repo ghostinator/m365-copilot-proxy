@@ -4,7 +4,7 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.20.0)
+## Dashboard and operations (0.21.0)
 
 New: export **all matching history** as streamed JSON/CSV, create verified online
 SQLite backups, and prepare an explicit offline restore with a safety snapshot.
@@ -816,7 +816,7 @@ manually requested. Missing historical timings are labeled unknown.
 
 **Opt-in alerts** monitor sustained chat failures, throttling, sign-in recovery and history-storage problems in the background. Enable them with operator access in Settings; inspect and acknowledge incidents in Errors. No external notification destination or model probe is enabled automatically.
 
-**Storage planning and optional metrics:** Overview estimates activity growth from observed volume and logical SQLite density, and shows shared filesystem capacity. An opt-in Prometheus endpoint exposes fixed operational labels without client or application identities. See [observability setup and limitations](docs/observability.md). Retention stays unlimited.
+**Storage planning and optional metrics:** Overview estimates activity growth from observed volume and logical SQLite density, shows shared filesystem capacity, and counts activity/operations databases, backups and logs. Settings offers an optional sustained low-free-space threshold (MiB; 0 = off), routed through storage alerts. An opt-in Prometheus endpoint exposes fixed operational labels without client or application identities. See [observability setup and limitations](docs/observability.md). Retention stays unlimited.
 
 See the [dashboard guide](docs/dashboard.md) and [feature roadmap](docs/roadmap.md).
 
@@ -852,7 +852,7 @@ Use synthetic/demo data; keep operator grants and application tokens out of view
 > out of view. Also capture Models → Observed model reliability with a rolling
 > time range, requested/served routes, sample counts and expanded chart intervals.
 
-> **Screenshot to add — storage/metrics:** Capture Overview → Storage planning with sample coverage and estimated growth; capture Settings → Prometheus metrics status. No tokens.
+> **Screenshot to add — storage/metrics:** Capture Overview → Storage planning with the activity/operations/backups/logs footprint, sample coverage and estimated growth; capture Settings → Opt-in alerts showing the low-free-space field and Prometheus metrics status. No tokens.
 
 Settings → **Notification delivery** now supports multiple named SMTP, Postal, SendGrid, ntfy and generic/Slack/Teams webhook destinations, preview, explicit tests and a durable bounded-retry queue. Saves are disabled; no production destination is configured by this release. See [setup, privacy and delivery guarantees](docs/notification-delivery.md). Postal and SendGrid direct APIs support private provider credentials and acceptance checks.
 
