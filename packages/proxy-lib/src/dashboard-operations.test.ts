@@ -128,6 +128,7 @@ it("saves a restore-compatible manifest without internal fields and clears it on
 it("preserves schedule drafts during status refresh and locks scheduling controls",async()=>{
  const {el,context}=await dashboard();const state={available:true,settings:{enabled:false,intervalHours:24},nextAt:null,inProgress:false,lastRun:null,runs:[],total:0,offset:0,error:null};
  runInContext("operatorToken='grant';renderBackupSchedule("+JSON.stringify(state)+")",context);
+ runInContext("renderBackupScheduleSummary("+JSON.stringify(state)+")",context);expect(el("backup-schedule-next").disabled).toBe(true);expect(el("backup-schedule-previous").disabled).toBe(true);
  el("backup-schedule-enabled").checked=true;el("backup-schedule-hours").value="6";el("backup-schedule-hours").listeners.change();
  runInContext("renderBackupSchedule("+JSON.stringify(state)+")",context);expect(el("backup-schedule-enabled").checked).toBe(true);expect(el("backup-schedule-hours").value).toBe("6");
  runInContext("lockOperator()",context);expect(el("backup-schedule-controls").disabled).toBe(true);expect(el("backup-schedule-runs").children).toHaveLength(0);
