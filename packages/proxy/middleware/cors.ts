@@ -25,6 +25,6 @@ export default defineEventHandler((event) => {
   }
   for (const [key, value] of Object.entries(corsHeaders(request))) setResponseHeader(event, key, value);
   const gate = requestGate(request) ?? drainingResponse(request);
-  if (!gate && new URL(request.url).pathname !== "/v1/proxy/operator") finish?.applicationKey(proxyApiKeys.authorize(request.headers).application);
+  if (!gate && new URL(request.url).pathname !== "/v1/proxy/operator" && !new URL(request.url).pathname.startsWith("/v1/proxy/download/")) finish?.applicationKey(proxyApiKeys.authorize(request.headers).application);
   return gate ?? undefined;
 });

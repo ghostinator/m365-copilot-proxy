@@ -5886,3 +5886,19 @@ deadline. Fake-clock tests cover both completion-before-restart and two-minute
 cancel/resume paths. The offline runtime test verifies an actual detached restart,
 new instance identity, saved history and unchanged optional key mode. These are
 local service/HTTP behaviors; no M365 protocol probes or quota were required.
+
+
+### History snapshot/export and recovery (2026-10-25)
+
+H: an append-only maximum sequence plus frozen filter time gives a stable full export
+without retaining a long SQLite read transaction. Falsification: a new row after
+export creation appears, an older matching row is skipped/duplicated, or page limits
+truncate output. history.test.ts exports 126 matches over multiple batches, appends
+20 more requests after creation, and verifies the original exact count and unique IDs.
+
+H: online backups stay internally consistent during concurrent request writes, and
+restore preserves a verified copy of newer history. Falsification: rollup/timing
+counts disagree with copied requests, a tampered backup verifies, an active managed
+instance can be replaced, or account configuration changes. Unit/runtime probes use
+isolated data, worker verification and an actual stopped-host restore. See
+scripts/test-operator-runtime.mjs and docs/experiments.md. No Microsoft traffic.

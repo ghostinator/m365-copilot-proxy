@@ -52,3 +52,8 @@ changed for documentation capture.
 ## Dashboard operations (0.10.0)
 
 [Dashboard management](dashboard-operations.md) covers operator grants, one-time key creation, grouped errors, combined filters, scoped exports, sign-in startup and restart/recovery limits.
+
+
+## History management (0.11.0)
+
+[History management](history-management.md) covers full-history JSON/CSV exports, private online backups, integrity/checksum verification, explicit stopped-host restore, safety backups and maintenance recovery. Retention remains unlimited.

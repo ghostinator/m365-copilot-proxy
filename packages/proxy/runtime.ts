@@ -8,3 +8,5 @@ export function browserExecutable() { return process.env.CHROMIUM_PATH || chromi
 export { proxyApiKeys } from "@m365-copilot/proxy-lib";
 
 export { operatorAccess, registerServiceController } from "@m365-copilot/proxy-lib";
+
+export { historyBackups } from "@m365-copilot/proxy-lib";

@@ -14,4 +14,4 @@ for (const name of ["playwright", "playwright-core"]) {
 copyFileSync(new URL("../../LICENSE", import.meta.url), new URL("./LICENSE", import.meta.url));
 copyFileSync(new URL("../../docs/operations.md", import.meta.url), new URL("./OPERATIONS.md", import.meta.url));
 
-for (const name of ["dashboard-operations.md", "api-keys.md"]) writeFileSync(new URL("./" + name, import.meta.url), readFileSync(new URL("../../docs/" + name, import.meta.url), "utf8").split("\n## Screenshots")[0]);
+for (const name of ["dashboard-operations.md", "api-keys.md", "history-management.md"]) writeFileSync(new URL("./" + name, import.meta.url), readFileSync(new URL("../../docs/" + name, import.meta.url), "utf8").split("\n## Screenshots")[0]);

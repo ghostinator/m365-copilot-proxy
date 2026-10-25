@@ -1,3 +1,6 @@
+export { HistoryBackups, historyBackups } from "./history-backups.js";
+export { historyDownloads } from "./history-export.js";
+import { historyDownloads } from "./history-export.js";
 export { operatorAction } from "./operator-actions.js";
 export { operatorAccess } from "./operator-access.js";
 export { registerServiceController, serviceState, drainingResponse } from "./service-control.js";
@@ -112,6 +115,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
 
     const gate = requestGate(req);
     if (gate) return gate;
+    if (pathname.startsWith("/v1/proxy/download/")) return historyDownloads.consume(req);
     if (pathname === "/v1/proxy/operator") return operatorAction(req, activity);
     const draining = drainingResponse(req); if (draining) return draining;
     trace?.applicationKey(proxyApiKeys.authorize(req.headers).application);

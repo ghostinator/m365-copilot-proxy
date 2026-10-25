@@ -221,3 +221,8 @@ starts the same launcher under its watchdog only after the old process exits cle
 Check `service-logs` and `restart-error.log` if replacement startup fails. Exit 78
 still requires `m365-proxy login` locally. A stopped dashboard must be started from
 the host with `service start` or `serve`.
+
+
+## History management (0.11.0)
+
+[History management](history-management.md) covers full-history JSON/CSV exports, private online backups, integrity/checksum verification, explicit stopped-host restore, safety backups and maintenance recovery. Retention remains unlimited.

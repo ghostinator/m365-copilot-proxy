@@ -175,3 +175,8 @@ stored digests and existing tokens are omitted. Authorized creation displays its
 ## Management and troubleshooting (0.10.0)
 
 See [dashboard management](dashboard-operations.md) for operator grants, key actions, error groups, category/UUID filters, page exports and service controls.
+
+
+## History management (0.11.0)
+
+[History management](history-management.md) covers full-history JSON/CSV exports, private online backups, integrity/checksum verification, explicit stopped-host restore, safety backups and maintenance recovery. Retention remains unlimited.

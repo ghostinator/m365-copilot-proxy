@@ -63,3 +63,10 @@ scripts/harness/out/
 /restart-error.log
 packages/proxy/dashboard-operations.md
 packages/proxy/api-keys.md
+
+/history-backups/
+/history-backups.lock
+/history-maintenance.lock
+/activity-restore-*.sqlite*
+
+packages/proxy/history-management.md

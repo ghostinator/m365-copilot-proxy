@@ -68,9 +68,9 @@ Evidence: [initial Linux validation](linux-validation-2026-10-24.md),
 [SQLite analytics](sqlite-analytics-validation-2026-10-25.md),
 [error diagnostics](error-history-validation-2026-10-25.md), and
 [tabs/capability validation](dashboard-capabilities-validation-2026-10-25.md).
-The current source feature set is version 0.10.0. Source availability and portable
+The current source feature set is version 0.11.0. Source availability and portable
 builds are separate from npm publication; this fork does not claim a published
-0.10.0 npm package. See [the README](../README.md) for current source/setup links.
+0.11.0 npm package. See [the README](../README.md) for current source/setup links.
 
 ## 6. Analytics and diagnostic tools — current implementation priority
 
@@ -124,8 +124,21 @@ requested, serialized and quota-consuming. No automatic capability sweeps.
 - [x] Redacted JSON export of the current saved request page.
 - [x] Windows sign-in task status, enable/disable without stopping active work.
 - [x] Drain-before-restart, bounded wait/cancellation and detached same-version handoff.
-- [ ] Full-history streaming exports, consistent backup/restore UI and retention controls.
+- [x] Full-history streaming JSON/CSV exports and verified online backup/restore preparation (0.11.0).
+- [ ] Retention controls; requests and backups remain unlimited with no automatic deletion.
 - [ ] Model reliability trends and optional sustained-failure alerts.
 
 Tray status, interactive sign-in recovery, Linux systemd setup and versioned updates
 with rollback remain separate work. A stopped proxy is started from the host CLI.
+
+
+## 10. History management (0.11.0)
+
+- [x] Full filtered JSON/CSV downloads with fixed sequence boundary and bounded reads.
+- [x] One-use expiring download capabilities; no raw keys in URLs or activity logs.
+- [x] CSV formula protection, additional diagnostic redaction and explicit export scope.
+- [x] Online SQLite backups with private checksums/manifests and worker integrity checks.
+- [x] Paged backup inventory and dashboard verification/restore preparation.
+- [x] Explicit stopped-host CLI restore, staged validation, safety backup and startup interlock.
+- [ ] Download backup files / encrypted off-host destinations, scheduled backups and automated crash recovery.
+- [ ] Configurable retention and model reliability trends/alerts remain queued.

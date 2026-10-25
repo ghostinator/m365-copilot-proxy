@@ -59,3 +59,5 @@ seeds public example addresses/labels. Production keys are never created or capt
 
 
 Version 0.10.0 adds `dashboard-troubleshooting.jpg` and `dashboard-error-groups.jpg`: synthetic Requests filters/export and error groups. Tokens were dismissed and operator access locked before capture.
+
+Version 0.11.0 adds `dashboard-history-backups.jpg` and `dashboard-history-export.jpg`: synthetic verified backup/recovery preview and an all-time download of 424 requests while the page displays only 20. No restore was applied from the browser.

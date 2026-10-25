@@ -1,3 +1,5 @@
+import { HistoryCursor } from "./history-export.js";
+import { HistoryBackups } from "./history-backups.js";
 import { ActivityDatabase } from "./activity-database.js";
 import { entry, activityQuery, sourceAddress, type SavedRequest, type ActivityQuery } from "./activity-schema.js";
 import { createLogger } from "@m365-copilot/core";
@@ -56,6 +58,15 @@ export class RequestSources {
     } catch {
       return { ...status, error: this.error ?? "Activity database could not be opened or read.", errorGroups: [], keyActivity: [], errors: [], errorHistory: { total: 0, offset: 0, limit: query.errorLimit }, startedAt: null, systems: [], recent: [], labels: {}, modelActivity: [], modelChecks: [], range: query.range, from: null, to: new Date(now).toISOString(), summary: { total: 0, applicationRequests: 0, selfChecks: 0, chats: 0, models: 0, health: 0, other: 0, failed: 0, cancelled: 0, responseBytes: 0, systems: 0, averageDurationMs: null }, history: { total: 0, limit: query.limit, offset: 0 }, legacyUndated: 0, storage: { engine: "SQLite", retention: "unlimited", totalBytes: 0, databaseBytes: 0, walBytes: 0, sharedMemoryBytes: 0, storedRecords: 0, averageBytesPerRecord: null } };
     }
+  }
+  exportCursor(options: Partial<ActivityQuery> = {}) {
+    this.flush(); if (this.closed || this.pending.length) throw new Error("History is unavailable or has unsaved requests");
+    const database = this.open();
+    return new HistoryCursor(database.db, database.path, activityQuery.parse(options));
+  }
+  backupStore() {
+    this.flush(); if (!this.directory || this.closed || this.pending.length) throw new Error("A writable persistent history database is required");
+    this.open(); return new HistoryBackups(this.directory);
   }
   close() { this.flush(); this.closed = true; this.database?.close(); this.database = undefined; }
 }

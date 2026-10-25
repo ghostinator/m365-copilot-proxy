@@ -295,3 +295,20 @@ Windows script registers/removes a uniquely named task and fake HTTP server;
 it does not alter real startup. Unit probes cover expiry, exact-origin checks,
 drain timeout, late-response token clearing, full-history grouping and export
 allowlisting/redaction. Cost: local CPU/disk only, zero Microsoft quota.
+
+
+## Full history / backup recovery (offline)
+
+```sh
+pnpm build
+pnpm exec vitest run packages/proxy-lib/src/history.test.ts
+node scripts/test-operator-runtime.mjs
+```
+
+The history unit fixture exercises multiple export batches with simultaneous arrivals,
+CSV formulas/quotes, expiring one-use capabilities, online backup under writes,
+corruption checks and stopped restore/safety-copy behavior. The installed runtime
+performs JSON/CSV downloads, backup verification, active-restore refusal, detached
+restart, then explicit CLI restore only after shutdown and startup-maintenance refusal.
+State, keys and chats are synthetic and temporary. No production restore or deletion
+is performed, and no Microsoft quota is used.

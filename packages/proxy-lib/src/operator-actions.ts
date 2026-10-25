@@ -1,12 +1,20 @@
+import { diagnosticText } from "./error-diagnostics.js";
+import { activityQuery } from "./activity-schema.js";
+import { historyDownloads } from "./history-export.js";
 import { z } from "zod/v4";
 import { operatorAccess, type OperatorAccess } from "./operator-access.js";
 import { proxyApiKeys, type ApiKeyStore } from "./api-keys.js";
 import { serviceCommand } from "./service-control.js";
-import { boundedBytes, requestSignal } from "@m365-copilot/core";
+import { boundedBytes, requestSignal, createLogger } from "@m365-copilot/core";
 import type { HttpActivity } from "./http-activity.js";
 
+const historyLog = createLogger("operator-history");
 const command = z.discriminatedUnion("action", [
   z.object({ action: z.literal("unlock") }).strict(),
+  z.object({ action: z.literal("export-create"), format: z.enum(["json", "csv"]), query: activityQuery.partial().strict() }).strict(),
+  z.object({ action: z.literal("backup-list"), offset: z.number().int().min(0).max(1000000).default(0) }).strict(),
+  z.object({ action: z.literal("backup-create") }).strict(),
+  z.object({ action: z.literal("backup-verify"), id: z.uuid() }).strict(),
   z.object({ action: z.literal("key-create"), label: z.string().min(1).max(100) }).strict(),
   z.object({ action: z.literal("key-rename"), id: z.uuid(), label: z.string().min(1).max(100) }).strict(),
   z.object({ action: z.literal("key-revoke"), id: z.uuid() }).strict(),
@@ -23,12 +31,23 @@ export async function operatorAction(req: Request, activity: HttpActivity, acces
     value = command.parse(JSON.parse(bytes.toString("utf8")));
   } catch { return Response.json({ error: { message: "Invalid operator command (maximum 4096 bytes)." } }, { status: 400, headers: { ...headers, Connection: "close" } }); }
   try {
+    if (value.action === "export-create") return Response.json(historyDownloads.create(activity.sources.exportCursor(value.query), value.format), { headers });
+    if (value.action === "backup-list") return Response.json(activity.sources.backupStore().list(value.offset), { headers });
+    if (value.action === "backup-create") return Response.json(await activity.sources.backupStore().create(), { status: 201, headers });
+    if (value.action === "backup-verify") return Response.json(await activity.sources.backupStore().restore(value.id), { headers });
     if (value.action === "unlock") return Response.json({ unlocked: true }, { headers });
     if (value.action === "key-create") return Response.json(keys.create(value.label), { status: 201, headers });
     if (value.action === "key-rename") { keys.rename(value.id, value.label); return Response.json({ updated: true }, { headers }); }
     if (value.action === "key-revoke") { keys.revoke(value.id); return Response.json({ updated: true }, { headers }); }
     return Response.json(await serviceCommand(value.action, activity), { status: value.action === "restart" ? 202 : 200, headers });
   } catch (error) {
+    if (value.action.startsWith("backup-") || value.action === "export-create") {
+      historyLog.error(diagnosticText(error instanceof Error ? error.message : "History operation failed"));
+      const message = value.action === "backup-verify" ? "Backup verification failed. It may be missing, incomplete, corrupt or unsupported. Nothing was restored."
+        : value.action === "export-create" ? "Export could not start. At most four downloads can be pending/active; check history storage and retry after existing downloads finish."
+        : "Backup operation failed. Check free disk space, database access and history-operation locks; refresh the inventory before retrying.";
+      return Response.json({ error: { type: "history_operation_failed", message } }, { status: 409, headers });
+    }
     // Never echo validation input, filesystem paths or command output to remote clients.
     return Response.json({ error: { message: error instanceof z.ZodError ? "Invalid key label." : "Operation failed. Check the host configuration and service logs; no credentials are included here." } }, { status: 409, headers });
   }

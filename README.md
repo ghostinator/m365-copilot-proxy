@@ -4,7 +4,12 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.10.0)
+## Dashboard and operations (0.11.0)
+
+New: export **all matching history** as streamed JSON/CSV, create verified online
+SQLite backups, and prepare an explicit offline restore with a safety snapshot.
+History and backup retention remain unlimited. See [history management](docs/history-management.md).
+
 
 New: **Settings** can create, rename and revoke application keys, configure Windows
 sign-in startup, and restart after active work finishes. Unlock management with a

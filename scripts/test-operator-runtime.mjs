@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createServer } from "node:net";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -30,6 +30,7 @@ async function ready(newPid) {
   }
   throw new Error(`Runtime did not become ready: ${logs.slice(-4000)}`);
 }
+let backupId;
 try {
   const before = await ready(); assert.equal(before.service.available, true);
   await (await fetch(base + "/v1/models")).text();
@@ -47,6 +48,19 @@ try {
   assert.equal((await operator({ action: "key-revoke", id: key.id })).status, 200);
   const service = await operator({ action: "status" }); assert.equal(service.status, 200);
   assert.equal((await service.json()).available, true);
+  const jsonJob = await operator({ action: "export-create", format: "json", query: { range: "all", limit: 1, offset: 999 } });
+  assert.equal(jsonJob.status, 200); const download = await jsonJob.json();
+  assert(download.snapshot.records > 1);
+  const exported = await (await fetch(base + download.url)).json();
+  assert.equal(exported.records.length, download.snapshot.records);
+  assert.equal((await fetch(base + download.url)).status, 404);
+  const csvJob = await (await operator({ action: "export-create", format: "csv", query: { range: "all" } })).json();
+  const csv = await fetch(base + csvJob.url); assert.match(csv.headers.get("content-type"), /text\/csv/); assert.match(await csv.text(), /receivedAt/);
+  const backup = await operator({ action: "backup-create" }); assert.equal(backup.status, 201);
+  const saved = await backup.json(); backupId = saved.id; assert(saved.verified);
+  const plan = await (await operator({ action: "backup-verify", id: backupId })).json(); assert.equal(plan.applied, false); assert.equal(plan.backup.verified, true);
+  await assert.rejects(command("history", "restore", backupId, "--apply", "--confirm", backupId), /Stop the proxy/);
+  console.log("PASS: complete JSON/CSV downloads, one-use capabilities, verified online backups and live-restore refusal (offline)");
   // Exercise the actual detached handoff and watchdog, using the inherited offline fixture.
   const restart = await operator({ action: "restart" }); assert.equal(restart.status, 202); await restart.text();
   const after = await ready(before.instance.pid); assert.notEqual(after.instance.id, before.instance.id);
@@ -64,3 +78,15 @@ try {
   }
   if (child.exitCode === null) child.kill();
 }
+
+// Offline restore only after the instance has fully stopped; preserve keys/configuration.
+const originalConfig = readFileSync(join(data, "server.json"), "utf8"), originalKeys = readFileSync(join(data, "proxy-api-keys.json"), "utf8");
+const restored = JSON.parse(await command("history", "restore", backupId, "--apply", "--confirm", backupId));
+assert(restored.applied && restored.safetyBackup);
+assert.equal(readFileSync(join(data, "server.json"), "utf8"), originalConfig);
+assert.equal(readFileSync(join(data, "proxy-api-keys.json"), "utf8"), originalKeys);
+assert((JSON.parse(await command("history", "verify", restored.safetyBackup))).verified);
+writeFileSync(join(data, "history-maintenance.lock"), "offline fixture");
+try { await assert.rejects(command("serve"), /maintenance/); assert(!existsSync(join(data, "instance.json"))); }
+finally { rmSync(join(data, "history-maintenance.lock")); }
+console.log("PASS: explicit offline CLI restore, safety snapshot, configuration preservation and startup maintenance interlock");

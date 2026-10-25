@@ -54,7 +54,7 @@ export async function main(args) {
   let command = args[0] || "serve";
   if (/^\d+$/.test(command)) { process.env.NITRO_PORT = process.env.PORT = command; command = "serve"; }
   if (["--help", "-h", "help"].includes(command)) {
-    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy operator authorize\nm365-proxy service install|status|start|stop|disable|uninstall\nm365-proxy diagnostics [output.json]\nm365-proxy client setup pi|openclaw [--config path] [--base-url URL] [--api-key-env NAME] [--dry-run] [--replace]\nm365-proxy client info\nm365-proxy keys create <label>|list|revoke <id>|rename <id> <label>|mode optional|required\nDashboard: http://127.0.0.1:<port>/dashboard\n\nConfiguration: " + configPath);
+    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy operator authorize\nm365-proxy history backup|list|verify <id>|restore <id> [--apply --confirm <id>]\nm365-proxy service install|status|start|stop|disable|uninstall\nm365-proxy diagnostics [output.json]\nm365-proxy client setup pi|openclaw [--config path] [--base-url URL] [--api-key-env NAME] [--dry-run] [--replace]\nm365-proxy client info\nm365-proxy keys create <label>|list|revoke <id>|rename <id> <label>|mode optional|required\nDashboard: http://127.0.0.1:<port>/dashboard\n\nConfiguration: " + configPath);
     return;
   }
   if (command === "service") {
@@ -76,11 +76,22 @@ export async function main(args) {
     }
     throw new Error("Proxy did not acknowledge shutdown; use service stop to verify and stop a supervised process");
   }
-  if (!["serve", "setup", "login", "doctor", "diagnostics", "client", "keys", "operator"].includes(command)) throw new Error(`Unknown command: ${command}; use --help`);
+  if (!["serve", "setup", "login", "doctor", "diagnostics", "client", "keys", "operator", "history"].includes(command)) throw new Error(`Unknown command: ${command}; use --help`);
   if (command === "serve" && args[1]) process.env.NITRO_PORT = process.env.PORT = args[1];
   const config = settings();
   const runtime = await import(runtimeUrl.href);
   runtime.validateBind(config.host);
+  if (command === "history") {
+    const action = args[1], store = runtime.historyBackups;
+    if (action === "backup" && args.length === 2) { protectDataDir(); console.log(JSON.stringify(await store.create(), null, 2)); }
+    else if (action === "list" && args.length === 2) console.log(JSON.stringify(store.list(), null, 2));
+    else if (action === "verify" && args.length === 3) console.log(JSON.stringify(await store.verify(args[2]), null, 2));
+    else if (action === "restore" && (args.length === 3 || args.length === 6 && args[3] === "--apply" && args[4] === "--confirm" && args[5] === args[2])) {
+      if (args.length === 6) protectDataDir();
+      console.log(JSON.stringify(await store.restore(args[2], args.length === 6), null, 2));
+    } else throw new Error("Use history backup|list|verify <id>|restore <id> [--apply --confirm <same id>]");
+    return;
+  }
   if (command === "operator") {
     if (args[1] !== "authorize" || args.length !== 2) throw new Error("Use operator authorize");
     protectDataDir();
@@ -190,6 +201,7 @@ export async function main(args) {
     try { if (JSON.parse(readFileSync(instancePath, "utf8")).nonce === instance.nonce) rmSync(instancePath); } catch {}
     clearInterval(timer);
   });
+  if (existsSync(join(dataDir, "history-maintenance.lock"))) throw new Error("History restore maintenance is in progress. Inspect the lock before starting.");
   runtime.registerServiceController(serviceController({ root, launcher, dataDir, instance }));
   await import(pathToFileURL(join(root, ".output/server/index.mjs")).href);
 }

@@ -30,6 +30,7 @@ export function requestGate(req: Request, keys: ApiKeyStore = proxyApiKeys): Res
   if (req.headers.has("origin") && !corsHeaders(req)["Access-Control-Allow-Origin"]) return Response.json({ error: { type: "forbidden_origin", message: "This browser origin is not allowed" } }, { status: 403 });
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(req) });
   if (!new URL(req.url).pathname.startsWith("/v1/")) return null;
+  if (req.method === "GET" && /^\/v1\/proxy\/download\/[A-Za-z0-9_-]{43}$/.test(new URL(req.url).pathname)) return null; // One-use, expiring download capability is checked by its handler.
   if (new URL(req.url).pathname === "/v1/proxy/operator") return null; // Dedicated operator grant is checked by this route.
   try {
     if (!keys.authorize(req.headers).allowed) return Response.json({ error: { type: "authentication_error", message: "A valid proxy bearer token is required" } }, { status: 401, headers: { "WWW-Authenticate": "Bearer" } });

@@ -1,3 +1,4 @@
+import { requestSelection, requestColumns, withRequestDetails, decodeRequest, errorTypeSql, errorCodeSql, errorCategorySql } from "./activity-records.js";
 import { activityInsights, modelCheckHistory } from "./activity-insights.js";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync } from "node:fs";
@@ -179,28 +180,12 @@ export class ActivityDatabase {
     if (query.model) { filters.push("r.model=?"); bindings.push(query.model); }
     const from = `FROM requests r JOIN systems s ON r.system_id=s.id${filters.length ? " WHERE " + filters.join(" AND ") : ""}`;
     const legacyUndated = Number(this.statement("SELECT COALESCE(SUM(total),0) AS count FROM legacy_totals").get()!.count);
-    const requestFilters: string[] = [];
-    const requestBindings = [...bindings];
-    if (query.requestKind === "chat") requestFilters.push(`r.endpoint IN(${endpoints.indexOf("/v1/chat/completions")},${endpoints.indexOf("/v1/proxy/model-check")})`);
-    if (query.requestKind === "errors") requestFilters.push("r.outcome<>0");
-    if (query.requestKind === "checks") requestFilters.push("r.self_check=1");
-    if (query.requestKey === "unattributed") requestFilters.push("r.application_id IS NULL");
-    else if (query.requestKey) { requestFilters.push("r.application_id IN(SELECT id FROM request_applications WHERE key_id=?)"); requestBindings.push(query.requestKey); }
-    if (query.requestId) { requestFilters.push("r.request_id=?"); requestBindings.push(uuidBytes(query.requestId)); }
-    const errorType = "COALESCE(json_extract((SELECT detail FROM request_errors WHERE request_id=r.request_id),'$.diagnostic.type'),'unknown')";
-    const errorCode = "COALESCE(json_extract((SELECT detail FROM request_errors WHERE request_id=r.request_id),'$.diagnostic.code'),'')";
-    const category = `CASE WHEN r.outcome=2 THEN 'cancelled'
-      WHEN ${errorType} LIKE '%auth%' OR COALESCE(r.application_status,r.status) IN(401,403) THEN 'authentication'
-      WHEN ${errorType} LIKE '%throttl%' OR ${errorType} LIKE '%quota%' OR ${errorType} LIKE '%credit%' OR COALESCE(r.application_status,r.status)=429 THEN 'throttling'
-      WHEN ${errorType} LIKE '%disengag%' OR ${errorType} LIKE '%model%' OR ${errorType} LIKE '%empty%' THEN 'model'
-      WHEN ${errorType} LIKE '%valid%' OR COALESCE(r.application_status,r.status) IN(400,413,422) THEN 'validation'
-      WHEN ${errorType} LIKE '%transport%' OR ${errorType} LIKE '%timeout%' OR ${errorType} LIKE '%network%' OR COALESCE(r.application_status,r.status) IN(502,503,504) THEN 'transport' ELSE 'other' END`;
-    if (query.errorCategory !== "all") { requestFilters.push("r.outcome<>0", `(${category})=?`); requestBindings.push(query.errorCategory); }
-    const requestFrom = from + (requestFilters.length ? (filters.length ? " AND " : " WHERE ") + requestFilters.join(" AND ") : "");
+    const selection = requestSelection(query, now), requestFrom = selection.from, requestBindings = selection.bindings;
+    const errorType = errorTypeSql, errorCode = errorCodeSql, category = errorCategorySql;
     const totalRecords = Number(this.statement(`SELECT COUNT(*) AS count ${requestFrom}`).get(...requestBindings)!.count);
     const offset = Math.min(query.offset, Math.max(0, Math.ceil(totalRecords / query.limit) - 1) * query.limit);
-    const recent = this.statement(`SELECT r.*,s.address,a.key_id AS api_key_id,a.label AS api_key_label,t.first_byte_ms,t.queue_ms,t.attempts,t.failures,t.timeline,t.truncated,d.detail ${requestFrom.replace("JOIN systems s ON r.system_id=s.id", "JOIN systems s ON r.system_id=s.id LEFT JOIN request_applications a ON a.id=r.application_id LEFT JOIN request_timings t ON t.request_id=r.request_id LEFT JOIN request_errors d ON d.request_id=r.request_id")} ORDER BY received_ms DESC,seq DESC LIMIT ? OFFSET ?`).all(...requestBindings, query.limit, offset).map(row => ({ id: uuidText(row.request_id as Uint8Array), address: String(row.address), receivedAt: new Date(Number(row.received_ms)).toISOString(), method: methods[Number(row.method)], endpoint: endpoints[Number(row.endpoint)], source: Number(row.self_check) ? "self-check" : "application", status: Number(row.status), outcome: outcomes[Number(row.outcome)], responseBytes: Number(row.bytes), durationMs: Number(row.duration_ms), model: row.model || null, servedModel: row.servedModel || null, clientSoftware: String(row.clientSoftware), streamed: row.streamed === null ? null : !!row.streamed, apiKeyId: row.api_key_id ?? null, apiKeyLabel: row.api_key_label ?? null, applicationStatus: row.application_status, firstByteMs: row.first_byte_ms ?? null, queueMs: row.queue_ms ?? null, upstreamAttempts: row.attempts ?? null, upstreamFailures: row.failures ?? null, timeline: row.timeline ? JSON.parse(String(row.timeline)) : [], timelineTruncated: !!row.truncated, timingRecorded: row.timeline !== null, diagnostic: row.detail ? JSON.parse(String(row.detail)).diagnostic ?? null : null }));
-    const errorFrom = requestFrom + (filters.length || requestFilters.length ? " AND " : " WHERE ") + "r.outcome<>0";
+    const recent = this.statement(`SELECT ${requestColumns} ${withRequestDetails(requestFrom)} ORDER BY received_ms DESC,seq DESC LIMIT ? OFFSET ?`).all(...requestBindings, query.limit, offset).map(decodeRequest);
+    const errorFrom = requestFrom + (selection.conditions.length ? " AND " : " WHERE ") + "r.outcome<>0";
     const errorGroups = this.statement(`SELECT ${category} AS category,${errorType} AS type,${errorCode} AS code,COUNT(*) AS total,COUNT(DISTINCT r.system_id) AS systems,COUNT(DISTINCT NULLIF(r.model,'')) AS models,MAX(r.received_ms) AS lastSeen ${errorFrom} GROUP BY category,type,code ORDER BY total DESC,lastSeen DESC LIMIT 50`).all(...requestBindings);
     const errorTotal = Number(this.statement(`SELECT COUNT(*) AS count ${errorFrom}`).get(...requestBindings)!.count);
     const errorOffset = Math.min(query.errorOffset, Math.max(0, Math.ceil(errorTotal / query.errorLimit) - 1) * query.errorLimit);
