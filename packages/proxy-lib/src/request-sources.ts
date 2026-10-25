@@ -3,6 +3,9 @@ import { HistoryBackups } from "./history-backups.js";
 import { ActivityDatabase } from "./activity-database.js";
 import { entry, activityQuery, sourceAddress, type SavedRequest, type ActivityQuery } from "./activity-schema.js";
 import { createLogger } from "@m365-copilot/core";
+import { authenticationStatus } from "@m365-copilot/core";
+import { AlertMonitor } from "./alert-monitor.js";
+import { errorCategorySql } from "./activity-records.js";
 import type { ActivityEvent } from "./http-activity.js";
 export { sourceAddress, parseActivityQuery, type ActivityQuery } from "./activity-schema.js";
 const log = createLogger("request-sources");
@@ -16,7 +19,20 @@ export class RequestSources {
   private error: string | null = null;
   private closed = false;
   private notSaved = 0;
-  constructor(private directory?: string) {}
+  readonly alerts: AlertMonitor;
+  constructor(private directory?: string) {
+    this.alerts = new AlertMonitor(directory, (settings, now) => {
+      this.flush();
+      try {
+        const r = this.open().db.prepare(`SELECT COUNT(*) AS total,COALESCE(SUM(r.outcome=1),0) AS failed,
+          COALESCE(SUM(r.outcome=1 AND (${errorCategorySql})='throttling'),0) AS throttled
+          FROM requests r WHERE r.self_check=0 AND r.endpoint=${entry.shape.endpoint.options.indexOf("/v1/chat/completions")} AND r.received_ms>? AND r.received_ms<=?`)
+          .get(now - settings.windowMinutes * 60_000, now)!;
+        return { total: Number(r.total), failed: Number(r.failed), throttled: Number(r.throttled),
+          storageError: !!this.error || !!this.pending.length || !!this.notSaved, authentication: authenticationStatus().status };
+      } catch { return { total: 0, failed: 0, throttled: 0, storageError: true, authentication: authenticationStatus().status }; }
+    });
+  }
   private open() {
     if (!this.database) this.database = new ActivityDatabase(this.directory);
     return this.database;
@@ -68,5 +84,5 @@ export class RequestSources {
     this.flush(); if (!this.directory || this.closed || this.pending.length) throw new Error("A writable persistent history database is required");
     this.open(); return new HistoryBackups(this.directory);
   }
-  close() { this.flush(); this.closed = true; this.database?.close(); this.database = undefined; }
+  close() { this.alerts.close(); this.flush(); this.closed = true; this.database?.close(); this.database = undefined; }
 }

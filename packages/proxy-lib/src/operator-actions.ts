@@ -1,5 +1,6 @@
 import { diagnosticText } from "./error-diagnostics.js";
 import { activityQuery } from "./activity-schema.js";
+import { alertSettings } from "./alert-store.js";
 import { historyDownloads } from "./history-export.js";
 import { z } from "zod/v4";
 import { operatorAccess, type OperatorAccess } from "./operator-access.js";
@@ -11,6 +12,9 @@ import type { HttpActivity } from "./http-activity.js";
 const historyLog = createLogger("operator-history");
 const command = z.discriminatedUnion("action", [
   z.object({ action: z.literal("unlock") }).strict(),
+  z.object({ action: z.literal("alerts-configure"), settings: alertSettings }).strict(),
+  z.object({ action: z.literal("alerts-acknowledge"), id: z.uuid() }).strict(),
+  z.object({ action: z.literal("alerts-history"), offset: z.number().int().min(0).max(10000000).default(0) }).strict(),
   z.object({ action: z.literal("export-create"), format: z.enum(["json", "csv"]), query: activityQuery.partial().strict() }).strict(),
   z.object({ action: z.literal("backup-list"), offset: z.number().int().min(0).max(1000000).default(0) }).strict(),
   z.object({ action: z.literal("backup-create") }).strict(),
@@ -36,6 +40,9 @@ export async function operatorAction(req: Request, activity: HttpActivity, acces
     if (value.action === "backup-create") return Response.json(await activity.sources.backupStore().create(), { status: 201, headers });
     if (value.action === "backup-verify") return Response.json(await activity.sources.backupStore().restore(value.id), { headers });
     if (value.action === "unlock") return Response.json({ unlocked: true }, { headers });
+    if (value.action === "alerts-configure") return Response.json(activity.sources.alerts.configure(value.settings), { headers });
+    if (value.action === "alerts-acknowledge") return Response.json(activity.sources.alerts.acknowledge(value.id), { headers });
+    if (value.action === "alerts-history") return Response.json(activity.sources.alerts.snapshot(value.offset), { headers });
     if (value.action === "key-create") return Response.json(keys.create(value.label), { status: 201, headers });
     if (value.action === "key-rename") { keys.rename(value.id, value.label); return Response.json({ updated: true }, { headers }); }
     if (value.action === "key-revoke") { keys.revoke(value.id); return Response.json({ updated: true }, { headers }); }

@@ -33,6 +33,8 @@ async function ready(newPid) {
 let backupId;
 try {
   const before = await ready(); assert.equal(before.service.available, true);
+  assert.equal(before.alerts.settings.enabled, false, "alerts must be opt-in");
+  assert.equal(before.alerts.running, true, "standalone background evaluator must be wired");
   await (await fetch(base + "/v1/models")).text();
   const grant = JSON.parse(await command("operator", "authorize"));
   assert(!readFileSync(join(data, "operator-access.json"), "utf8").includes(grant.token));
@@ -48,6 +50,11 @@ try {
   assert.equal((await operator({ action: "key-revoke", id: key.id })).status, 200);
   const service = await operator({ action: "status" }); assert.equal(service.status, 200);
   assert.equal((await service.json()).available, true);
+  const alertSettings = { ...before.alerts.settings, enabled: true };
+  const configuredAlerts = await operator({ action: "alerts-configure", settings: alertSettings });
+  assert.equal(configuredAlerts.status, 200);
+  assert.equal((await configuredAlerts.json()).settings.enabled, true);
+  assert.equal((await operator({ action: "alerts-configure", settings: { ...alertSettings, webhook: "https://unrequested.invalid" } })).status, 400);
   const jsonJob = await operator({ action: "export-create", format: "json", query: { range: "all", limit: 1, offset: 999 } });
   assert.equal(jsonJob.status, 200); const download = await jsonJob.json();
   assert(download.snapshot.records > 1);
@@ -65,6 +72,9 @@ try {
   const restart = await operator({ action: "restart" }); assert.equal(restart.status, 202); await restart.text();
   const after = await ready(before.instance.pid); assert.notEqual(after.instance.id, before.instance.id);
   assert.equal(after.apiKeys.required, false); assert.equal(after.apiKeys.keys[0].label, "Renamed"); assert(after.apiKeys.keys[0].revokedAt);
+  assert.equal(after.alerts.settings.enabled, true, "alert settings survive detached restart");
+  assert.equal(after.alerts.running, true);
+  assert.equal((await operator({ action: "alerts-configure", settings: { ...alertSettings, enabled: false } })).status, 200);
   assert(after.sources.storage.storedRecords >= metadata.sources.storage.storedRecords);
   assert.equal((await fetch(base + "/v1/models")).status, 200);
   console.log("PASS: standalone operator grants, origin isolation, key management, service inspection, real restart and saved history (offline)");

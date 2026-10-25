@@ -108,6 +108,7 @@ export interface FetchApp {
 export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
   const pool = new SessionPool(sessionOptions);
   const activity = new HttpActivity();
+  activity.sources.alerts.start();
 
   async function fetch(req: Request, trace?: RequestTrace | null): Promise<Response> {
     const { pathname } = new URL(req.url);

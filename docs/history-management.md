@@ -48,6 +48,10 @@ and manifests are private and are published only after successful creation. The
 list displays recorded metadata, not a fresh integrity check on each refresh.
 Incomplete/unreadable entries are reported separately.
 
+**Alert monitoring state is separate:** alerts.sqlite (0.13.0) stores alert settings,
+incidents and events. History backups/restores do not include or roll back that file.
+Combined operational backup remains queued.
+
 Backups include requests, diagnostics, timings, application attribution, model-test
 reports and rollups. They do **not** include Microsoft credentials, API-key stores,
 server settings or browser profiles. They contain saved operational data and should

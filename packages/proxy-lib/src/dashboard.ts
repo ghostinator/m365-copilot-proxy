@@ -20,6 +20,7 @@ export function operatorStatus(pool: SessionPool, activity: HttpActivity = httpA
     instance: { ...activity.instance, host: process.env.NITRO_HOST || process.env.HOST || "127.0.0.1", port: Number(process.env.NITRO_PORT || process.env.PORT || 4141) },
     activity: activity.snapshot(),
     sources: activity.sources.snapshot(query),
+    alerts: activity.sources.alerts.snapshot(),
     modelCheck: modelCheckState(),
     models: getAvailableModels(),
     lastRoute: observed.route,

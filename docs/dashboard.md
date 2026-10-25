@@ -220,3 +220,61 @@ The status API adds `sources.reliability`: `current`, `previous`, `from`, `to`,
 Dates are epoch milliseconds, rates fractions, changes percentage points. All
 rates and missing timings are null when unobserved. Saved storage and schema are
 unchanged; the view is recomputed from requests, not persisted duplicate aggregates.
+
+## Opt-in alert center (0.13.0)
+
+Monitoring starts **disabled**. Unlock operator access in Settings, review
+**Opt-in alerts**, enable monitoring and apply settings. Overview shows a banner;
+**Errors → Alert center** lists active incidents and saved lifecycle events. Unlock
+management to acknowledge an incident or page through older events (20 per page).
+Acknowledgement marks that exact incident as seen; it neither resolves the cause
+nor silences a future recurrence. Regular status access can read the latest 20
+events. Application API keys remain optional and do not grant management rights.
+
+The standalone server evaluates every 30 seconds even with the dashboard closed.
+Embedders created with createApp do the same; closing the app stops the monitor.
+Default createApp instances use in-memory alert state; the standalone server persists it.
+This reads local observations only: no model tests, auth refresh, chat, email,
+webhook or OS/browser notification. All rules are proxy-wide and deliberately
+ignore dashboard filters. Monitoring cannot report its own stopped/crashed process
+or a fatal startup authentication failure; external monitoring is separate work.
+
+Defaults are a rolling five-minute arrival-time window, at least ten completed
+application chats, five errors and 50% errors, continuously observed for 60 seconds.
+Throttling requires the same minimum volume and throttled-request count, without
+the percentage threshold. Cancellations count toward sample volume but not errors.
+HTTP-200 SSE failures count as errors; model-list polls, manual capability tests,
+future timestamps and aggregate-only legacy records are excluded. The common
+sustain time also applies to authentication-required and activity-storage failures.
+The latter includes unsaved/lost activity. A pending timer resets if a condition
+clears or observations become unknown; unknown does not resolve an active incident.
+Auth starting is unknown, not auth failure or recovery. Evaluation timing means
+opening can be up to one 30-second interval after the configured sustain time.
+
+Thresholds: window 1–60 minutes; samples/errors 1–10,000 (errors must not exceed
+minimum samples); error percentage 1–100; sustain 30–3,600 seconds. Applying settings
+closes existing incidents as reset/disabled and starts fresh pending timers.
+Conditions that persist can open again after the new sustain interval. No automatic
+retry, key-mode change, login, model test, cancellation or other remediation occurs.
+
+Alert settings, active incidents, acknowledgement and lifecycle events persist in
+private **alerts.sqlite**, separate from activity.sqlite. Pending sustain timers
+restart after process restart. One active incident per rule is updated in place;
+only opening, acknowledgement, recovery and configuration closure append events.
+Event retention is unlimited; lists are paged. Events contain fixed rule messages
+and numeric counts, not prompts, responses, client IPs or credentials. The view
+uses bounded reads; traffic scans are bounded to the selected rolling window.
+A failure of the alert store itself is reported as monitor-unavailable in status
+and the dashboard, not silently treated as healthy.
+
+**History backups/restores do not include or roll back alerts.sqlite.** Combined
+operational backup and off-host notifications remain queued. Acknowledged incidents
+are re-evaluated after restart and remain active until observed recovery or settings
+change. No repeated event is appended merely because a condition persists.
+
+The status API adds `alerts` (settings, active, latest events, total/offset/limit,
+checkedAt, error, running, intervalSeconds and retention). Operator actions
+`alerts-configure`, `alerts-acknowledge` and `alerts-history` use the existing host
+issued, origin-bound grant. Invalid settings/unknown fields fail validation before
+mutation. Event paging uses offsets, newest insertion first; new events may shift
+pages. IDs protect acknowledgements against stale controls targeting a recurrence.

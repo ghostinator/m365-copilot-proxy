@@ -29,3 +29,25 @@ it("ignores a newly created token arriving after the operator locks the dashboar
   expect(el("created-key-token").value).toBe(""); expect(el("created-key").hidden).toBe(true);
   expect(el("key-management").disabled).toBe(true);
 });
+
+it("renders alert evidence as text, preserves draft settings, and locks acknowledgement controls", async () => {
+  const { el, context } = await dashboard();
+  const alerts = { settings: { enabled: true, failures: true, throttling: true, authentication: true, storage: true,
+    windowMinutes: 5, minRequests: 10, minFailures: 5, failurePercent: 50, sustainSeconds: 60 },
+    active: [{ id: "incident", rule: "failures", opened_ms: 1000, last_seen_ms: 2000, acknowledged_ms: null, evidence: "<img src=x>" }],
+    events: [{ seq: 1, rule: "failures", event: "opened", at_ms: 1000, evidence: "<script>private text</script>" }],
+    total: 1, offset: 0, limit: 20, checkedAt: 2000, running: true, error: null };
+  runInContext("operatorToken='grant';renderAlerts("+JSON.stringify(alerts)+")", context);
+  expect(el("alert-incidents").children[0].children[0].textContent).toContain("<img src=x>");
+  expect(el("alert-events").children[0].textContent).toContain("<script>private text</script>");
+  expect(el("alert-incidents").children[0].children[1].disabled).toBe(false);
+  el("alerts-minRequests").value = "25"; el("alerts-minRequests").listeners.input();
+  runInContext("renderAlerts("+JSON.stringify(alerts)+")", context);
+  expect(el("alerts-minRequests").value).toBe("25");
+  runInContext("lockOperator()", context);
+  expect(el("alert-settings").disabled).toBe(true);
+  expect(el("alert-incidents").children[0].children[1].disabled).toBe(true);
+  runInContext("clearStatus('Disconnected')", context);
+  expect(el("alert-incidents").children).toHaveLength(0);
+  expect(el("alert-events").children).toHaveLength(0);
+});

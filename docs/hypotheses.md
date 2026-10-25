@@ -5917,3 +5917,18 @@ or model quality claim is made. Four deterministic unit scenarios passed (includ
 suite: 511 passed, six live tests skipped. This confirms accounting only; there
 is no new live-model reliability experiment. Installed-package validation is
 recorded separately in the release verification output.
+
+
+### Sustained alert lifecycle accounting — October 25, 2026
+
+H: local saved chat outcomes and pure auth/storage observations can open one
+sustained incident per rule, preserve acknowledgement across restart and append
+only lifecycle transitions. Falsification: transient/undersampled conditions open,
+unknown storage resolves traffic incidents, repeated ticks duplicate openings,
+acknowledgement suppresses a recurrence, or disabled monitoring samples the API.
+Seven offline engine/operator scenarios plus a dashboard control scenario pass:
+threshold sustain/reset, future/client-check exclusions, real saved SSE failures,
+unknown-vs-recovery, 32 durable events paged 20/12, settings validation and locked
+management. No M365 quality/availability conclusion or external delivery claim.
+
+Full Windows offline suite after alert integration: 519 passed, six live tests skipped.

@@ -4,7 +4,7 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.12.0)
+## Dashboard and operations (0.13.0)
 
 New: export **all matching history** as streamed JSON/CSV, create verified online
 SQLite backups, and prepare an explicit offline restore with a safety snapshot.
@@ -814,6 +814,8 @@ per-check sample summaries, with previous-result comparisons. Tests remain
 manually requested. Missing historical timings are labeled unknown.
 **Models → Observed model reliability** compares application chat outcomes by requested/served route, with previous-period rates, sample counts, latency and time intervals. It uses saved traffic and sends no model probes.
 
+**Opt-in alerts** monitor sustained chat failures, throttling, sign-in recovery and history-storage problems in the background. Enable them with operator access in Settings; inspect and acknowledge incidents in Errors. No external notifications or model probes are enabled.
+
 See the [dashboard guide](docs/dashboard.md) and [feature roadmap](docs/roadmap.md).
 
 New analytics views use synthetic documentation data, not live model evaluations:
@@ -841,3 +843,9 @@ Named-key settings (synthetic documentation data):
 selected. Capture the requested-to-served route table (including sample counts,
 previous-period rates and latency), success-rate chart and expanded interval data.
 Use synthetic/demo data; keep operator grants and application tokens out of view. -->
+
+> **Screenshot to add — alerts:** Capture Settings → Opt-in alerts with the rule
+> thresholds visible, then Errors → Alert center showing a synthetic active
+> incident, acknowledgement and recovery events. Keep operator/application tokens
+> out of view. Also capture Models → Observed model reliability with a rolling
+> time range, requested/served routes, sample counts and expanded chart intervals.

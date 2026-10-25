@@ -86,6 +86,24 @@ filters apply; error-only and request UUID controls do not bias the rates. No pr
 or notifications run automatically. Keys stay optional and retention unlimited.
 Empty periods stay unknown, and small sample labels do not claim significance.
 
+## Opt-in background alerts (0.13.0)
+
+Unlock management, review Settings → Opt-in alerts and explicitly enable monitoring.
+Defaults: five-minute window, ten completed chats, five errors, 50% error rate,
+60-second sustain. Throttling uses the minimum volume/count without the percentage
+threshold; auth-required/storage failures use the same sustain timer. Check Errors
+→ Alert center for current incidents and paged events. Acknowledgement marks an
+incident as seen without suppressing a later recurrence. Settings changes close
+existing incidents and restart pending timers. All application keys remain optional.
+
+Evaluation runs locally every 30 seconds while the proxy runs, independently of
+browser polling and filters. No automatic model probes, auth refresh, remediation
+or external notifications. A stopped/crashed proxy cannot report its own outage.
+Settings/incidents/events use private alerts.sqlite with unlimited retention;
+activity history backups do not include this separate state. Pending sustain timers
+restart after process restart. Unknown observations do not imply recovery. If the
+alert store fails, status explicitly reports monitor-unavailable.
+
 ## Screenshots
 
 Synthetic data, isolated preview; no production credentials or model claims.

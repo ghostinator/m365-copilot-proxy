@@ -70,3 +70,5 @@ packages/proxy/api-keys.md
 /activity-restore-*.sqlite*
 
 packages/proxy/history-management.md
+
+/alerts.sqlite*

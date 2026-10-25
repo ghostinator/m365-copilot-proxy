@@ -329,3 +329,22 @@ output and complete totals. The installed runtime compares reliability totals to
 independent chat-performance totals through success, throttling, reconnect and
 cancellation. UI tests render hostile strings as text and clear observations when
 access is forgotten. These commands use synthetic offline traffic, not M365 quota.
+
+
+## Sustained alert lifecycle (offline, 0.13.0)
+
+```sh
+pnpm build
+pnpm exec vitest run packages/proxy-lib/src/alerts.test.ts packages/proxy-lib/src/dashboard-operations.test.ts
+node scripts/test-operator-runtime.mjs
+```
+
+Fake-time engine fixtures test thresholds/sustain interruption, durable deduplication,
+acknowledgement, recovery, recurrence, unknown observations, settings disable/reset,
+corrupt-store reporting and event paging without network calls. A real HttpActivity
+fixture records an SSE 429 plus cancellation and excludes polls/manual checks;
+the background timer opens the expected incidents without a dashboard. The isolated
+installed runtime verifies opt-in defaults, persisted settings and a running evaluator
+through detached restart. No Microsoft request, notification or production alert
+configuration change is required. Fatal startup/whole-process outage and long-running
+soak remain external host checks; history backups do not cover the alert database.

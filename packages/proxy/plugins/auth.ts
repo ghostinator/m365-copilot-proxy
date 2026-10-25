@@ -11,6 +11,7 @@ export default defineNitroPlugin((app) => {
   process.env.HOST ??= "127.0.0.1";
   process.env.NITRO_HOST ??= process.env.HOST;
   validateBind(process.env.NITRO_HOST);
+  httpActivity.sources.alerts.start();
   // Nitro 2 does not await async plugins. Own the rejection and fail the process;
   // readiness remains 503 until getToken has completed successfully.
   void getToken().catch((err: Error) => {
@@ -21,7 +22,7 @@ export default defineNitroPlugin((app) => {
   // Keep readiness valid across idle token expiry, without generating chat turns
   // or repeatedly launching a browser when a tenant requires human reapproval.
   const stopMaintenance = startAuthenticationMaintenance();
-  app.hooks.hook("close", () => { stopMaintenance(); pool.close(); httpActivity.sources.flush(); });
+  app.hooks.hook("close", () => { stopMaintenance(); httpActivity.sources.alerts.close(); pool.close(); httpActivity.sources.flush(); });
   // Late HTTP finish/close events can still arrive while Nitro drains sockets.
   // Keep collecting until the process exits, then synchronously flush and close.
   process.once("exit", () => httpActivity.sources.close());
