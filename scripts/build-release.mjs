@@ -3,6 +3,8 @@ import { cpSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync,
 import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
+// Git Bash GNU tar treats Windows drive letters as remote hosts. Use Windows bsdtar.
+const tar = process.platform === "win32" ? join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe") : "tar";
 const root = resolve(import.meta.dirname, "..");
 const version = JSON.parse(readFileSync(join(root, "packages/proxy/package.json"), "utf8")).version;
 const revision = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
@@ -38,12 +40,12 @@ function walk(dir, prefix = "") {
 walk(destination);
 writeFileSync(join(destination, "manifest.json"), JSON.stringify({ version, revision, localChanges: !!execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim(), platform: process.platform, architecture: process.arch, nodeVersion: process.version, bundledNode: includeNode, files }, null, 2) + "\n");
 const archive = destination + ".tar.gz";
-execFileSync("tar", ["-czf", archive, "-C", destination, "."], { windowsHide: true });
+execFileSync(tar, ["-czf", archive, "-C", destination, "."], { windowsHide: true });
 writeFileSync(archive + ".sha256", createHash("sha256").update(readFileSync(archive)).digest("hex") + "  " + archive.split(/[\\/]/).pop() + "\n");
 let windowsArchive;
 if (process.platform === "win32") {
   windowsArchive = destination + ".zip";
-  execFileSync("tar", ["-a", "-cf", windowsArchive, "-C", destination, "."], { windowsHide: true });
+  execFileSync(tar, ["-a", "-cf", windowsArchive, "-C", destination, "."], { windowsHide: true });
   writeFileSync(windowsArchive + ".sha256", createHash("sha256").update(readFileSync(windowsArchive)).digest("hex") + "  " + windowsArchive.split(/[\\/]/).pop() + "\n");
 }
 console.log(JSON.stringify({ directory: destination, archive, windowsArchive }, null, 2));
