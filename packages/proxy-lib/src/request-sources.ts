@@ -4,7 +4,7 @@ import { BackupScheduler } from "./backup-scheduler.js";
 import { HistoryCursor } from "./history-export.js";
 import { HistoryBackups } from "./history-backups.js";
 import { ActivityDatabase } from "./activity-database.js";
-import { entry, activityQuery, sourceAddress, type SavedRequest, type ActivityQuery } from "./activity-schema.js";
+import { entry, activityQuery, sourceAddress, CHAT_ENDPOINT_SQL_IDS, type SavedRequest, type ActivityQuery } from "./activity-schema.js";
 import { createLogger } from "@m365-copilot/core";
 import { authenticationStatus } from "@m365-copilot/core";
 import { AlertMonitor } from "./alert-monitor.js";
@@ -33,11 +33,11 @@ export class RequestSources {
       try {
         const r = this.open().db.prepare(`SELECT COUNT(*) AS total,COALESCE(SUM(r.outcome=1),0) AS failed,
           COALESCE(SUM(r.outcome=1 AND (${errorCategorySql})='throttling'),0) AS throttled
-          FROM requests r WHERE r.self_check=0 AND r.endpoint=${entry.shape.endpoint.options.indexOf("/v1/chat/completions")} AND r.received_ms>? AND r.received_ms<=?`)
+          FROM requests r WHERE r.self_check=0 AND r.endpoint IN(${CHAT_ENDPOINT_SQL_IDS}) AND r.received_ms>? AND r.received_ms<=?`)
           .get(now - settings.windowMinutes * 60_000, now)!;
         const models = settings.models.length ? this.open().db.prepare(`SELECT r.model,COUNT(*) AS total,
           COALESCE(SUM(r.outcome=1),0) AS failed,COALESCE(SUM(r.outcome=1 AND (${errorCategorySql})='throttling'),0) AS throttled
-          FROM requests r WHERE r.self_check=0 AND r.endpoint=${entry.shape.endpoint.options.indexOf("/v1/chat/completions")}
+          FROM requests r WHERE r.self_check=0 AND r.endpoint IN(${CHAT_ENDPOINT_SQL_IDS})
           AND r.received_ms>? AND r.received_ms<=? AND r.model IN (${settings.models.map(() => "?").join(",")}) GROUP BY r.model`)
           .all(now - settings.windowMinutes * 60_000, now, ...settings.models.map(rule => rule.model))
           .map(row => ({ model: String(row.model), total: Number(row.total), failed: Number(row.failed), throttled: Number(row.throttled) })) : [];

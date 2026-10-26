@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { entry, type ActivityQuery } from "./activity-schema.js";
+import { entry, CHAT_ENDPOINT_SQL_IDS, type ActivityQuery } from "./activity-schema.js";
 
 const durations = { "24h": 86400000, "7d": 7 * 86400000, "30d": 30 * 86400000, "90d": 90 * 86400000, "365d": 365 * 86400000 };
 
@@ -10,7 +10,7 @@ export function activityInsights(db: DatabaseSync, query: ActivityQuery, now: nu
   if (query.model) { conditions.push("r.model=?"); bindings.push(query.model); }
   if (query.address) { conditions.push("r.system_id=(SELECT id FROM systems WHERE address=?)"); bindings.push(query.address); }
   // Health checks and model-list polls have very different latency from chat.
-  conditions.push("r.self_check=0", `r.endpoint=${entry.shape.endpoint.options.indexOf("/v1/chat/completions")}`);
+  conditions.push("r.self_check=0", `r.endpoint IN(${CHAT_ENDPOINT_SQL_IDS})`);
   const from = `FROM requests r LEFT JOIN request_timings t ON r.request_id=t.request_id WHERE ${conditions.join(" AND ")}`;
   const summary = db.prepare(`SELECT COUNT(*) AS total,COALESCE(SUM(r.outcome=0),0) AS succeeded,
     COALESCE(SUM(r.outcome=1),0) AS failed,COALESCE(SUM(r.outcome=2),0) AS cancelled,

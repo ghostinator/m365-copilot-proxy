@@ -49,7 +49,7 @@ it("shows invalid requests and unsupported endpoints even when no internal logge
   const app = createApp();
   try {
     await (await app.fetch(new Request("http://localhost/v1/chat/completions", { method: "POST", body: '{"private-prompt-unfinished' }), { remoteAddress: "192.0.2.20" })).text();
-    await (await app.fetch(new Request("http://localhost/v1/responses?api_key=private-query", { method: "POST" }), { remoteAddress: "192.0.2.20" })).text();
+    await (await app.fetch(new Request("http://localhost/v1/unsupported?api_key=private-query", { method: "POST" }), { remoteAddress: "192.0.2.20" })).text();
     const status = await (await app.fetch(new Request("http://localhost/v1/proxy/status?address=192.0.2.20"))).json();
     expect(status.sources.errorHistory.total).toBe(2);
     expect(status.sources.errors.map((e: any) => e.status)).toEqual([404, 400]);

@@ -1,5 +1,5 @@
 import type { ActivityQuery } from "./activity-schema.js";
-import { entry } from "./activity-schema.js";
+import { entry, CHAT_ENDPOINT_SQL_IDS } from "./activity-schema.js";
 export type Binding = string | number | Uint8Array | null;
 export const uuidBytes = (id: string) => Buffer.from(id.replaceAll("-", ""), "hex");
 const uuidText = (id: Uint8Array) => Buffer.from(id).toString("hex").replace(/^(\w{8})(\w{4})(\w{4})(\w{4})(\w{12})$/, "$1-$2-$3-$4-$5");
@@ -20,7 +20,7 @@ export function requestSelection(query: ActivityQuery, now: number) {
   if (query.range !== "all") { conditions.push("r.received_ms>=? AND r.received_ms<=?"); bindings.push(now - windows[query.range], now); }
   if (query.address) { conditions.push("s.address=?"); bindings.push(query.address); }
   if (query.model) { conditions.push("r.model=?"); bindings.push(query.model); }
-  if (query.requestKind === "chat") conditions.push(`r.endpoint IN(${endpoints.indexOf("/v1/chat/completions")},${endpoints.indexOf("/v1/proxy/model-check")})`);
+  if (query.requestKind === "chat") conditions.push(`r.endpoint IN(${CHAT_ENDPOINT_SQL_IDS},${endpoints.indexOf("/v1/proxy/model-check")})`);
   if (query.requestKind === "errors") conditions.push("r.outcome<>0");
   if (query.requestKind === "checks") conditions.push("r.self_check=1");
   if (query.requestKey === "unattributed") conditions.push("r.application_id IS NULL");

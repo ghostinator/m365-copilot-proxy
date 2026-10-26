@@ -49,15 +49,15 @@ it("creates a token once, renames and revokes without enabling required-key mode
   expect((await action({ action: "key-create", label: "a".repeat(5000) })).status).toBe(400);
   f.activity.sources.close();
 });
-it("drains admitted work before restarting, refuses new chats and leaves model-list reads available", async () => {
+it.each(['/v1/chat/completions', '/v1/responses', '/v1/messages'])("drains %s before restarting, refuses new chats and leaves model-list reads available", async endpoint => {
   vi.useFakeTimers();
   const activity = new HttpActivity(), restart = vi.fn(async () => {});
   registerServiceController({ status: async () => ({}), startup: async () => {}, restart });
-  const finish = activity.begin("POST", "/v1/chat/completions")!;
+  const finish = activity.begin("POST", endpoint)!;
   await serviceCommand("restart", activity);
   await vi.advanceTimersByTimeAsync(1000);
   expect(restart).not.toHaveBeenCalled();
-  expect(drainingResponse(new Request("http://localhost/v1/chat/completions", { method: "POST" }))?.status).toBe(503);
+  expect(drainingResponse(new Request("http://localhost" + endpoint, { method: "POST" }))?.status).toBe(503);
   expect(drainingResponse(new Request("http://localhost/v1/models"))).toBeNull();
   finish(200); await vi.advanceTimersByTimeAsync(500);
   expect(restart).toHaveBeenCalledOnce();

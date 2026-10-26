@@ -576,3 +576,25 @@ The same report records 192 passing selected parser/cancellation/reconnect tests
 and separate isolated fetch checks: health/models 200, Responses/Messages 404.
 Do not substitute those checks for a live client loop or assume an endpoint is
 supported because its name appears in saved request history.
+
+## Offline client contracts and API adapters
+
+Hypothesis H-CLIENT-CONTRACTS: actual client serializers, stream accumulators and
+native Pi tools can consume the proxy's validated calls without changing exact
+arguments or accepting failed turns.
+
+```sh
+pnpm test:clients
+pnpm exec vitest run tool-validation.test.ts handler-validation.test.ts client-auth.test.ts
+pnpm test:installed
+```
+
+`test:clients` builds the workspace, runs real OpenAI/Anthropic SDK fixtures, then
+the Docker-isolated Pi pack. SDK tests are in-process with a scripted upstream;
+no account login or live M365 quota is used. Pi needs an installed managed client
+and cached Docker image. Read pass/fail/skip counts separately; missing Docker is
+a failure, missing optional clients are skips. Compare exact file bytes, actions,
+returned tool history and acknowledgement counts. This proves the fixture
+contract, not live model quality or full CLI support. See
+[client-api-adapters.md](client-api-adapters.md) and
+[client-test-pack.md](client-test-pack.md).

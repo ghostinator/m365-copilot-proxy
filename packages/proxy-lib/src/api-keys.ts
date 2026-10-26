@@ -11,6 +11,13 @@ type State = z.infer<typeof stateSchema>;
 export interface ApplicationKey { id: string; label: string }
 const digest = (value: string) => createHash("sha256").update(value).digest();
 
+/** Messages uses x-api-key; an explicit Authorization header remains authoritative. */
+export function clientAuthorization(headers: Headers): string | null {
+  if (headers.has("authorization")) return headers.get("authorization");
+  const key = headers.get("x-api-key");
+  return key === null ? null : `Bearer ${key}`;
+}
+
 /** Named application credentials are stored only as digests; CLI mutations need local file access. */
 export class ApiKeyStore {
   readonly path: string;
@@ -35,7 +42,7 @@ export class ApiKeyStore {
       keys: state.keys.map(({ hash: _hash, ...metadata }) => metadata) };
   }
   authorize(headers: Headers): { allowed: boolean; application: ApplicationKey | null } {
-    const state = this.read(), token = headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] ?? "";
+    const state = this.read(), token = clientAuthorization(headers)?.match(/^Bearer\s+(.+)$/i)?.[1] ?? "";
     const presented = digest(token.length <= 4096 ? token : "");
     let application: ApplicationKey | null = null;
     for (const key of state.keys) if (!key.revokedAt && timingSafeEqual(Buffer.from(key.hash, "hex"), presented)) application = { id: key.id, label: key.label };

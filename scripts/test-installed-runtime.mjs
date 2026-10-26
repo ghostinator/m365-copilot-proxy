@@ -9,6 +9,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
+import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 const root = resolve(import.meta.dirname, "..");
 async function statusJson(response) {
   const text = await response.text();
@@ -113,6 +115,22 @@ async function start(authenticated, extra = {}) {
       assert.equal(cancelled.activity.chats.cancelled, 1);
       assert.equal(cancelled.activity.chats.active, 0);
       assert(cancelled.activity.recent.some(event => event.outcome === "cancelled"));
+      const openai = new OpenAI({ apiKey: extra.M365_API_KEY, baseURL: base + '/v1', maxRetries: 0 });
+      const anthropic = new Anthropic({ apiKey: extra.M365_API_KEY, baseURL: base, maxRetries: 0 });
+      const streams = [
+        () => openai.responses.create({ model: 'claude-sonnet', input: 'Offline held turn', stream: true, store: false }),
+        () => anthropic.messages.create({ model: 'claude-sonnet', max_tokens: 100, messages: [{ role: 'user', content: 'Offline held turn' }], stream: true }),
+      ];
+      for (const startStream of streams) {
+        const stream = await startStream();
+        for await (const event of stream) { assert(event.type); stream.controller.abort(); break; }
+        await delay(150);
+        const state = await statusJson(await request(base + '/v1/proxy/status', { headers }));
+        assert.equal(state.activity.chats.active, 0, 'SDK abort must release admission');
+      }
+      const afterSdkAbort = await statusJson(await request(base + '/v1/proxy/status', { headers }));
+      assert.equal(afterSdkAbort.activity.chats.cancelled, 3);
+      console.log('PASS: actual Responses/Messages SDK aborts release standalone admission');
     } else {
       const plain = await sendChat(false);
       assert.equal(plain.status, mode === "throttled" ? 429 : 200);
@@ -207,6 +225,27 @@ async function start(authenticated, extra = {}) {
       assert.equal((await request(base + "/v1/models")).status, 200);
       assert(!readFileSync(join(dir, "proxy-api-keys.json"), "utf8").includes(development.token));
       console.log("PASS: named application keys, hot reload, attribution, optional/required mode and revocation");
+    }
+    if (mode === 'success' && extra.M365_API_KEY) {
+      const openai = new OpenAI({ apiKey: extra.M365_API_KEY, baseURL: base + '/v1', maxRetries: 0 });
+      const anthropic = new Anthropic({ apiKey: extra.M365_API_KEY, baseURL: base, maxRetries: 0 });
+      const reply = await openai.responses.create({ model: 'claude-sonnet', input: 'Offline greeting', store: false });
+      assert.equal(reply.output_text, 'Offline fixture reply. ✓');
+      const streamed = await openai.responses.stream({ model: 'claude-sonnet', input: 'Offline greeting', store: false }).finalResponse();
+      assert.equal(streamed.output_text, 'Offline fixture reply. ✓');
+      const body = { model: 'claude-sonnet', max_tokens: 100, messages: [{ role: 'user', content: 'Offline greeting' }] };
+      assert.deepEqual((await anthropic.messages.create(body)).content, [{ type: 'text', text: 'Offline fixture reply. ✓' }]);
+      assert.deepEqual((await anthropic.messages.stream(body).finalMessage()).content, [{ type: 'text', text: 'Offline fixture reply. ✓' }]);
+      const denied = await request(base + '/v1/messages', { method: 'POST', headers: { 'x-api-key': 'wrong' }, body: '{}' });
+      assert.equal(denied.status, 401);
+      assert.equal((await denied.json()).error.type, 'authentication_error');
+      for (const endpoint of ['/v1/responses', '/v1/messages']) {
+        const invalid = await request(base + endpoint, { method: 'POST', headers, body: '{broken' });
+        assert.equal(invalid.status, 400);
+        const tooLarge = await request(base + endpoint, { method: 'POST', headers, body: 'x'.repeat(2000) });
+        assert.equal(tooLarge.status, 413);
+      }
+      console.log('PASS: actual SDK JSON/SSE through standalone Responses/Messages, x-api-key, malformed/oversized bodies');
     }
     console.log(`PASS: offline ${mode} chat activity and streaming lifecycle`);
     const instance = JSON.parse(readFileSync(join(dir, "instance.json"), "utf8"));

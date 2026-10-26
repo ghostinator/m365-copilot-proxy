@@ -12,7 +12,7 @@ it("retains connectivity, rejected chat and unsupported endpoint counts while ex
     expect(await send("/v1/models")).toBe(200);
     expect(await send("/health/live")).toBe(200);
     expect(await send("/v1/chat/completions", { method: "POST", body: "{broken" })).toBe(400);
-    expect(await send("/v1/responses?api_key=private-query", { method: "POST" })).toBe(404);
+    expect(await send("/v1/unsupported?api_key=private-query", { method: "POST" })).toBe(404);
     expect(await send("/private-path-secret", { method: "POST" })).toBe(404);
     await send("/dashboard"); await send("/dashboard-script");
     for (let i = 0; i < 3; i++) {

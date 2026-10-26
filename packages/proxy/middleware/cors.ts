@@ -1,7 +1,7 @@
 /** Share the exact origin and API-key policy used by the embeddable app. */
-import { corsHeaders, requestGate, httpActivity, proxyApiKeys, drainingResponse } from "@m365-copilot/proxy-lib";
+import { corsHeaders, requestGate, httpActivity, proxyApiKeys, drainingResponse, clientErrorForRequest } from "@m365-copilot/proxy-lib";
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const request = new Request(getRequestURL(event), { method: event.method, headers: getRequestHeaders(event) as HeadersInit });
   setResponseHeader(event, "X-M365-Proxy-Instance", httpActivity.instance.id);
   setResponseHeader(event, "X-M365-Proxy-Version", httpActivity.instance.version);
@@ -26,5 +26,5 @@ export default defineEventHandler((event) => {
   for (const [key, value] of Object.entries(corsHeaders(request))) setResponseHeader(event, key, value);
   const gate = requestGate(request) ?? drainingResponse(request);
   if (!gate && new URL(request.url).pathname !== "/v1/proxy/operator" && !new URL(request.url).pathname.startsWith("/v1/proxy/download/")) finish?.applicationKey(proxyApiKeys.authorize(request.headers).application);
-  return gate ?? undefined;
+  return gate ? await clientErrorForRequest(request, gate) : undefined;
 });

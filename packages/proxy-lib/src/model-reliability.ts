@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { entry, type ActivityQuery } from "./activity-schema.js";
+import { entry, CHAT_ENDPOINT_SQL_IDS, type ActivityQuery } from "./activity-schema.js";
 
 const day = 86_400_000;
 const windows = { "24h": day, "7d": 7 * day, "30d": 30 * day, "90d": 90 * day, "365d": 365 * day };
@@ -14,7 +14,7 @@ function metrics(row: Record<string, unknown> | undefined) {
 /** Observations only. Never sends a model request or interprets HTTP success as answer quality. */
 export function modelReliability(db: DatabaseSync, query: ActivityQuery, now: number) {
   const span = query.range === "all" ? null : windows[query.range], start = span === null ? null : now - span;
-  const conditions = ["r.received_ms<=?", "r.self_check=0", `r.endpoint=${entry.shape.endpoint.options.indexOf("/v1/chat/completions")}`];
+  const conditions = ["r.received_ms<=?", "r.self_check=0", `r.endpoint IN(${CHAT_ENDPOINT_SQL_IDS})`];
   const bindings: (string | number)[] = [now];
   if (span !== null) { conditions.push("r.received_ms>?"); bindings.push(now - 2 * span); }
   if (query.model) { conditions.push("r.model=?"); bindings.push(query.model); }

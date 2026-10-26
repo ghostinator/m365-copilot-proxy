@@ -4,6 +4,11 @@ October 26 research follow-up: [verified parser fixes, real local Pi CRUD,
 cancellation/context checks and a bounded DeepWork route probe](docs/research-verification-2026-10-26.md).
 The probe does not add a public DeepWork model ID or change defaults.
 
+Client integration work adds [Responses and Messages API adapters, strict tool
+argument validation](docs/client-api-adapters.md), and an [offline real-client
+test pack](docs/client-test-pack.md). These changes are separate from the running
+live benchmark's deployed baseline.
+
 Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents like [pi](https://pi.dev/) and [OpenClaw](https://docs.openclaw.ai/). Wraps M365 Copilot's WebSocket/SignalR API in an OpenAI-compatible interface with tool calling support.
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.

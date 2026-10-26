@@ -1,5 +1,4 @@
 export { clientProfiles, ClientProfiles } from "./client-profiles.js";
-import { clientProfiles } from "./client-profiles.js";
 export { storageHistoryResponse } from "./storage-history-response.js";
 import { storageHistoryResponse } from "./storage-history-response.js";
 export { HistoryBackups, historyBackups } from "./history-backups.js";
@@ -16,8 +15,12 @@ export { incomingRequestBody } from "./incoming-body.js";
 import { proxyApiKeys } from "./api-keys.js";
 export { ApiKeyStore, proxyApiKeys } from "./api-keys.js";
 import { type ModelSessionOptions, getAvailableModels } from "@m365-copilot/core";
-import { ChatCompletionRequest } from "./schemas.js";
-import { SessionPool, handleChatCompletion } from "./handler.js";
+import { SessionPool } from "./handler.js";
+import { COMPLETION_PATHS, handleCompletionRequest, clientErrorForRequest } from './completion-request.js';
+export { handleCompletionRequest, clientErrorForRequest } from './completion-request.js';
+export { parseResponsesRequest } from './responses-adapter.js';
+export { parseMessagesRequest } from './messages-adapter.js';
+export { compileToolContracts, ToolContractError } from './tool-validation.js';
 import { dashboardResponse, operatorStatus } from "./dashboard.js";
 import { HttpActivity, trackHttpResponse, type RequestTrace } from "./http-activity.js";
 export { HttpActivity, httpActivity, type RequestTrace } from "./http-activity.js";
@@ -31,7 +34,7 @@ export { dashboardResponse, operatorStatus } from "./dashboard.js";
 export { setupPiClient, piProvider } from "./client-setup.js";
 export { setupOpenClawClient } from "./client-setup.js";
 export { generateOpenClawConfig, type OpenClawConfig, type OpenClawModelConfig, type OpenClawProviderConfig } from "./openclaw-config.js";
-import { callerIdentity, corsHeaders, modelCapabilities, readJsonBody, readinessResponse, requestGate } from "./http-policy.js";
+import { corsHeaders, modelCapabilities, readJsonBody, readinessResponse, requestGate } from "./http-policy.js";
 export { callerIdentity, corsHeaders, modelCapabilities, readJsonBody, readinessResponse, requestGate, validateBind } from "./http-policy.js";
 
 export { SessionPool, handleChatCompletion } from "./handler.js";
@@ -123,10 +126,10 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
     const method = req.method.toUpperCase();
 
     const gate = requestGate(req);
-    if (gate) return gate;
+    if (gate) return withCors(await clientErrorForRequest(req, gate), req);
     if (pathname.startsWith("/v1/proxy/download/")) return historyDownloads.consume(req);
     if (pathname === "/v1/proxy/operator") return operatorAction(req, activity);
-    const draining = drainingResponse(req); if (draining) return draining;
+    const draining = drainingResponse(req); if (draining) return withCors(await clientErrorForRequest(req, draining), req);
     trace?.applicationKey(proxyApiKeys.authorize(req.headers).application);
     if (method === "POST" && pathname === "/v1/proxy/model-check") {
       let value: unknown;
@@ -158,17 +161,8 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
       return withCors(json(200, buildModelsPayload()), req);
     }
 
-    if (method === "POST" && pathname === "/v1/chat/completions") {
-      let body: ReturnType<typeof ChatCompletionRequest.parse>;
-      try {
-        body = ChatCompletionRequest.parse(clientProfiles.apply(await readJsonBody(req.body, req.headers.get("content-length"), req.signal),req.headers));
-      } catch (err: any) {
-        return withCors(
-          json(/size limit/.test(err.message) ? 413 : 400, { error: { message: err.message, type: "invalid_request_error" } }), req,
-        );
-      }
-      // req.signal aborts when the client disconnects → cancels the M365 turn.
-      return withCors(await handleChatCompletion(body, pool, { activity: trace ?? undefined, signal: req.signal, conversationId: req.headers.get("x-conversation-id") ?? undefined, callerId: callerIdentity(req.headers) }), req);
+    if (method === "POST" && COMPLETION_PATHS.includes(pathname)) {
+      return withCors(await handleCompletionRequest(req, pool, trace ?? undefined), req);
     }
 
     return withCors(

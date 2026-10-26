@@ -6289,3 +6289,22 @@ those APIs are implemented. Disproved for the inspected bare fetch app: isolated
 POSTs returned 404, while health/models returned 200, with no model/network calls.
 Standalone route inspection agreed. Installed releases and companion adapters
 remain outside this result; client protocol support is separate from tool ability.
+
+### H-CLIENT-CONTRACTS — offline client conformance (2026-10-26)
+
+Hypothesis: shared Chat Completions translation can support Responses/Messages
+clients while rejecting invalid generated tool arguments before client execution.
+Falsification: either SDK fails its text/tool-history/stream round trips, invalid
+arguments escape, or Pi's native tools fail the scripted repair fixtures.
+
+The former H-CLIENT-SURFACE 404 observation remains true of def9700. The new local
+implementation explicitly adds both routes; it does not infer support from
+activity labels. Real SDK fixtures exercise JSON, SSE accumulation, exact call
+IDs and full-history tool results. Five native Pi fixtures passed with zero
+external fetches and one explicit OpenClaw skip; these are scripted fixtures,
+not stochastic live-model evidence. See `packages/proxy-lib/src/client-api.test.ts`,
+`handler-validation.test.ts` and `scripts/client-tests/pi-pack.mjs`.
+
+The supported subset and validation contract graduate to
+[client-api-adapters.md](client-api-adapters.md); runnable checks are in
+[experiments.md](experiments.md). No new model defaults or live compliance claims.

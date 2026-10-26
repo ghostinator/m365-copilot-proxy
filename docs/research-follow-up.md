@@ -11,6 +11,11 @@ did not improve measured cooperation; remote CRUD did not establish local access
 Historical real-pi results remain scoped to their original routes and conditions.
 Run live checks sequentially with cooldowns and stop on quota/transport trouble.
 
+Subsequent client integration: [API adapters and strict tool contracts](client-api-adapters.md)
+and the [offline native Pi pack](client-test-pack.md). The earlier 404 observation
+below describes the def9700 baseline; the new implementation adds those routes
+explicitly. Scripted conformance evidence does not replace the live checks here.
+
 ## Priorities and pass criteria
 
 1. [x] **Real local-client CRUD with the shipped contract.** Generate instructions

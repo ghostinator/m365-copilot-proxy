@@ -1,4 +1,5 @@
 import { SessionPool } from "./session-pool.js";
+import { compileToolContracts, ToolContractError } from "./tool-validation.js";
 import { recordUsageObservation } from "./usage-observations.js";
 import type { RequestTrace } from "./http-activity.js";
 export { SessionPool } from "./session-pool.js";
@@ -241,6 +242,13 @@ export async function handleChatCompletion(
   pool: SessionPool,
   opts: { signal?: AbortSignal; conversationId?: string; callerId?: string; activity?: RequestTrace } = {},
 ): Promise<Response> {
+  let toolContracts: ReturnType<typeof compileToolContracts>;
+  try { toolContracts = compileToolContracts(body.tools, body.tool_choice); }
+  catch (error) {
+    if (!(error instanceof ToolContractError)) throw error;
+    opts.activity?.result(400);
+    return jsonResponse(400, { error: { type: "invalid_request_error", code: "invalid_tool_schema", message: error.message, details: error.issues } });
+  }
   const cancellation = new AbortController();
   opts.activity?.chat(body.model, body.stream);
   opts.activity?.phase("queued");
@@ -251,7 +259,7 @@ export async function handleChatCompletion(
   opts.activity?.admitted();
   let streaming = false;
   try {
-    const response = await handleLocked(body, pool, { ...opts, ownStream: () => { streaming = true; }, release, cancel: () => cancellation.abort() });
+    const response = await handleLocked(body, pool, toolContracts, { ...opts, ownStream: () => { streaming = true; }, release, cancel: () => cancellation.abort() });
     if (!streaming) { opts.activity?.result(response.status); if (response.status >= 400) opts.activity?.errorBody(await response.clone().text()); }
     return response;
   } catch (error) {
@@ -264,6 +272,7 @@ export async function handleChatCompletion(
 async function handleLocked(
   body: ChatBody,
   pool: SessionPool,
+  toolContracts: ReturnType<typeof compileToolContracts>,
   opts: { signal?: AbortSignal; conversationId?: string; callerId?: string; activity?: RequestTrace; ownStream: () => void; release: () => void; cancel: () => void },
 ): Promise<Response> {
   body = structuredClone(body);
@@ -829,6 +838,10 @@ async function handleLocked(
         log.info(`Heredoc write to ${asWrite.path} is over the Windows command-line cap — sent as ${asWrite.call.function.name} instead`);
         parsed.toolCalls = [asWrite.call];
         rewriteNote = `(Note: your heredoc to \`${asWrite.path}\` was longer than the ~8,000-character Windows command-line limit and would have been cut off, so it was written with the \`${asWrite.call.function.name}\` tool instead.${asWrite.skipped ? ` The commands after the heredoc did NOT run: \`${asWrite.skipped.slice(0, 200)}\`.` : ""})`;
+      }
+      const issues = toolContracts.validate(parsed.toolCalls);
+      if (issues.length) {
+        return { kind: "error", resp: jsonResponse(502, { error: { type: "tool_validation_error", code: "invalid_tool_arguments", message: new ToolContractError(issues).message, details: issues } }) };
       }
       // The model's server-side history holds more than what runs; say so on
       // the turn that carries the real result (executedOnlyFirstNote).

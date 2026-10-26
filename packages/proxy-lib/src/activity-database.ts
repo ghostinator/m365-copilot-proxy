@@ -7,7 +7,7 @@ import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { networkInterfaces } from "node:os";
-import { entry, legacySchema, sourceAddress, type SavedRequest, type ActivityQuery } from "./activity-schema.js";
+import { entry, legacySchema, sourceAddress, CHAT_ENDPOINTS, CHAT_ENDPOINT_SQL_IDS, type SavedRequest, type ActivityQuery } from "./activity-schema.js";
 
 const hour = 3_600_000;
 const windows = { "24h": 24 * hour, "7d": 7 * 24 * hour, "30d": 30 * 24 * hour, "90d": 90 * 24 * hour, "365d": 365 * 24 * hour };
@@ -22,7 +22,7 @@ const empty = () => Object.fromEntries(fields.map(field => [field, 0])) as Recor
 function metrics(request: SavedRequest) {
   const value = empty(), at = Date.parse(request.receivedAt);
   value.total = 1; value.applicationRequests = Number(request.source === "application"); value.selfChecks = Number(request.source === "self-check");
-  const kind = (request.endpoint === "/v1/chat/completions" || request.endpoint === "/v1/proxy/model-check") ? "chats" : request.endpoint === "/v1/models" ? "models" : request.endpoint.startsWith("/health") ? "health" : "other";
+  const kind = (CHAT_ENDPOINTS.some(path => request.endpoint === path) || request.endpoint === "/v1/proxy/model-check") ? "chats" : request.endpoint === "/v1/models" ? "models" : request.endpoint.startsWith("/health") ? "health" : "other";
   value[kind] = 1; value.failed = Number(request.outcome === "error"); value.cancelled = Number(request.outcome === "cancelled");
   value.responseBytes = request.responseBytes; value.durationSum = request.durationMs; value.durationSamples = 1;
   value.firstSeen = at; value.lastSeen = at;
@@ -166,9 +166,9 @@ export class ActivityDatabase {
     if (query.range === "all") return { sql: `WITH parts AS(SELECT * FROM system_totals UNION ALL SELECT * FROM legacy_totals), grouped AS(${grouped})`, bindings: filterBindings, since: null };
     const since = now - windows[query.range], low = Math.ceil(since / hour) * hour, high = Math.floor(now / hour) * hour;
     const raw = `SELECT system_id,model,servedModel,clientSoftware,COUNT(*) AS total,SUM(self_check=0) AS applicationRequests,SUM(self_check=1) AS selfChecks,
-      SUM(endpoint IN(${endpoints.indexOf("/v1/chat/completions")},${endpoints.indexOf("/v1/proxy/model-check")})) AS chats,SUM(endpoint=${endpoints.indexOf("/v1/models")}) AS models,
+      SUM(endpoint IN(${CHAT_ENDPOINT_SQL_IDS},${endpoints.indexOf("/v1/proxy/model-check")})) AS chats,SUM(endpoint=${endpoints.indexOf("/v1/models")}) AS models,
       SUM(endpoint IN(${["/health", "/health/live", "/health/ready"].map(path => endpoints.indexOf(path as typeof endpoints[number])).join(",")})) AS health,
-      SUM(endpoint IN(${["/v1/responses", "/v1/messages", "/messages", "(other endpoint)"].map(path => endpoints.indexOf(path as typeof endpoints[number])).join(",")})) AS other,
+      SUM(endpoint IN(${["/messages", "(other endpoint)"].map(path => endpoints.indexOf(path as typeof endpoints[number])).join(",")})) AS other,
       SUM(outcome=1) AS failed,SUM(outcome=2) AS cancelled,SUM(bytes) AS responseBytes,SUM(duration_ms) AS durationSum,COUNT(*) AS durationSamples,
       MIN(received_ms) AS firstSeen,MAX(received_ms) AS lastSeen FROM requests WHERE (received_ms>=? AND received_ms<?) OR (received_ms>=? AND received_ms<=?) GROUP BY system_id,model,servedModel,clientSoftware`;
     return { sql: `WITH parts AS(SELECT system_id,model,servedModel,clientSoftware,${fields.join(",")} FROM hourly WHERE hour_ms>=? AND hour_ms<? UNION ALL ${raw}), grouped AS(${grouped})`, bindings: [low, high, since, low, high, now, ...filterBindings] as Bind[], since };

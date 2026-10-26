@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { CONFIG_DIR } from "@m365-copilot/core";
 import { modelCheckState } from "./model-checks.js";
 import type { HttpActivity } from "./http-activity.js";
+import { CHAT_ENDPOINTS } from './activity-schema.js';
 
 export interface ServiceController {
   status(): Promise<unknown>;
@@ -20,7 +21,7 @@ export function registerServiceController(adapter: ServiceController) { const st
 export function serviceState() { const state = control(); return { available: !!state.adapter, phase: state.phase, message: state.message, platform: process.platform }; }
 export function drainingResponse(req: Request): Response | null {
   const pending=process.env.M365_UPDATE_PENDING==="1"&&existsSync(join(CONFIG_DIR,"updates/activation.pending"));
-  if ((!pending&&control().phase === "running") || req.method !== "POST" || !["/v1/chat/completions", "/v1/proxy/model-check"].includes(new URL(req.url).pathname)) return null;
+  if ((!pending&&control().phase === "running") || req.method !== "POST" || ![...CHAT_ENDPOINTS, "/v1/proxy/model-check"].includes(new URL(req.url).pathname)) return null;
   return Response.json({ error: { type: "proxy_draining", message: "The proxy is draining for an operator-requested restart. Retry shortly." } }, { status: 503, headers: { "Retry-After": "5" } });
 }
 export async function serviceCommand(action: string, activity: HttpActivity, version?: string) {
@@ -46,7 +47,7 @@ export async function serviceCommand(action: string, activity: HttpActivity, ver
   const check = async () => {
     const backup = activity.sources.backups.summary();
     const notifications = activity.sources.alerts.notifications.summary();
-    const busy = activity.snapshot().live.some(item => item.endpoint === "/v1/chat/completions" || item.endpoint === "/v1/proxy/model-check") || !!modelCheckState().runningModel || backup.inProgress || backup.backupLocked || ("sending" in notifications.counts && !!notifications.counts.sending);
+    const busy = activity.snapshot().live.some(item => CHAT_ENDPOINTS.some(path => item.endpoint === path) || item.endpoint === "/v1/proxy/model-check") || !!modelCheckState().runningModel || backup.inProgress || backup.backupLocked || ("sending" in notifications.counts && !!notifications.counts.sending);
     if (busy && Date.now() < deadline) { state.timer = setTimeout(check, 500); state.timer.unref(); return; }
     if (busy) { state.phase = "running"; state.message = "Restart cancelled after two minutes: active requests or backup work were preserved. Inspect backup locks if no backup is running."; return; }
     try { await adapter.restart(updating?action:undefined); state.phase = "restarting"; state.message = "Restarting; the dashboard will reconnect."; }

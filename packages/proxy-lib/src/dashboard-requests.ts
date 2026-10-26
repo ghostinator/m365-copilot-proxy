@@ -9,7 +9,7 @@ let liveRecords=[],requestFrom=null,requestError=null;
 function liveMatches(e){
   if(appliedRequestId&&e.id!==appliedRequestId||el('error-category').value&&el('error-category').value!=='all')return false;
   const kind=el('activity-filter').value||'all',model=el('activity-model').value,address=el('source-filter').value,keyId=el('request-key').value;
-  return (!requestFrom||Date.parse(e.receivedAt)>=Date.parse(requestFrom))&&(!model||model==='all'||e.model===model)&&(!address||address==='all'||(e.clientAddress||e.address)===address)&&(!keyId||keyId==='all'||(keyId==='unattributed'?!e.apiKeyId:e.apiKeyId===keyId))&&(kind==='all'||kind==='chat'&&(e.endpoint==='/v1/chat/completions'||e.endpoint==='/v1/proxy/model-check')||kind==='checks'&&e.source==='self-check'||kind==='errors'&&(e.outcome==='error'||e.outcome==='cancelled'));
+  return (!requestFrom||Date.parse(e.receivedAt)>=Date.parse(requestFrom))&&(!model||model==='all'||e.model===model)&&(!address||address==='all'||(e.clientAddress||e.address)===address)&&(!keyId||keyId==='all'||(keyId==='unattributed'?!e.apiKeyId:e.apiKeyId===keyId))&&(kind==='all'||kind==='chat'&&['/v1/chat/completions','/v1/responses','/v1/messages','/v1/proxy/model-check'].includes(e.endpoint)||kind==='checks'&&e.source==='self-check'||kind==='errors'&&(e.outcome==='error'||e.outcome==='cancelled'));
 }
 function renderSourceHistory(){
   const target=el('source-history'),opened=new Set([...target.querySelectorAll('details[open]')].map(d=>d.dataset.id));

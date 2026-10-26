@@ -1,4 +1,4 @@
-import { proxyApiKeys, type ApiKeyStore } from "./api-keys.js";
+import { clientAuthorization, proxyApiKeys, type ApiKeyStore } from "./api-keys.js";
 import { createHash } from "node:crypto";
 import { authenticationStatus, boundedBytes, requestSignal, getToneForModel, positiveInt } from "@m365-copilot/core";
 
@@ -23,7 +23,7 @@ export function corsHeaders(req: Request): Record<string, string> {
   if (!origin) return {};
   const allowed = (process.env.M365_ALLOWED_ORIGINS ?? "").split(",").map(s => s.trim()).filter(Boolean);
   if (origin !== new URL(req.url).origin && !allowed.includes(origin)) return {};
-  return { "Access-Control-Allow-Origin": origin, "Vary": "Origin", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Conversation-Id" };
+  return { "Access-Control-Allow-Origin": origin, "Vary": "Origin", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Conversation-Id, X-Api-Key, Anthropic-Version, Anthropic-Beta" };
 }
 
 export function requestGate(req: Request, keys: ApiKeyStore = proxyApiKeys): Response | null {
@@ -40,7 +40,7 @@ export function requestGate(req: Request, keys: ApiKeyStore = proxyApiKeys): Res
 }
 
 export function callerIdentity(headers: Headers): string {
-  return createHash("sha256").update(headers.get("authorization") ?? "local").digest("hex");
+  return createHash("sha256").update(clientAuthorization(headers) ?? "local").digest("hex");
 }
 
 export function validateBind(host: string): void {

@@ -15,6 +15,22 @@ function saved(durationMs = 100, at = now) {
 }
 const query = (value = {}) => activityQuery.parse(value);
 
+it.each(['/v1/responses', '/v1/messages'])('includes %s in saved chat filters, totals and reliability', endpoint => {
+  const directory = mkdtempSync(join(tmpdir(), 'm365-adapter-activity-'));
+  const db = new ActivityDatabase(directory);
+  try {
+    db.write([entry.parse({ ...saved(), endpoint })]);
+    for (const range of ['all', '24h']) {
+      const result = db.snapshot(query({ range, requestKind: 'chat' }), now);
+      expect(result.summary.chats).toBe(1);
+      expect(result.summary.other).toBe(0);
+      expect(result.history.total).toBe(1);
+      expect(result.performance.total).toBe(1);
+      expect(result.reliability.current.total).toBe(1);
+    }
+  } finally { db.close(); }
+});
+
 it("computes exact filtered chat percentiles and empty intervals without mixing checks or model polls", () => {
   const db = new ActivityDatabase();
   db.write(Array.from({ length: 20 }, (_, index) => ({

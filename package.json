@@ -12,11 +12,16 @@
     "test:unit": "pnpm build && pnpm exec vitest run",
     "test:live": "pnpm build && node scripts/run-live-tests.mjs",
     "release:build": "pnpm build && node scripts/build-release.mjs --include-node",
-    "test:installed": "node scripts/test-installed-runtime.mjs"
+    "test:installed": "node scripts/test-installed-runtime.mjs",
+    "test:clients": "pnpm build && pnpm exec vitest run client-api.test.ts && node scripts/test-client-pack.mjs"
   },
   "packageManager": "pnpm@10.32.1",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "openai": "^7.44.0",
     "tsdown": "^0.21.5",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
