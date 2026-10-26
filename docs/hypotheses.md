@@ -1,5 +1,33 @@
 # Reverse-engineering hypotheses & experiments
 
+## October 26 implementation/live follow-up
+
+Evidence and sample sizes: [research verification](research-verification-2026-10-26.md).
+The earlier same-day sections below preserve their pre-fix observations.
+
+- **H-TYPED-CONTRACT:** schema-typed bodies/object headers survive the handler.
+  Falsifier: arguments differ from schema-shaped fixtures. Confirmed after a
+  shared fix: 0/12 incompatible JSON/SSE responses versus 6/12 before; eleven
+  parser regressions, plus one real Pi CRUD session. Graduated to tool-calling.md.
+- **H-CURSOR-PREVIEW:** m.text can duplicate a token delivered to an initially
+  empty cursor card. Falsifier: captured first delta excludes that preview token.
+  One live failure and an offline reproducer confirmed duplication; addressed-card
+  assembly fixed it, and the live repeat passed. Graduated to m365-copilot-api.md.
+- **H-STOP-RECOVERY:** client disconnect propagates Stop and a normal client can
+  continue. One corrected real Nitro HTTP check passed Stop/ack plus full-history
+  recovery; direct core sessions separately passed normal/temporary reconnect
+  recall (4/4). Header-only resumption is not supported. See protocol reference.
+- **H-NONCE-ISOLATION:** another conversation can recall a fresh random label/value.
+  Falsifier for observed recall: UNKNOWN and no matching nonce. Not observed in
+  four browser cross-queries and two proxy cross-queries. Four Auto browser cells
+  crossed Work IQ with temporary chat, all 8 same-thread recalls passed. This
+  sample does not establish universal isolation or explain earlier Sonnet prose.
+- **H-DEEPWORK-CHATHUB:** literal DeepWork accepts a local tool/result loop through
+  the proxy route. Falsifier: unknown-tone rejection, no valid call, or wrong local
+  nonce after the result. One two-turn read task passed on included/no-agent; an
+  invented tone failed. No metering field was present. No public alias/default or
+  model identity is inferred; broader entitlement/bench coverage remains open.
+
 A live notebook of things we've **guessed**, things we've **tested**, and the
 levers each one gives us. Update as we learn. The companion API doc
 ([`m365-copilot-api.md`](m365-copilot-api.md)) is for confirmed protocol
@@ -6175,3 +6203,89 @@ places acknowledgement/busy/removal feedback beside the controls. VM tests cover
 those states and locking; chart tests cover axis scales and focused interval
 details. HTTP acceptance is documented separately from downstream workflow
 success. This confirms this configured receiver only, not general Teams reliability.
+
+### First-party browser settings probes — October 26, 2026
+
+Eleven sequential turns / ten conversations tested UI protection, response modes,
+Work IQ and remote execution. Hypotheses, falsification criteria, UTC evidence
+anchors, exact prompts and limitations are in
+[`browser-settings-2026-10-26.md`](browser-settings-2026-10-26.md).
+
+- Protection on/off: two fresh-chat pairs, reverse order on repeat, no observed
+  non-identity StreamHub chatStreamRequest difference; setting transport unresolved.
+- Modes: Auto=Magic, Quick=Chat, Think deeper=Reasoning, Advanced=DeepWork; no separate
+  reasoning-effort field observed (n=1 controlled non-Auto turn per mode).
+- Work IQ off: n=1 controlled pair; removes gpts and executionControls, changes
+  options flags. Candidate for reducing injected capabilities, unbenched in pi.
+- Remote execution: three correct SHA-256 tasks plus successful execution frames;
+  Auto exposes container.exec, DeepWork GeneratedCode/CodeInterpreter in these samples.
+  This is remote execution, not local file-tool access. No proxy defaults changed.
+
+### Explicit model/protection/tool comparison — October 26, 2026
+
+See [`browser-model-tools-2026-10-26.md`](browser-model-tools-2026-10-26.md) for
+the hypothesis tests, prompts, sample sizes, corrected scoring and limitations.
+
+- **H-MODEL-PROTECTION:** protection off improves tool cooperation. Not observed
+  across GPT-5.6 Quick, GPT-6.1 Sol and Sonnet 5 (one on/off pair each). Remote
+  disposable CRUD succeeded 6/6; Sonnet refused the custom external protocol both
+  ways. This did not test actual harmful-content filtering boundaries.
+- **H-MODEL-RELAY:** a cooperative fenced reply is a valid proxy call. The initial
+  custom-header probe disproved that shortcut: four manually successful GPT reads
+  parse to a filename containing the literal `path:` prefix. Probe-design mismatch,
+  not a product regression. Retest with actual formatter/parser before counting wins.
+- **H-MODEL-FRAMING:** shipped relay fixes Sonnet's browser refusal. Three follow-ups
+  (normal read_file, temporary read_file, temporary bash) still refused. Browser-only,
+  n=1 per framing/context; not a regression claim against historical pi benchmarks.
+- **H-MODEL-CONTEXT:** a fresh conversation isolates prior tests. Distinct IDs were
+  confirmed, but one response referenced earlier probe categories. Mechanism unproven;
+  temporary chats still refused. Future probe: independently random nonces per cell.
+- A corrected GPT read probe stalled without explicit throttle and was cancelled
+  after ~90 s. Total 20 turns / 10 conversations, 19 completed, zero recorder drops.
+
+**Documentation reconciliation:** the two October 26 browser reports are separate
+phases (11 turns, then 20), and the second report's parser caveat applies whenever
+manual relay cooperation is cited. Bounded observations are now linked from the
+protocol/prompting/tool-contract references; unverified checks remain unchecked in
+the [research follow-up checklist](research-follow-up.md). Historical real-pi
+results are preserved rather than overwritten by browser samples.
+
+### Offline parser boundaries — October 26, 2026
+
+Evidence, case matrix and minimal commands:
+[`parser-boundaries-2026-10-26.md`](parser-boundaries-2026-10-26.md).
+
+**H-PARSER-TYPES:** a reply using the formatter's body/header layout preserves
+declared JSON argument types. Falsified for synthetic non-string bodies and inline
+object headers: returned arguments were strings. Source inspection confirms the
+untyped body assignment and missing object-header coercion branch. Eighteen cases
+across two read-only probes; no tool was executed and no implementation changed.
+
+**H-PARSER-MALFORMED:** truncated object-item JSON arrays are rejected rather than
+converted to another argument shape. Not observed: the array coercer's fallback
+returned a single raw-text string element. Downstream client validation is untested.
+The fallback is intentional for scalar shorthand; assess item-schema implications
+before changing it. Unclosed fences without an end marker were correctly rejected
+by an existing safeguard, not treated as another bug. String paths, nested Markdown,
+whitespace/empty file bodies and valid JSON/YAML edit arrays passed controls.
+
+### Handler and protocol boundary follow-up — October 26, 2026
+
+Evidence: [handler-contract-2026-10-26.md](handler-contract-2026-10-26.md) and
+`scripts/offline-handler-contract-probe.mjs`.
+
+**H-HANDLER-CONTRACT:** later handler processing rejects/repairs the parser's
+incompatible argument shapes before exposing them to API callers. Not observed:
+after a fresh core/proxy-lib build, three problem replies x JSON/SSE emitted six
+HTTP-200 tool_calls responses with the mismatches intact. Three controls x two
+paths passed; all twelve requests released admission once. No live tool ran.
+
+Existing selected lifecycle/parser tests passed 192/192 across four files. This
+establishes offline regression status, not real-account Stop/reconnect behavior.
+The bounded workspace build capture did not confirm standalone Nitro completion.
+
+**H-CLIENT-SURFACE:** recognizing Responses/Messages in request activity means
+those APIs are implemented. Disproved for the inspected bare fetch app: isolated
+POSTs returned 404, while health/models returned 200, with no model/network calls.
+Standalone route inspection agreed. Installed releases and companion adapters
+remain outside this result; client protocol support is separate from tool ability.

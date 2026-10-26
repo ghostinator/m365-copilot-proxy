@@ -79,6 +79,51 @@ const editFile: ToolDef = {
 const ALL = [bash, readFile, writeFile, editFile];
 const specs = buildSpecMap(ALL);
 
+describe("schema-typed fenced arguments", () => {
+  function parse(properties: Record<string, unknown>, inner: string) {
+    const tool: ToolDef = { type: "function", function: { name: "typed",
+      parameters: { type: "object", properties, required: Object.keys(properties) } } };
+    return parseFencedToolCalls(`\`\`\`typed\n${inner}\n\`\`\``, buildSpecMap([tool])).calls;
+  }
+
+  it.each([
+    { type: "boolean", body: "true", value: true },
+    { type: "integer", body: "3", value: 3 },
+    { type: "number", body: "2.5", value: 2.5 },
+    { type: "array", body: '["a","b"]', value: ["a", "b"] },
+    { type: "object", body: '{"mode":"safe","limits":{"calls":2}}', value: { mode: "safe", limits: { calls: 2 } } },
+  ])("preserves a declared $type body", ({ type, body, value }) => {
+    const calls = parse({ value: { type } }, body);
+    expect(calls).toHaveLength(1);
+    expect(JSON.parse(calls[0].function.arguments)).toEqual({ value });
+  });
+
+  it("parses an inline object header", () => {
+    const calls = parse({ target: { type: "string" }, options: { type: "object" } },
+      'target: main\noptions: {"mode":"safe"}');
+    expect(JSON.parse(calls[0].function.arguments)).toEqual({ target: "main", options: { mode: "safe" } });
+  });
+
+  it.each([
+    { properties: { config: { type: "object" } }, body: '{"mode":' },
+    { properties: { values: { type: "array" } }, body: '[{"name":' },
+    { properties: { path: { type: "string" }, edits: { type: "array" } }, body: 'path: C:/probe.txt\nedits: [{"old_text":"a","new_text":' },
+  ])("does not emit malformed JSON arguments ($body)", ({ properties, body }) => {
+    expect(parse(properties, body)).toHaveLength(0);
+  });
+
+  it("keeps scalar string-array shorthand", () => {
+    const calls = parse({ target: { type: "string" }, tags: { type: "array" } }, 'target: main\ntags: alpha');
+    expect(JSON.parse(calls[0].function.arguments)).toEqual({ target: "main", tags: ["alpha"] });
+  });
+
+  it("keeps string-body whitespace unchanged", () => {
+    const value = "\n  indented\n\n";
+    const calls = parse({ value: { type: "string" } }, value);
+    expect(JSON.parse(calls[0].function.arguments)).toEqual({ value });
+  });
+});
+
 describe("deriveFencedSpec", () => {
   it("maps a single-param tool's param to the body", () => {
     const s = deriveFencedSpec(readFile);

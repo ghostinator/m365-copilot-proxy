@@ -2,6 +2,11 @@
 
 Guidance for AI agents (and humans) working in this repo.
 
+October 26 research status: [implementation/live verification](docs/research-verification-2026-10-26.md)
+records parser and cursor-preview fixes, real Pi CRUD, Stop/history recovery,
+fresh-nonce context checks and a bounded test-only DeepWork route. Preserve their
+scope: one account/task is not a model ranking or universal entitlement proof.
+
 ## What this is
 
 `m365-copilot-proxy` wraps Microsoft 365 Copilot's undocumented SignalR/WebSocket
@@ -21,6 +26,22 @@ tool-call compliance experiments, the search for token/context-window data, the
 reference for **prompting the Copilot model into tool-calling** — the load-bearing
 levers, the confirmed dead-ends, and the A/B scoreboard. Read it before tinkering
 with framing/format.
+
+**October 26 browser research:** read both the
+[settings study](docs/browser-settings-2026-10-26.md) and
+[model/tool follow-up](docs/browser-model-tools-2026-10-26.md) before citing their
+findings. The custom-header relay probe was not proxy-compatible; remote sandbox
+CRUD is not local-client CRUD. Keep the reports' sample-size/context limits and
+the [unchecked follow-ups](docs/research-follow-up.md) when drawing conclusions.
+These browser samples do not replace real-pi benchmarks.
+The [offline parser follow-up](docs/parser-boundaries-2026-10-26.md) separately
+records typed-argument concerns and intentional rejection controls; no fix or
+actual-client validation has landed. Do not conflate them with the custom-header
+probe mistake or declare all malformed input recoverable.
+The [handler/client-surface follow-up](docs/handler-contract-2026-10-26.md) confirms
+API egress mismatches after rebuilding the libraries and records bounded offline
+lifecycle/API checks. It does not validate a deployed client, add protocol adapters,
+or fix the parser. Verify the client's actual wire API before a live model sweep.
 
 **Where findings graduate to.** `docs/hypotheses.md` is the *messy, in-progress*
 layer. Once a finding is **decently conclusive** (real evidence, not n=1 noise),

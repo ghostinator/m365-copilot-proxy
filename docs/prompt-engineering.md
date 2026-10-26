@@ -1,5 +1,9 @@
 # Prompt-engineering M365 Copilot into tool-calling
 
+October 26 [live verification](research-verification-2026-10-26.md): shipped framing
+and parsing completed a local Pi CRUD task on included Sonnet. A test-only DeepWork
+tone substitution completed a local read/result loop; n=1 is not a framing/model benchmark.
+
 Distilled, **conclusive** findings on how to make M365 Copilot's chat-tuned model
 emit usable tool calls — enough to drive a real agent loop in pi/openclaw. This is
 the reference layer: the protocol lives in [`m365-copilot-api.md`](m365-copilot-api.md),
@@ -23,9 +27,11 @@ We don't fight the cage; we use the one arm-hole it leaves open (see shell-routi
 
 These are what actually move compliance. In rough order of importance:
 
-1. **The Copilot Studio agent (server-side system prompt).** Without it, M365 ignores
-   the per-request tool instructions and answers in prose. It is *the* lever, not the
-   syntax. ([api §10](m365-copilot-api.md), [hyp §1].)
+1. **Model/account-specific agent routing.** The server-side Copilot Studio agent
+   was the load-bearing lever on the early GPT/magic route ([api §10](m365-copilot-api.md),
+   [hyp §1]). It is not required on every route: Claude and some GPT-6 routes work
+   agent-less, while forcing the agent can break a route. Follow the exact-tone
+   routing rules and real-harness results described below.
 2. **Shell-routing — the unlock.** The model won't "act as an agent" but **will**
    reflexively write a ```` ```bash ```` block. The proxy executes that block as the
    harness's shell tool (any name: `bash`/`run`/`run_command`/…). This is what turned
@@ -246,6 +252,34 @@ M365_NO_CONFAB_RETRY=1 ARMS="default retag relay default" MODEL=claude-sonnet-5 
 ```
 
 ## Results
+
+### October 26, 2026 — browser evidence and validation boundaries
+
+The [settings capture](browser-settings-2026-10-26.md) and later
+[model/tool comparison](browser-model-tools-2026-10-26.md) are browser studies,
+not replacements for the historical pi/bench scoreboards above. Three models
+performed remote sandbox CRUD with protection on/off; no tool-cooperation benefit
+from disabling protection was measured. Sonnet 5 refused the external protocol in
+both settings and three shipped-framing follow-ups, including temporary chats.
+Those small browser samples do not establish a proxy regression or justify changing
+its defaults. A distinct conversation ID did not exclude references to earlier
+probes; the context mechanism remains unproven.
+
+**Generate and parse the actual contract before grading a win.** Use
+`formatToolDefinitions` and `parseToolCalls` with the same schema. In the custom
+read-file probe, manually accepted `path: ...` headers became literal filename
+prefixes under the real parser: that single-parameter template expects a raw path
+body. Four manual relay successes therefore did not establish valid proxy calls.
+The corrected-format GPT retest stalled and remains inconclusive. See the
+[prioritized follow-ups](research-follow-up.md).
+
+The [offline boundary follow-up](parser-boundaries-2026-10-26.md) found independent
+typed-argument conversion concerns in the existing parser. Assess those before
+blaming model/framing compliance for a client rejecting an argument. The
+unclosed-fence rejection is intentional, and no parser fix has landed in this study.
+The [rebuilt-handler investigation](handler-contract-2026-10-26.md) confirmed those
+argument shapes reach JSON/SSE API callers; 192 existing selected tests still pass.
+Check the declared API protocol as well as model/framing before grading a client.
 
 ### June 24 2026 — 10-strategy framing sweep — ⏳ IN PROGRESS
 

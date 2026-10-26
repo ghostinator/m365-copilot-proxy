@@ -1,5 +1,10 @@
 # Logging and diagnostics
 
+The October 26 [live follow-up](research-verification-2026-10-26.md) used private
+frame dumps to confirm Chathub cancellation and diagnose duplicated preview text.
+Native execution fixtures cover both interpreter and BashExecutor result shapes;
+these do not represent local harness success. Raw dumps must not be committed.
+
 The proxy has three separate diagnostic layers. None requires installing a
 database server. All paths below are relative to `~/.config/opencode-m365` unless
 `M365_DATA_DIR` selects another data root.
@@ -54,6 +59,14 @@ Debug/trace/frame files may include prompts, responses and other protocol data;
 do not put them in Git or publish them as screenshots. Turn off research flags
 after collecting the evidence you need. See [protocol investigation](m365-copilot-api.md)
 before changing protocol behavior.
+
+The October 26 [settings capture](browser-settings-2026-10-26.md) and
+[model/tool comparison](browser-model-tools-2026-10-26.md) used a separate browser
+recorder; only selected sanitized evidence was saved in those reports. Do not
+assume its in-memory raw capture is durable. Keep browser StreamHub and proxy
+Chathub frames distinct when comparing requests or Stop actions. A successful
+native CodeInterpreter/BashExecutor result is remote execution, not evidence that
+the local client's tools ran; see the [tool-call grading rules](tool-calling.md#grading-a-tool-call-october-26-2026).
 
 The Windows sign-in runner captures stdout/stderr under `service-logs` and
 rotates its local files; those logs are separate from SQLite history and

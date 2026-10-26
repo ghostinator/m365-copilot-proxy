@@ -1,5 +1,9 @@
 # m365-copilot-proxy
 
+October 26 research follow-up: [verified parser fixes, real local Pi CRUD,
+cancellation/context checks and a bounded DeepWork route probe](docs/research-verification-2026-10-26.md).
+The probe does not add a public DeepWork model ID or change defaults.
+
 Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents like [pi](https://pi.dev/) and [OpenClaw](https://docs.openclaw.ai/). Wraps M365 Copilot's WebSocket/SignalR API in an OpenAI-compatible interface with tool calling support.
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
@@ -153,6 +157,19 @@ it scored 0/5 on real agentic tasks; see [hypotheses §9](docs/hypotheses.md)):
   is what turns 0/5 into real multi-turn loops (verified 9-tool-call bug fix).
 - **Reliability depends on model routing + the fenced/shell framing** —
   routing is model/account-specific: some routes use the agent, while Claude and GPT-6 routes often work agent-less. See [prompting findings](docs/prompt-engineering.md) and the model notes below
+
+**Browser evidence update (October 26, 2026):** the [settings capture](docs/browser-settings-2026-10-26.md)
+and [explicit model/tool comparison](docs/browser-model-tools-2026-10-26.md) found
+remote sandbox CRUD on three models, but no measured tool-cooperation benefit from
+turning protection off. Manual relay cooperation did not establish proxy compatibility:
+the initial probe used the wrong argument format. Local-client CRUD and DeepWork
+proxy support remain unverified. See the [next checks](docs/research-follow-up.md).
+An [offline parser follow-up](docs/parser-boundaries-2026-10-26.md) found typed-argument
+conversion concerns; fixes and actual-client impact remain unverified.
+The [handler follow-up](docs/handler-contract-2026-10-26.md) confirms those shapes
+reach JSON/SSE callers. The bare API exposes Chat Completions; its tested
+Responses/Messages endpoints returned 404. Clients needing those protocols require
+a compatible mode or adapter; recognizing their requests in history is not support.
 
 ### Agent mode
 

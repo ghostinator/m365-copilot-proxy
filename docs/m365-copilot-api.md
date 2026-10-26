@@ -1,13 +1,28 @@
 # The M365 Copilot API — field notes from reverse engineering
 
+October 26 [implementation/live follow-up](research-verification-2026-10-26.md):
+Chathub accepted literal `DeepWork` on this account's included scenario through
+the rebuilt proxy handler, with a successful local read/result loop (two turns,
+no metering field). A rejected invented-tone control distinguishes acceptance
+from generic fallback; `DeepLeo` alone does not identify the underlying model.
+This remains a test-only substitution, with no advertised model/default change.
+
+The same follow-up confirmed Chathub Stop on a real Nitro HTTP disconnect. Session
+recovery through the OpenAI interface requires client history; the tracing header
+does not select a resumable session. Cursor assembly must read the addressed card
+text, including empty strings: message.text can preview a first token repeated in
+the next delta. A regression and live repeat cover this duplicated-preview case.
+
 Microsoft 365 Copilot (the "BizChat" / "Office web" Copilot, **not** the public
 Azure OpenAI API) has no documented developer API. It is a **SignalR-over-WebSocket**
 service intended to be driven only by Microsoft's own first-party web/desktop clients.
 This document records everything we learned wiring it up as an OpenAI-compatible
 backend, so the next person (or agent) doesn't have to rediscover it.
 
-Everything here is observed behaviour as of **June 2026**, against the
-`substrate.office.com` Sydney backend. Microsoft can change any of it without notice.
+Initial observations were made in **June 2026** against the `substrate.office.com`
+Sydney backend; later sections carry dated updates. Microsoft can change any of
+this without notice. The October 26 browser captures below include a different
+first-party StreamHub transport and do not replace the proxy's Chathub contract.
 
 > Source of truth in this repo: `packages/core/src/{auth,copilot,session,agent,schemas}.ts`.
 
@@ -23,7 +38,7 @@ If you read nothing else:
 4. A **`Metrics` frame must be sent in the same WS payload** as the chat message, or the turn never starts.
 5. The **model is selected by a `tone` string** (`magic`, `Gpt_5_4_Reasoning`, …), not a model ID.
 6. Auth uses **MSAL PKCE with the `nativeclient` redirect**, which a real browser bounces to `/common/wrongplace` — you must scrape the auth code from the *navigation request*, not wait for the redirect to land.
-7. **Tool calling is not native.** It only works reliably if you create a **Copilot Studio agent** and reference it per request; otherwise M365 ignores tool instructions and answers in prose / hallucinates.
+7. **Local harness tool calling is prompt-emulated.** The early GPT/magic route needed a Copilot Studio agent; later Claude/GPT-6 routes have model/account-specific agent-less paths. Microsoft's own remote sandbox tools are separate from the client's local tools. Follow §5/§10 and the current routing rules rather than forcing the agent on every model.
 8. M365 has a **"Disengaged" safety filter**: large or jailbreak-looking prompts get a `messageType:"Disengaged"` message with **empty content** — which is easy to mistake for rate limiting.
 
 ---
@@ -184,6 +199,21 @@ The timestamp values appear cosmetic, but the frame's **presence is required**.
 ## 5. Models are selected by `tone`, not model id
 
 There is no `model` parameter. The `tone` string on the chat message picks the model/mode:
+
+**Browser-only update (October 26, 2026):** the first-party selector sent `Magic`
+(Auto), `Chat` (Quick response), `Reasoning` (Think deeper) and `DeepWork` (Advanced
+reasoning, Experimental). No separate reasoning-effort field was observed in the
+compared StreamHub chatStreamRequest messages. These values are not a declaration
+that the proxy validator/Chathub route supports them or that DeepWork identifies a
+particular model. Do not replace the versioned aliases below based on UI labels.
+See the [settings capture](browser-settings-2026-10-26.md) and
+[model/tool follow-up](browser-model-tools-2026-10-26.md).
+Local argument decoding is a separate layer: the later
+[offline parser probe](parser-boundaries-2026-10-26.md) identified type-conversion
+concerns without adding wire-protocol evidence or proving any model route.
+The [handler follow-up](handler-contract-2026-10-26.md) confirms the mismatches in
+local JSON/SSE output. Its bare fetch-app Responses/Messages 404 checks are about
+client API compatibility, not the upstream Copilot tone or license.
 
 | Our model id | `tone` | Notes |
 |---|---|---|
@@ -376,6 +406,18 @@ Two `Progress` shapes are worth reading rather than skipping, both first seen on
 - `contentOrigin: "ChainOfThoughtSummary"`, `addToChainOfThought: true` — a summary of the model's reasoning, streamed as it goes. It is the best RE instrument this API has: it says in plain words *why* the model refused a framing ("this looks like a prompt injection…").
 - `contentType: "Code"` (text "Coding and executing", the command in `hiddenText`) and `contentOrigin: "CreateFileExecutor"` — the model calling its **own** server-side tools. They are declare-to-receive: drop `Progress` from `allowedMessageTypes` and the frames vanish, but the reply still reports `/home/claude` after a tool-call-length pause (10.7 s), so hiding the frames doesn't stop the sandbox (n=1).
 
+### First-party execution-result observations (October 26, 2026)
+
+The [browser studies](browser-model-tools-2026-10-26.md) observed StreamHub
+`type:2` items with `item.type: message_part` and messages under
+`item.argument.messages`. In that transport, type 2 alone is not an end-of-turn
+test. GPT execution results used CodeInterpreter/GeneratedCode messages, while
+Sonnet 5 exposed a bash_tool invocation with contentOrigin BashExecutor. The latter
+result had stdout/stderr/exitCode/status without executedCode and additional
+escaping in nested JSON stdout. Observability code must not require executedCode
+on every native result. These native tools operate in Microsoft's remote sandbox;
+their success does not establish a local harness tool call.
+
 ### End of turn
 A `type:2` (stream item), `type:3` (completion), or `type:7` (close) ends the turn; we close the socket. Reply to `type:6` pings in the meantime.
 
@@ -401,6 +443,28 @@ Notes:
 - The server **acks with a `type:3` completion** (no error) and replaces the in-progress bot message with the canned text **"You have stopped this conversation."** — the partial answer is discarded.
 - **The cancelled user message still counts** against the 600-msg/conv quota, but its **context persists** server-side (a secret planted in a cancelled turn is recallable next turn). See `docs/hypotheses.md` F11.
 - **Implemented (June 2026):** the proxy now propagates an HTTP-client disconnect as an `AbortSignal` (`completions.post.ts` → `handler` → `model.ts` → `session.ts`); on abort it sends this Stop frame and closes (`STOP_FRAME` in `session.ts`). Before this, every turn ran to a terminator before `ws.close()` and a caller's abort orphaned the generation.
+
+**Different browser transport, same UI action (October 26, n=1):** cancelling a
+stalled StreamHub probe sent `type:2` with
+`item:{type:"stop",topicId:...,turnId:...,reason:"ClientRequested"}`. This is
+[browser evidence](browser-model-tools-2026-10-26.md#cancellation-observation), not a
+verified replacement for the Chathub Stop invocation above. The stalled turn had
+no explicit throttle result and is excluded from model success/failure counts.
+
+### Harmful-content toggle and Work IQ (browser observations, October 26)
+
+The UI-verified protection on/off comparisons exposed no non-identity difference in
+the observed turn payloads and no measured external-tool cooperation benefit. The
+setting's downstream representation remains unresolved; its absence here is not
+proof that filtering is ineffective. Microsoft documents that core prompt-injection
+protections remain enforced and the text toggle does not disable agent/image
+filters ([policy documentation](https://learn.microsoft.com/en-us/microsoft-365/copilot/harmful-content-protection-copilot-chat)).
+
+Work IQ off reset the browser conversation, removed gpts and
+message.clientPreferences.executionControls from the observed request, and changed
+the options list from 80 to 71 entries (including duplicates). Remote execution
+still worked. These are [browser routing observations](browser-settings-2026-10-26.md),
+not implemented proxy options or a local coding-loop benchmark.
 
 ### `type:2` stream item — the conversation summary
 

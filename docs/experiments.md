@@ -1,5 +1,37 @@
 # Experiments — a runnable catalog
 
+## October 26 verification probes
+
+Build first: `pnpm build`. Run live probes individually, sequentially, with at
+least 60 seconds between fresh conversation starts. Stop on throttle/credit walls.
+These commands describe the recorded Windows run with native Node, managed Pi
+and Git Bash; the new Pi harness assumes that install layout. Existing Nix probes
+retain their dev-shell instructions. Never commit private temp traffic or auth files.
+
+```powershell
+node scripts/offline-handler-contract-probe.mjs
+$env:M365_LIVE='1'
+node scripts/live-local-crud-probe.mjs
+# Separate run, after cooldown:
+node scripts/live-session-follow-up.mjs
+# Separate run, after cooldown:
+node scripts/live-local-crud-probe.mjs --http-cancel
+# Separate run, after cooldown:
+node scripts/live-deepwork-route-probe.mjs
+```
+
+Each live script asserts its result and prints a private evidence directory. CRUD
+uses a dedicated rebuilt Nitro server on loopback port 42819 and disposable Pi
+fixtures; `--http-cancel` instead tests a real SSE disconnect and full-history
+recovery. Session follow-up uses direct rebuilt core sessions, two temporary/history
+conditions and fresh nonces. DeepWork substitutes a literal wire tone only inside
+the probe, rejects an invented-tone control, limits upstream sends and validates
+a real local read/result loop. It does not install a model mapping.
+
+Read [the measured outcomes and corrected probes](research-verification-2026-10-26.md)
+before interpreting a failure. HTTP-200 alone is insufficient; exact values,
+independent file checks, Stop evidence and the final result must agree.
+
 Reusable experiments for this project. Each is a **hypothesis + an exact way to
 run it + how to read the result**. This is the "press go" layer; the messy
 thinking lives in [`hypotheses.md`](hypotheses.md), confirmed facts in
@@ -463,3 +495,84 @@ exclusive leases, late-result fencing, disable/close during a run and paging.
 Installed runtime explicitly enables a temporary schedule, advances only its private
 due time, restarts and verifies the resulting snapshot, then disables scheduling.
 There is no production due-time override, automatic enablement or M365 request.
+
+## First-party browser settings comparison (October 26, 2026)
+
+See [`browser-settings-2026-10-26.md`](browser-settings-2026-10-26.md) for exact
+prompts, case order, falsification criteria, selected wire evidence and results.
+
+1. Connect Playwright/Chrome DevTools MCP to the same dedicated, signed-in browser.
+   Arm Network/WebSocket recording before changing settings or sending prompts.
+2. In fresh chats, use the exact formatting prompt from the report. Run protection
+   on then off; repeat off then on. Verify the switch and off-banner, not the model's
+   claim. Space fresh test conversations by at least about a minute, sequentially.
+3. Compare Auto, Quick response, Think deeper and Advanced reasoning with the same
+   prompt. Compare observed chatStreamRequest fields, preserving arrays and types;
+   distinguish identifiers/location from controls and compare flag sets separately.
+4. Test Work IQ on/off, accounting for the UI starting a different conversation.
+   Use the fixed-string SHA-256 prompts to require a verifiable execution result.
+5. Stop on explicit throttle or credits exhaustion. Restore Auto, Work IQ on and
+   protection on, and detach the recorder when finished.
+
+Read: a bash fence is formatting compliance only; correct stdout plus execution
+frames is evidence of Microsoft's remote tools, not local harness access. A
+missing toggle field in StreamHub is not proof that downstream filters are off.
+Do not publish raw credentials, tenant identifiers or unrelated conversation data.
+
+## Explicit model/protection/tool matrix (October 26, 2026)
+
+[`browser-model-tools-2026-10-26.md`](browser-model-tools-2026-10-26.md) records
+the exact remote CRUD prompt, six conditions, shipped-framing follow-ups and an
+important correction to the custom external-read probe.
+
+For a repeat, create a disposable local fixture with a fresh random nonce per
+condition. Keep that nonce out of the task prompt. Use the core dist exports
+`formatToolDefinitions(tools, 'relay')` to construct the tool instructions and
+`parseToolCalls(reply, tools)` to validate both tool name and complete arguments
+before executing a call. A one-parameter read_file tool uses a raw path body;
+do not substitute a `path:` header. Return the actual fixture contents using
+`formatToolResponse`, then check that the answer matches the nonce.
+
+Run each model protection on/off sequentially, rotate order, verify the UI state,
+and compare remote execution-result frames rather than only assistant prose.
+Use normal/temporary context as an explicit separate condition. Pace fresh chats,
+stop on quota/transport trouble, and restore the initial settings. Do not count
+stalled turns or manually repaired arguments as successful proxy/harness calls.
+
+Read this as a follow-up to the separate [settings capture](browser-settings-2026-10-26.md),
+not a replacement for its 11-turn record or historical harness benchmarks. The
+updated [tool-call contract](tool-calling.md#grading-a-tool-call-october-26-2026)
+defines the grading boundary; the [research checklist](research-follow-up.md)
+orders the remaining local-client, parser, telemetry, context and DeepWork checks.
+
+## Offline parser boundaries (October 26, 2026)
+
+The [18-case report](parser-boundaries-2026-10-26.md) contains a minimal PowerShell/
+Node command reproducing typed-body, inline object-header and malformed-array
+observations against the existing core dist. It needs no auth or network and does
+not execute returned tool calls. The probes did not rebuild dist or run the full
+unit suite; source inspection confirmed the relevant branches.
+
+Before any fix, retain controls for Unicode/backslash paths, nested code fences,
+body whitespace, empty files, valid JSON/YAML values, unknown tools and intentionally
+rejected unclosed fences. Verify full argument types against the actual client
+schema, not merely hasToolCalls. See the [research checklist](research-follow-up.md)
+for implementation/client checks that remain incomplete.
+
+## Offline handler/client boundary (October 26, 2026)
+
+```powershell
+node scripts/offline-handler-contract-probe.mjs
+```
+
+See [handler-contract-2026-10-26.md](handler-contract-2026-10-26.md). After rebuilding
+core/proxy-lib, six scripted replies through JSON/SSE produced twelve responses:
+six controls compatible, six problematic argument outputs still emitted as tool
+calls. The script isolates account paths, scripts the model session, guards external
+fetch and checks admission release/acknowledgement; it executes no returned tool.
+An incompatible count is a research observation, not a full-suite test failure.
+
+The same report records 192 passing selected parser/cancellation/reconnect tests
+and separate isolated fetch checks: health/models 200, Responses/Messages 404.
+Do not substitute those checks for a live client loop or assume an endpoint is
+supported because its name appears in saved request history.

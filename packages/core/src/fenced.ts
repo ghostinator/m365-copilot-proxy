@@ -1072,6 +1072,8 @@ function makeCall(name: string, args: Record<string, unknown>): ParsedToolCall {
 const TRUE_WORDS = new Set(["true", "yes", "y", "1", "on"]);
 const FALSE_WORDS = new Set(["false", "no", "n", "0", "off"]);
 
+const INVALID_FENCED_VALUE = Symbol("invalid fenced argument");
+
 function coerceHeaderValue(value: string, declaredType: string | undefined): unknown {
   switch (declaredType) {
     case "boolean": {
@@ -1097,9 +1099,19 @@ function coerceHeaderValue(value: string, declaredType: string | undefined): unk
         // function exists to prevent.
         if (Array.isArray(parsed)) return parsed;
       } catch {
-        // not JSON — fall through to the single-element reading
+        // Incomplete JSON is not scalar shorthand for a string array.
+        if (value.trimStart().startsWith("[")) return INVALID_FENCED_VALUE;
       }
       return [value];
+    }
+    case "object": {
+      try {
+        const parsed = JSON.parse(value);
+        return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+          ? parsed : INVALID_FENCED_VALUE;
+      } catch {
+        return INVALID_FENCED_VALUE;
+      }
     }
     default:
       return value;
@@ -1337,7 +1349,9 @@ function parseFencedInner(spec: FencedToolSpec, inner: string): Record<string, u
             continue;
           }
         }
-        args[key] = coerceHeaderValue(m[2].trim(), type);
+        const value = coerceHeaderValue(m[2].trim(), type);
+        if (value === INVALID_FENCED_VALUE) return null;
+        args[key] = value;
         if (headerOnly && (type ?? "string") === "string") open = { key, inline: m[2].trim(), more: [] };
       } else if (open) {
         open.more.push(line);
@@ -1362,7 +1376,10 @@ function parseFencedInner(spec: FencedToolSpec, inner: string): Record<string, u
     args[spec.editPair.search] = sr[1];
     args[spec.editPair.replace] = sr[2];
   } else if (spec.bodyParam !== undefined) {
-    args[spec.bodyParam] = rest;
+    const type = spec.parameterTypes[spec.bodyParam];
+    const value = type === "string" || type === undefined ? rest : coerceHeaderValue(rest.trim(), type);
+    if (value === INVALID_FENCED_VALUE) return null;
+    args[spec.bodyParam] = value;
   }
 
   return args;

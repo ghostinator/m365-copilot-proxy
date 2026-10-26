@@ -1,5 +1,10 @@
 # Documentation coverage — 0.7.0
 
+Later October 26 [implementation and live verification](research-verification-2026-10-26.md)
+supersedes the earlier "documentation-only / no fix" status for that day's research:
+two local fixes, full build, 625 passing unit tests and bounded live checks are recorded there.
+Earlier reports retain their dated evidence and client/model limitations.
+
 Reviewed against the implementation and the recorded validation on October 25, 2026.
 
 | Feature | User documentation | Implementation / evidence |
@@ -57,3 +62,27 @@ changed for documentation capture.
 ## History management (0.11.0)
 
 [History management](history-management.md) covers full-history JSON/CSV exports, private online backups, integrity/checksum verification, explicit stopped-host restore, safety backups and maintenance recovery. Retention remains unlimited.
+
+## Browser research reconciliation (October 26, 2026)
+
+- [Settings study](browser-settings-2026-10-26.md): initial 11 turns / ten conversations;
+  formatting, UI tone selection, Work IQ request differences and remote execution.
+- [Model/tool comparison](browser-model-tools-2026-10-26.md): separate 20 turns / ten
+  conversations, 19 completed and one inconclusive cancellation. Six remote CRUD
+  successes; manual relay cooperation corrected for incompatible parser arguments.
+- [Offline parser investigation](parser-boundaries-2026-10-26.md): 18 synthetic cases,
+  source-confirmed type conversion concerns, and intentional rejection controls.
+  Adds no live turns, implementation fix or complete regression-suite result.
+- [Handler/client-surface follow-up](handler-contract-2026-10-26.md): rebuilt library
+  JSON/SSE boundary probe (twelve scripted requests), 192 passing selected offline
+  tests and four isolated endpoint checks. No live model/client or parser fix.
+- Current interpretation and limitations: m365-copilot-api.md, prompt-engineering.md,
+  tool-calling.md and logging.md. Historical bench and offline dashboard validation
+  remain scoped to their recorded dates; browser results do not supersede them.
+- Unverified local-client behavior, context isolation, frame decoding and DeepWork
+  support are tracked in the [research follow-up checklist](research-follow-up.md).
+
+The initial browser documentation changes introduced no runtime feature or test
+result. Later parser/session fixes, regression tests and live probes are recorded
+in the verification report above. No model mapping, monitoring job or archive of
+raw in-memory browser captures was added.

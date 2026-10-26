@@ -1,5 +1,10 @@
 # Tool Calling Contract
 
+October 26 [verification](research-verification-2026-10-26.md) records schema-typed
+body/object-header fixes, malformed-JSON rejection and real Pi local CRUD. Tool
+execution happens in the caller's harness; native Copilot sandbox results remain
+distinct. Clients still validate arguments and need a supported HTTP protocol.
+
 This proxy translates OpenAI-compatible tool calls to/from M365 Copilot. Because M365 doesn't natively support the OpenAI tool-calling protocol, we prompt-engineer it via a system prompt and enforce the contract at the proxy layer.
 
 ## Output Contract
@@ -24,24 +29,53 @@ tool (`bash`/`shell`/`run`/`run_command`/… — any name), the proxy injects "d
 by writing one ` ```bash ` block" framing and routes that block to the shell tool. This is
 what turns 0/5 into real multi-turn loops. See [hypotheses §9 F12](./hypotheses.md).
 
+### Grading a tool call (October 26, 2026)
+
+A fence is not sufficient evidence of a usable call. Generate the template with
+`formatToolDefinitions(tools, variant)`, parse the reply with `parseToolCalls(reply,
+tools)`, and validate the complete arguments before executing it. A read_file tool
+whose only parameter is path uses the path as its body, as in the example above.
+Adding `path:` would become part of the filename for that schema.
+
+The [browser model comparison](browser-model-tools-2026-10-26.md) demonstrated this
+probe-design mismatch: four manual relay reads worked after the relay interpreted
+the header, but did not produce correct paths under the proxy parser. Remote
+CodeInterpreter/BashExecutor CRUD is separate evidence about Microsoft's sandbox;
+it does not prove local harness execution. The [earlier settings report](browser-settings-2026-10-26.md)
+also measured code formatting, not local tool success. No default was changed on
+the strength of these browser results.
+
+The subsequent [offline parser probe](parser-boundaries-2026-10-26.md) also found
+that non-string bodies and inline object headers could remain strings, while an
+incomplete JSON object-item array could become an array containing raw text.
+These are separate parser/schema concerns, not evidence of a model's inability to
+use tools. Valid YAML arrays/objects and file-body whitespace controls passed;
+unclosed fences without an end marker are intentionally rejected. Fixes and real
+client impact remain unverified.
+The [rebuilt-handler follow-up](handler-contract-2026-10-26.md) now confirms these
+shapes reach both JSON and SSE callers. HTTP 200 and finish_reason tool_calls do
+not establish schema-valid arguments. Specific client validation/execution still
+needs an actual harness test; no implementation fix was made.
+
 ## Enforcement
 
 The contract is enforced at three layers:
 
-### 1. System Prompt (packages/core/src/tools.ts)
+### 1. Per-request framing (packages/core/src/tools.ts, fenced.ts)
 
-`formatFencedToolDefinitions()` injects the contract into every tool-enabled request:
+The public `formatToolDefinitions()` delegates to `formatFencedToolDefinitions()`.
+Framing is selected per model/route; the baseline rules below describe the earlier
+agent-oriented strategy, while user-voice relay variants apply on other routes:
 - "Performing the task with tools is your **PRIMARY JOB**. Answering the user in prose is, and always will be, SECONDARY."
 - A fenced block is an **ACTION the runtime executes**, not an example/illustration.
 - **Shell-first framing** when a shell tool is present: "do the whole step by writing ONE ` ```bash ` block" (heredocs to create, `sed` to edit, `cat`/`ls`/`grep` to inspect), plus **anti-confabulation** ("you've run nothing yet — never claim commands return no output; your FIRST output is a ` ```bash ` block"). This framing is what made it work through real pi (hypotheses §9 F14).
 - "**Never claim success** (`✅`/`SUCCESS`/`Done`) unless a `<tool_response>` proving it already appears above" — M365 loves to declare victory before the build runs.
 - "When you do give the final answer, **no preamble/sign-off**".
-- **Host-platform note** (`hostPlatformNote`, Windows only): every framing variant above
-  teaches POSIX idioms *by name* — heredocs, `sed -i`, `ls`/`grep` — so on Windows the
-  prompt instructs the model, on every turn, to emit commands the host cannot run. The note
-  states the real platform and gives the PowerShell equivalents. It is empty off Windows, so
-  the bench-tuned variants stay byte-for-byte unchanged; `platform` is injectable so the
-  Windows branch is testable from a POSIX box. (#7.)
+- **Host-platform note** (`hostPlatformNote`, Windows only): the shell tool's
+  definition determines its dialect. A Bash-backed tool keeps POSIX syntax on
+  Windows; a PowerShell tool needs PowerShell syntax. The note also covers quoting
+  Windows paths and command-length limits. It is empty off Windows. Do not assume
+  that the proxy host OS alone determines the client's shell dialect. (#7.)
 
 **Shell fence aliases** (`SHELL_LANGS` in `fenced.ts`): a fence only becomes a tool call if
 its info-string is a known shell alias — POSIX (` ```bash `/`sh`/`shell`/`zsh`/…), the leaked
@@ -55,10 +89,12 @@ returns an error the model can correct from, whereas an unrouted fence loses the
 
 ### 2. Copilot Studio Agent System Prompt (packages/core/src/agent.ts)
 
-The most important layer: an auto-created Copilot Studio agent carries tool-calling
-instructions in its **server-side** system prompt. Without the agent, M365 ignores the
-per-request injection and answers in prose (or hallucinates). See
-[m365-copilot-api.md](./m365-copilot-api.md) for why.
+On routes that use it, an auto-created Copilot Studio agent carries tool-calling
+instructions in its **server-side** system prompt. This was necessary on the early
+GPT/magic route; it is not a universal prerequisite. Exact-tone/account rules decide
+whether to attach it, and several Claude/GPT-6 routes deliberately run agent-less.
+See [m365-copilot-api.md](./m365-copilot-api.md) and
+[prompt-engineering.md](./prompt-engineering.md) before changing those rules.
 
 These instructions are baked in at agent-creation time and can't be cheaply updated in
 place, so the agent is **versioned by name**: it's called `m365-tool-agent-<hash>`, where

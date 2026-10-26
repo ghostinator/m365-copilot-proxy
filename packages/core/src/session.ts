@@ -943,7 +943,12 @@ export class CopilotSession {
                   maybeResumeAction(m);
                 }
                 if (m.author === "bot" && m.text && !m.messageType) {
-                  composer.snapshot(m.messageId, m.text);
+                  // A cursor's card can still be empty while m.text previews a token the deltas repeat.
+                  const cardPath = msgUpdate.data.cursor?.j.match(/^\$\['([^']+)'\]\.adaptiveCards\[(\d+)\]\.body\[(\d+)\]\.text$/);
+                  const cardText = cardPath && cardPath[1] === m.messageId
+                    ? m.adaptiveCards?.[Number(cardPath[2])]?.body?.[Number(cardPath[3])]?.text
+                    : undefined;
+                  composer.snapshot(m.messageId, typeof cardText === "string" ? cardText : m.text);
                   advance(composer.text);
                 }
               }
