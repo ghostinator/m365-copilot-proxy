@@ -65,6 +65,43 @@ it("clears notification credentials and ignores late configuration responses aft
   expect(el("notification-message").textContent).toContain("Preview this destination");
 });
 
+it("explains disabled destinations, enables testing only after activation, and selects a saved destination", async () => {
+  const { el, context, pending } = await dashboard();
+  const destination = { id: "teams", label: "Teams", type: "webhook", format: "teams", enabled: false, revision: 1 };
+  const state = { destinations: [destination], deliveries: [], total: 0, offset: 0 };
+  runInContext("operatorToken='grant';operatorExpiry=Date.now()+60000;renderNotifications(" + JSON.stringify(state) + ")", context);
+  expect(el("notification-choice").value).toBe("teams");
+  expect(el("notification-selected-status").textContent).toContain("DISABLED: nothing will be sent");
+  expect(el("notification-enable").disabled).toBe(false); expect(el("notification-test").disabled).toBe(true);
+  runInContext("renderNotifications(" + JSON.stringify({ ...state, destinations: [{ ...destination, enabled: true }] }) + ")", context);
+  expect(el("notification-test").disabled).toBe(false); expect(el("notification-enable").disabled).toBe(true);
+  runInContext("notificationAction({action:'notifications-save'})", context);
+  pending[1].resolve({ ok: true, json: async () => ({ ...state, destinations: [destination, { ...destination, id: "new", label: "New" }] }) });
+  await new Promise(resolve => setImmediate(resolve));
+  expect(el("notification-choice").value).toBe("new");
+  expect(el("notification-selected-status").textContent).toContain("New · DISABLED");
+  runInContext("lockOperator()", context);
+  expect(el("notification-selected-status").textContent).not.toContain("New");
+});
+
+it("shows removal acknowledgement and busy feedback, sends the selected ID, and confirms removal", async () => {
+  const { el, context, pending } = await dashboard();
+  const state = { destinations: [{ id: "teams12", label: "teams12", enabled: false, revision: 1, type: "webhook" }], deliveries: [], total: 0, offset: 0 };
+  runInContext("operatorToken='grant';operatorExpiry=Date.now()+60000;renderNotifications(" + JSON.stringify(state) + ")", context);
+  el("notification-remove").listeners.click();
+  expect(el("notification-message").textContent).toContain("removal acknowledgement");
+  expect(pending).toHaveLength(1);
+  el("notification-remove-confirm").checked = true;
+  runInContext("operatorBusy=true", context); el("notification-remove").listeners.click();
+  expect(el("notification-message").textContent).toContain("Another management operation");
+  runInContext("operatorBusy=false", context); el("notification-remove").listeners.click();
+  expect(pending).toHaveLength(2);
+  pending[1].resolve({ ok: true, json: async () => ({ ...state, destinations: [] }) });
+  await new Promise(resolve => setImmediate(resolve));
+  expect(el("notification-message").textContent).toContain("Destination removed");
+  expect(el("notification-remove-confirm").checked).toBe(false); expect(el("notification-remove").disabled).toBe(true);
+});
+
 it("selects API email fields and clears provider credentials on lock", async () => {
   const { el, context } = await dashboard();
   runInContext("notificationAction=command=>globalThis.capturedNotification=command", context);
@@ -179,4 +216,21 @@ it("ignores late storage history responses after changing range or clearing auth
  pending[1].resolve({ok:true,json:async()=>({available:true,totalInRange:999,completeInRange:0,points:[],bucketHours:1})});await new Promise(r=>setImmediate(r));
  expect(el('storage-history-status').textContent).not.toContain('999');
  runInContext('clearStorageTrend()',context);pending[2].resolve({ok:true,json:async()=>({available:true,totalInRange:123,completeInRange:0,points:[],bucketHours:1})});await new Promise(r=>setImmediate(r));expect(el('storage-history-status').textContent).not.toContain('123');
+});
+
+
+it('labels chart axes and exposes exact interval values on focus and tap',async()=>{
+ const {el,context}=await dashboard();el('performance-metric').value='total';
+ const data={total:3,succeeded:2,failed:1,cancelled:0,successRate:2/3,bucketMs:60000,buckets:[{at:100000,total:3,succeeded:2,failed:1,cancelled:0,durationMs:5000,firstByteMs:400,queueMs:100}]};
+ runInContext('renderPerformance('+JSON.stringify(data)+')',context);
+ expect(el('performance-y-label').textContent).toContain('Completed chat requests');expect(el('performance-y-ticks').children.map(n=>n.textContent)).toEqual(['4','3','2','1','0']);
+ expect(el('performance-x-ticks').children).toHaveLength(3);const bar=el('performance-chart').children[0];bar.listeners.focus();expect(el('performance-point').textContent).toContain('3 requests');expect(bar.attributes['aria-label']).toContain('1 errors');
+ el('performance-metric').value='durationMs';runInContext('renderPerformanceChart()',context);expect(el('performance-y-label').textContent).toContain('(ms)');el('performance-chart').children[0].listeners.click();expect(el('performance-point').textContent).toContain('5000 ms');
+});
+
+
+it('clears private maintenance/profile state on lock and ignores a late management response',async()=>{
+ const {el,context,pending}=await dashboard();runInContext("operatorToken='grant';operatorExpiry=Date.now()+60000;maintenanceAccess(true);maintenanceAction({action:'profile-list'})",context);
+ runInContext('lockOperator()',context);pending[1].resolve({ok:true,json:async()=>({profiles:[{label:'private app',defaultModel:'claude-sonnet',active:true}],keys:[]})});await new Promise(r=>setImmediate(r));
+ expect(el('profile-controls').disabled).toBe(true);expect(el('update-controls').disabled).toBe(true);expect(el('profile-list').children).toHaveLength(0);expect(el('update-notes').textContent).toBe('');
 });

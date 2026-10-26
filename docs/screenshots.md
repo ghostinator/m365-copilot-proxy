@@ -61,3 +61,17 @@ seeds public example addresses/labels. Production keys are never created or capt
 Version 0.10.0 adds `dashboard-troubleshooting.jpg` and `dashboard-error-groups.jpg`: synthetic Requests filters/export and error groups. Tokens were dismissed and operator access locked before capture.
 
 Version 0.11.0 adds `dashboard-history-backups.jpg` and `dashboard-history-export.jpg`: synthetic verified backup/recovery preview and an all-time download of 424 requests while the page displays only 20. No restore was applied from the browser.
+
+## Additional 0.24.0 captures to add
+
+Use the synthetic fixture and no real credentials. Browser capture was unavailable
+in the implementation session; these remain explicit placeholders in README.
+
+- Overview → Chat performance: numbered vertical ticks with count/percent/ms units,
+  local time labels and a focused bar's exact interval/value/error/cancellation details.
+- Settings → Managed updates & rollback: release notes, staged version and rollback
+  state. Show separate check/stage/apply actions; do not imply Linux activation support.
+- Settings → Application profiles: example application labels and model defaults,
+  with a companion Clients usage screenshot if it improves the explanation.
+- Settings → Notification delivery: a selected disabled Teams destination showing
+  enable/preview/test steps, plus removal acknowledgement and adjacent action feedback.

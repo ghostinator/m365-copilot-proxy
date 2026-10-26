@@ -6122,3 +6122,56 @@ bounds, 2,001-row query downsampling, API policy, chart gaps and late-response
 clearing passed. All original rows remain. Reference scope and limitations promoted
 to docs/observability.md, Measured storage history. No backfilled production series,
 model probes, external notification sends or retention limits were introduced.
+
+### Compatible runtime updates and application profiles — October 25, 2026
+
+H: a verified portable Windows runtime can replace an idle/drained runtime and
+recover the preceding version after startup failure without restoring account or
+history files. Falsification: another process is killed, a new chat is admitted
+during activation, readiness is claimed for the wrong PID/version, state changes,
+or failure leaves the candidate serving. Probe: `scripts/test-update-runtime.mjs`
+with fake authentication and loopback-only readiness; manifest/URL/archive tests
+in `maintenance-runtime.test.ts` and `scripts/test-release-extraction.ps1`.
+
+H: per-key defaults can apply only to omitted `model`, while fair admission can
+rotate queued clients without concurrent upstream turns or changing explicit
+models. Falsification: explicit/null model changes, keyless/revoked requests gain a
+profile, credentials are stored in profiles, or overlapping upstream admission.
+Probes: `client-profiles.test.ts`, `session-pool.test.ts` and the actual HTTP
+parser/profile check in `scripts/test-operator-runtime.mjs`. These passed with
+synthetic data; no M365 model calls were used. The runtime test caught an invalid
+launcher export reference before deployment; the launcher now reads its own
+manifest/package version.
+
+Result: 609 offline unit tests passed with two workers; six live tests skipped.
+Portable startup/HTTP/operator/profile/backup checks passed outside the checkout.
+Windows apply and rollback handoffs passed; a separately run forced startup-failure
+case recovered the preceding runtime and cleared its update lock/pending marker.
+Four ZIP checks passed (valid archive, traversal, case-duplicate and symlink).
+The first recovery harness stopped staging at 45 seconds under host load; its
+subprocess bound now matches the longer install/staging allowance. A separate
+fully parallel suite hit an existing five-second worker test timeout; the bounded
+rerun passed without weakening that test or production timeouts.
+
+Linux unit generation, private configuration and uninstall preservation passed
+mocked lifecycle checks. Real local `wsl.exe -d Ubuntu --exec /bin/ls` repeatedly
+timed out, so user-manager restart/auth/graceful-stop behavior remains unverified.
+No account login, reboot or long soak is inferred from offline tests. Operational
+scope and compatibility rules are documented in `docs/operations.md`.
+
+### Teams setup diagnosis — October 25, 2026
+
+H: the missing Teams messages were caused by setup state before transport, rather
+than a rejected card. Falsification: a recorded delivery attempt existed or a
+single authorized Teams-format test was rejected/did not appear. Inspection found
+two disabled destinations sharing a URL, one Teams and one generic, with zero
+delivery rows. One explicitly authorized test was accepted and the user confirmed
+its arrival (n=1 endpoint). The user enabled the Teams destination; the duplicate
+was removed on request. Global alert evaluation was still disabled at inspection.
+No webhook URL, recipient or tenant identifier is published here.
+
+The dashboard now makes enablement/next steps explicit, selects saved items and
+places acknowledgement/busy/removal feedback beside the controls. VM tests cover
+those states and locking; chart tests cover axis scales and focused interval
+details. HTTP acceptance is documented separately from downstream workflow
+success. This confirms this configured receiver only, not general Teams reliability.

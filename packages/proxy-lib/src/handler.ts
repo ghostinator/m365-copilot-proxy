@@ -246,7 +246,7 @@ export async function handleChatCompletion(
   opts.activity?.phase("queued");
   opts = { ...opts, signal: AbortSignal.any([...(opts.signal ? [opts.signal] : []), pool.shutdown.signal, cancellation.signal]) };
   let release: () => void;
-  try { release = await pool.acquire(opts.signal); }
+  try { release = await pool.acquire(opts.signal,opts.callerId); }
   catch (error: any) { opts.activity?.diagnostic("proxy_busy", error.message, error.stack); opts.activity?.result(opts.signal?.aborted ? 499 : 503); return jsonResponse(opts.signal?.aborted ? 499 : 503, { error: { message: error.message, type: "proxy_busy" } }); }
   opts.activity?.admitted();
   let streaming = false;

@@ -10,5 +10,6 @@ globalThis.fetch = async (input, options) => {
   const allowed = process.env.M365_TEST_NOTIFICATION_URL;
   const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
   if (allowed && url.href === allowed && url.hostname === "127.0.0.1") return fixtureFetch(input, options);
+  if (process.env.M365_TEST_UPDATE_READY === url.origin && url.hostname === "127.0.0.1" && url.pathname === "/health/ready" && !url.search) return fixtureFetch(input, options);
   throw new Error("Outbound HTTP is disabled by the offline chat fixture");
 };

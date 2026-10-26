@@ -1,3 +1,5 @@
+import { Updates } from "./updates.mjs";
+import { linuxService } from "./linux-service.mjs";
 import { serviceController } from "./service-host.mjs";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -25,6 +27,8 @@ function settings() {
   const host = process.env.NITRO_HOST || process.env.HOST || config.host || "127.0.0.1";
   if (typeof host !== "string" || !host || /[\s/'";]/.test(host)) throw new Error("Invalid bind host");
   if (config.apiKey !== undefined && (typeof config.apiKey !== "string" || !config.apiKey.trim())) throw new Error("server.json apiKey must be a nonempty string");
+  if(config.fairQueue!==undefined&&typeof config.fairQueue!=="boolean")throw Error("server.json fairQueue must be a boolean");
+  if(process.env.M365_FAIR_QUEUE===undefined&&config.fairQueue===true)process.env.M365_FAIR_QUEUE="1";
   if (config.metricsEnabled !== undefined && typeof config.metricsEnabled !== "boolean") throw new Error("server.json metricsEnabled must be a boolean");
   if (process.env.M365_METRICS === undefined && config.metricsEnabled === true) process.env.M365_METRICS = "1";
   if (config.allowedOrigins !== undefined && (!Array.isArray(config.allowedOrigins) || !config.allowedOrigins.every(v => typeof v === "string" && /^https?:\/\//.test(v)))) throw new Error("server.json allowedOrigins must be an array of HTTP(S) origins");
@@ -56,11 +60,12 @@ export async function main(args) {
   let command = args[0] || "serve";
   if (/^\d+$/.test(command)) { process.env.NITRO_PORT = process.env.PORT = command; command = "serve"; }
   if (["--help", "-h", "help"].includes(command)) {
-    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy operator authorize\nm365-proxy history backup|list|verify <id>|restore <id> [--apply --confirm <id>]\nm365-proxy service install|status|start|stop|disable|uninstall\nm365-proxy diagnostics [output.json]\nm365-proxy client setup pi|openclaw [--config path] [--base-url URL] [--api-key-env NAME] [--dry-run] [--replace]\nm365-proxy client info\nm365-proxy keys create <label>|list|revoke <id>|rename <id> <label>|mode optional|required\nDashboard: http://127.0.0.1:<port>/dashboard\n\nConfiguration: " + configPath);
+    console.log("m365-proxy setup [--skip-browser]\nm365-proxy login\nm365-proxy doctor [--live]\nm365-proxy serve [port]\nm365-proxy stop\nm365-proxy operator authorize\nm365-proxy history backup|list|verify <id>|restore <id> [--apply --confirm <id>]\nm365-proxy service install|status|start|stop|disable|uninstall [Linux: render]\nm365-proxy diagnostics [output.json]\nm365-proxy update check|status|stage <tag>|stage-local <directory>|source <owner/repo>|apply|rollback|recover\nm365-proxy client setup pi|openclaw [--config path] [--base-url URL] [--api-key-env NAME] [--dry-run] [--replace]\nm365-proxy client info\nm365-proxy client profile list|set <key-id> <model>|remove <key-id>\nm365-proxy keys create <label>|list|revoke <id>|rename <id> <label>|mode optional|required\nDashboard: http://127.0.0.1:<port>/dashboard\n\nConfiguration: " + configPath);
     return;
   }
   if (command === "service") {
-    if (process.platform !== "win32") throw new Error("The service commands manage a Windows per-user sign-in task. See docs/operations.md for systemd.");
+    if(process.platform === "linux"){console.log(JSON.stringify(await linuxService({dataDir,launcher}).command(args[1]),null,2));return;}
+    if(process.platform !== "win32")throw Error("Service installation supports Windows and Linux.");
     const action = args[1];
     if (!["install", "status", "start", "stop", "disable", "uninstall"].includes(action)) throw new Error("Choose service install, status, start, stop or uninstall");
     process.exitCode = run("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", join(root, "windows/Service.ps1"), "-Action", action, "-Launcher", launcher, "-NodePath", process.execPath, "-DataDir", dataDir], { allowFailure: action === "status", timeout: 180_000 });
@@ -78,11 +83,28 @@ export async function main(args) {
     }
     throw new Error("Proxy did not acknowledge shutdown; use service stop to verify and stop a supervised process");
   }
-  if (!["serve", "setup", "login", "doctor", "diagnostics", "client", "keys", "operator", "history"].includes(command)) throw new Error(`Unknown command: ${command}; use --help`);
+  if (!["serve", "setup", "login", "doctor", "diagnostics", "client", "keys", "operator", "history", "update"].includes(command)) throw new Error(`Unknown command: ${command}; use --help`);
   if (command === "serve" && args[1]) process.env.NITRO_PORT = process.env.PORT = args[1];
+  if(command==="update"&&!['apply','rollback'].includes(args[1])){
+    const own=JSON.parse(readFileSync(existsSync(join(root,'manifest.json'))?join(root,'manifest.json'):join(root,'package.json'),'utf8'));
+    const updates=new Updates({root,dataDir,version:own.version}),action=args[1];
+    if(action==='source'&&args.length===3){if(!/^[-a-zA-Z0-9_]+\/[-a-zA-Z0-9_.]+$/.test(args[2]))throw Error('Use owner/repo');await updates.locked(async()=>{updates.write('source',{repository:args[2]});updates.repository()});console.log(JSON.stringify(updates.status()));return}
+    if(action==='stage-local'&&args.length===3){console.log(JSON.stringify(await updates.stageLocal(resolve(args[2]))));return}
+    if(action==='recover'&&args.length===2){if(existsSync(join(dataDir,'instance.json')))throw Error('Stop the proxy before recovering an interrupted update');const p=join(updates.folder,'operation.lock');if(existsSync(p)){const owner=JSON.parse(readFileSync(p,'utf8'));if(!Number.isSafeInteger(owner.pid)||owner.pid<=0)throw Error('Invalid lock owner');try{process.kill(owner.pid,0);throw Error('Update owner is still running')}catch(e){if(e.code!=='ESRCH')throw e}rmSync(p)}const pending=join(updates.folder,'activation.pending');if(existsSync(pending))rmSync(pending);updates.write('state',{phase:'failed',message:'Interrupted update cleared by the host. Inspect selection before starting.'});console.log('Interrupted update cleared; account files preserved.');return}
+    if(action==='check'&&args.length===2)console.log(JSON.stringify(await updates.check()));
+    else if(action==='status'&&args.length===2)console.log(JSON.stringify(updates.status()));
+    else if(action==='stage'&&args.length===3)console.log(JSON.stringify(await updates.stage(args[2])));
+    else throw Error('Use update check|status|stage <tag>|stage-local <directory>|source <owner/repo>|apply|rollback|recover');return;
+  }
   const config = settings();
   const runtime = await import(runtimeUrl.href);
   runtime.validateBind(config.host);
+  if(command==='update'){
+    if(!['apply','rollback'].includes(args[1])||args.length!==2)throw Error('Use update apply or update rollback');
+    const host=['0.0.0.0','::'].includes(config.host)?'127.0.0.1':config.host,base='http://'+(host.includes(':')?'['+host+']':host)+':'+config.port;
+    const grant=runtime.operatorAccess.grant();const result=await fetch(base+'/v1/proxy/operator',{method:'POST',headers:{origin:base,'content-type':'application/json','x-m365-operator':grant.token},body:JSON.stringify({action:'update-'+args[1]}),signal:AbortSignal.timeout(30000)});
+    if(!result.ok)throw Error('Update was not accepted; check staged release and runtime status');console.log(JSON.stringify(await result.json()));return;
+  }
   if (command === "history") {
     const action = args[1], store = runtime.historyBackups;
     if (action === "backup" && args.length === 2) { protectDataDir(); console.log(JSON.stringify(await store.create(), null, 2)); }
@@ -113,6 +135,12 @@ export async function main(args) {
   }
   runtime.proxyApiKeys.status();
   if (command === "client") {
+    if(args[1]==='profile'){
+      const action=args[2];if(action==='list'&&args.length===3)console.log(JSON.stringify(runtime.clientProfiles.snapshot()));
+      else if(action==='set'&&args.length===5){protectDataDir();console.log(JSON.stringify(runtime.clientProfiles.set(args[3],args[4])))}
+      else if(action==='remove'&&args.length===4){protectDataDir();console.log(JSON.stringify(runtime.clientProfiles.set(args[3],null)))}
+      else throw Error('Use client profile list|set <key-id> <model>|remove <key-id>');return;
+    }
     if (args[1] === "info") {
       if (args.length !== 2) throw new Error("Use client info without additional arguments");
       const host = ["0.0.0.0", "::"].includes(config.host) ? "127.0.0.1" : config.host;
@@ -185,7 +213,7 @@ export async function main(args) {
   process.env.M365_NO_INTERACTIVE ??= "1";
   // Foreground server with a private, nonce-protected local shutdown request.
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-  const instance = { pid: process.pid, executable: process.execPath, launcher, nonce: randomUUID(), started: new Date(Date.now() - process.uptime() * 1000).toISOString() };
+  const instance = { host: config.host, port: config.port, version: JSON.parse(readFileSync(existsSync(join(root,'manifest.json'))?join(root,'manifest.json'):join(root,'package.json'),'utf8')).version, pid: process.pid, executable: process.execPath, launcher, nonce: randomUUID(), started: new Date(Date.now() - process.uptime() * 1000).toISOString() };
   const instancePath = join(dataDir, "instance.json");
   const stopPath = join(dataDir, `shutdown-${instance.nonce}`);
   const timer = setInterval(() => { if (existsSync(stopPath)) { rmSync(stopPath, { force: true }); process.emit("SIGTERM"); } }, 500);

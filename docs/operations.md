@@ -33,6 +33,108 @@ After a successful login:
 
 The task uses the current user's interactive identity, stays attached to a watchdog, has no 72-hour execution limit and disallows duplicate task instances. The watchdog restarts unexpected Node failures up to three times, five seconds apart; authentication/configuration exit 78 is not retried rapidly. `M365_SERVICE_RESTARTS=0..10` adjusts the watchdog's bound. Task Scheduler is additionally configured with three one-minute fallback retries. It opens no console or login window. `start` waits for `/health/ready`. `stop` verifies the recorded process identity and asks the server to drain; after 20 seconds it can force-stop the verified process. Logs are in `service-logs` under the data directory. Startup registration is separate from installing the files. Uninstall removes the startup task and preserves account/configuration state; remove application files separately when no longer needed.
 
+## Linux user services (0.24.0)
+
+Extract a Linux portable runtime into a permanent location, run setup/login as
+the intended user, then:
+
+```sh
+./m365-proxy service render  # inspect generated unit, writes nothing
+./m365-proxy service install
+./m365-proxy service start   # waits for this process's readiness
+./m365-proxy service status
+./m365-proxy service disable # disables future login startup; leaves current work running
+./m365-proxy service stop
+./m365-proxy service uninstall
+```
+
+Installation enables a unit named `m365-copilot-proxy-<data-directory-hash>.service`
+under `$XDG_CONFIG_HOME/systemd/user` (normally `~/.config/systemd/user`). It does
+not start it automatically. Optional private `KEY=value` settings belong in
+`<data-directory>/service.env`, mode 0600; this file is preserved across reinstall
+and uninstall. A working `systemctl --user` session bus is required. Standard
+user-session startup ends with the user session unless the host's login manager
+has lingering enabled. If you intentionally need startup before login, configure
+`loginctl enable-linger USER` separately with the host administrator. The installer
+does not enable it or modify the existing NixOS system-service module.
+
+The unit uses a private umask, no-new-privileges, up to three starts per five
+minutes, ten-second failure backoff and no rapid restart for auth/configuration
+exit 78. Stop allows 120 seconds for graceful shutdown. Logs go to the user journal
+with a 200-message/30-second rate limit; disk retention follows the host's journald
+configuration. Inspect `journalctl --user -u UNIT`. Uninstall removes this unit,
+not credentials, history or `service.env`. See the
+[systemd service reference](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html).
+
+## Managed updates and rollback (0.24.0)
+
+Settings → Managed updates & rollback requires administrator management access.
+Checking GitHub, downloading, applying and rolling back are separate explicit
+actions. Browsing/polling reads local status; it does not check GitHub. Current
+automatic archive activation supports **Windows with bundled Node**. Linux/macOS
+continue using extracted portable releases and their normal installer/startup path.
+
+```sh
+m365-proxy update status
+m365-proxy update check
+m365-proxy update source ghostinator/m365-copilot-proxy
+m365-proxy update stage v0.24.0
+m365-proxy update stage-local /path/to/extracted/compatible-release
+m365-proxy update apply
+m365-proxy update rollback
+# Stopped host only, after inspecting a crashed update's selection and logs:
+m365-proxy update recover
+```
+
+Use a stable published version with one matching Windows architecture ZIP and its
+`.sha256` asset. Archives must come from the host-configured repository; HTTPS
+redirects are restricted to GitHub asset hosts. ZIP preflight refuses traversal,
+links, duplicate names and oversized contents. Every manifest file is verified
+before execution, then the staged CLI must answer `--help`. The checksum protects
+against corruption; it is not a signature independent of the release publisher.
+
+Apply/rollback verifies the selection, blocks new chats/tests and waits up to two
+minutes for admitted work and backups. A detached helper waits for the old process
+to exit cleanly, installs the candidate with the existing versioned Windows
+installer, verifies readiness/version and repoints existing startup registration.
+Failed readiness recovers the preceding runtime. It does not restore databases or
+delete account state. No other listener/process is killed. CLI apply/rollback
+creates a short-lived host grant internally; existing administrator password
+sessions remain valid, but a previous host-issued operator grant is replaced.
+
+Only manifests declaring `stateCompatibility: 1` are accepted. Older releases
+without that declaration and releases with incompatible state schemas cannot be
+activated through this mechanism. Future schema migrations must update this
+compatibility contract before enabling cross-version rollback. The previous
+compatible release becomes available after the first successful update. Download,
+staging and installation caches are retained under `<data-directory>/updates`;
+allow extra disk space for multiple runtime copies. There is no cache retention
+policy yet. `recover` clears a dead owner's update lock/pending marker only while
+the proxy is stopped; it never chooses a runtime or repairs account files.
+
+## Application profiles and queue fairness (0.24.0)
+
+Settings → Application profiles assigns one default registered model per active
+named application key. Client requests that explicitly specify `model` always win;
+profiles apply only when the field is omitted. Keyless, legacy-key and revoked-key
+requests retain normal defaults/access behavior. Named keys remain optional, and
+Clients continues to show per-key/model traffic. Profiles live in the private
+`client-profiles.json` file and contain key IDs/model names, not raw tokens.
+
+```sh
+m365-proxy client profile list
+m365-proxy client profile set KEY_UUID claude-sonnet
+m365-proxy client profile remove KEY_UUID
+```
+
+For waiting applications, set `"fairQueue": true` in `server.json` or
+`M365_FAIR_QUEUE=1`, then restart. The default remains FIFO. Fair admission rotates
+by authenticated-header identity and preserves FIFO within a client; it still
+runs only one upstream request at a time and never interrupts an active turn.
+Keyless callers share an identity. This is admission fairness, not per-key quotas
+or protection against callers choosing multiple identities. Queue limits and
+timeouts still apply.
+
 ## Local dashboard and client setup
 
 Version 0.7.0 includes a six-tab dashboard at `http://127.0.0.1:4141/dashboard`

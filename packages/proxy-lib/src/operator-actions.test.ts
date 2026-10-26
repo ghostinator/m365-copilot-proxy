@@ -92,3 +92,13 @@ it("waits for a manual backup lock before handing off a dashboard restart",async
  writeFileSync(join(dir,"history-backups.lock"),"offline fixture");await serviceCommand("restart",activity);await vi.advanceTimersByTimeAsync(500);expect(restart).not.toHaveBeenCalled();
  rmSync(join(dir,"history-backups.lock"));await vi.advanceTimersByTimeAsync(500);expect(restart).toHaveBeenCalledOnce();activity.sources.close();
 });
+
+it("preflights an update before draining and waits for an in-flight notification", async () => {
+ vi.useFakeTimers();const activity=new HttpActivity(),restart=vi.fn(async()=>{}),prepare=vi.fn(async()=>{});
+ registerServiceController({status:async()=>({}),startup:async()=>{},restart,prepareUpdate:prepare});
+ const summary=vi.spyOn(activity.sources.alerts.notifications,'summary').mockReturnValue({configured:1,enabled:1,counts:{sending:1},running:true,error:null});
+ await serviceCommand('update-apply',activity);expect(prepare).toHaveBeenCalledWith('update-apply');
+ await vi.advanceTimersByTimeAsync(500);expect(restart).not.toHaveBeenCalled();
+ summary.mockReturnValue({configured:1,enabled:1,counts:{sent:1},running:true,error:null});
+ await vi.advanceTimersByTimeAsync(500);expect(restart).toHaveBeenCalledWith('update-apply');activity.sources.close();
+});

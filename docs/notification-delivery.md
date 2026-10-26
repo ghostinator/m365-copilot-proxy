@@ -33,6 +33,14 @@ does not disable already-enabled server destinations. Use Disable to cancel queu
 work, or Remove to scrub the active configuration while retaining delivery history.
 Removal is not forensic secure erasure of old SQLite pages, WALs or backups.
 
+The selected destination now has an explicit enabled/disabled status and next
+steps beside its controls. A newly saved destination is selected automatically.
+Removal needs the **Remove its stored configuration** acknowledgement; successful
+removal is confirmed there. A busy management operation is reported explicitly.
+Two destinations sharing one URL remain independent and can send duplicate alerts
+if both are enabled. Remove or disable the duplicate rather than changing formats
+and expecting them to share delivery state.
+
 ### Webhooks
 
 Generic JSON carries version, stable delivery ID, incident ID, fixed rule/event,
@@ -41,6 +49,17 @@ message envelope. Configure the appropriate Teams Workflows receiver on your ten
 flows requiring authentication need a separately supplied usable bearer token.
 OAuth token acquisition/refresh is not implemented. Tenant/flow authorization and
 payload acceptance still need a controlled live test after setup.
+
+Automatic delivery also requires global Opt-in alerts to be enabled; explicit
+tests do not require that global evaluation switch.
+
+If Teams stays quiet, first check destination enablement and Delivery results.
+No delivery rows means no notification was attempted. Use Teams Adaptive Card
+for a card-receiving workflow, not Generic JSON. Enable the Teams workflow,
+verify its target chat/channel and connection permissions, and inspect its run
+history. A successful HTTP response confirms webhook receipt; the workflow can
+still fail later while posting the card. See Microsoft's
+[incoming webhook setup](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook).
 
 HTTPS is the default. HTTP requires the explicit allow-HTTP checkbox and sends its
 URL/body/bearer token without transport encryption. Operator-selected private-network

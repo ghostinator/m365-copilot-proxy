@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { abortable, ModelSession, positiveInt, type ModelSessionOptions } from "@m365-copilot/core";
+import { ModelSession, positiveInt, type ModelSessionOptions } from "@m365-copilot/core";
 import type { z } from "zod/v4";
 import type { ChatCompletionRequest } from "./schemas.js";
 type Body = z.infer<typeof ChatCompletionRequest>;
@@ -22,25 +22,37 @@ export interface ConversationState {
 /** One upstream account: serialize complete turns, including streamed production. */
 export class SessionPool {
   private conversations = new Map<string, ConversationState>();
-  private queue: Promise<void> = Promise.resolve();
+  private queue: {caller:string;signal:AbortSignal;resolve:(release:()=>void)=>void;reject:(error:unknown)=>void;abort:()=>void}[] = [];
+  private rotation:string[]=[];
+  private active=false;
   private waiting = 0;
   readonly shutdown = new AbortController();
   close() { this.shutdown.abort(new Error("Proxy is shutting down")); this.conversations.clear(); }
   constructor(private sessionOptions: ModelSessionOptions = {}) {}
 
-  async acquire(signal?: AbortSignal): Promise<() => void> {
-    signal = signal ? AbortSignal.any([signal, this.shutdown.signal]) : this.shutdown.signal;
-    signal = AbortSignal.any([signal, AbortSignal.timeout(positiveInt(process.env.M365_QUEUE_TIMEOUT_MS, 120_000))]);
-    signal?.throwIfAborted();
-    if (this.waiting >= positiveInt(process.env.M365_MAX_PENDING_REQUESTS, 32)) throw new Error("The proxy request queue is full");
+  async acquire(signal?: AbortSignal, caller="local"): Promise<() => void> {
+    signal=AbortSignal.any([...(signal?[signal]:[]),this.shutdown.signal,AbortSignal.timeout(positiveInt(process.env.M365_QUEUE_TIMEOUT_MS,120000))]);
+    signal.throwIfAborted();
+    if(this.waiting>=positiveInt(process.env.M365_MAX_PENDING_REQUESTS,32))throw Error("The proxy request queue is full");
     this.waiting++;
-    const previous = this.queue;
-    let unlock!: () => void;
-    this.queue = new Promise<void>(r => { unlock = r; });
-    try { await abortable(previous, signal); signal?.throwIfAborted(); }
-    catch (e) { void previous.then(unlock); this.waiting--; throw e; }
-    let released = false;
-    return () => { if (!released) { released = true; this.waiting--; unlock(); } };
+    return new Promise((resolve,reject)=>{
+      const entry={caller,signal:signal!,resolve,reject,abort:()=>{
+        const index=this.queue.indexOf(entry);if(index<0)return;this.queue.splice(index,1);this.waiting--;
+        if(!this.queue.some(e=>e.caller===caller))this.rotation=this.rotation.filter(c=>c!==caller);
+        reject(signal!.reason);this.dispatch();
+      }};
+      if(!this.queue.some(e=>e.caller===caller))this.rotation.push(caller);
+      this.queue.push(entry);signal!.addEventListener('abort',entry.abort,{once:true});this.dispatch();
+    });
+  }
+  private dispatch(){
+    if(this.active||!this.queue.length)return;
+    const fair=process.env.M365_FAIR_QUEUE==="1";
+    const caller=this.rotation[0],index=fair?this.queue.findIndex(e=>e.caller===caller):0;
+    const [entry]=this.queue.splice(index,1);this.rotation=this.rotation.filter(c=>c!==entry.caller);
+    if(this.queue.some(e=>e.caller===entry.caller))this.rotation.push(entry.caller);
+    entry.signal.removeEventListener('abort',entry.abort);this.active=true;let released=false;
+    entry.resolve(()=>{if(released)return;released=true;this.active=false;this.waiting--;this.dispatch()});
   }
 
   resolve(messages: Message[], tools?: Body["tools"], identity = ""): ConversationState {

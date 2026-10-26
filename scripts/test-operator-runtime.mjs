@@ -92,6 +92,15 @@ try {
   const metadata = await (await fetch(base + "/v1/proxy/status")).json();
   assert.equal(metadata.apiKeys.required, false); assert(!JSON.stringify(metadata).includes(key.token));
   await (await fetch(base + "/v1/models", { headers: { authorization: `Bearer ${key.token}` } })).text();
+  const profile=await operator({action:"profile-set",keyId:key.id,model:"claude-sonnet"});assert.equal(profile.status,200);
+  assert.equal((await profile.json()).profiles[0].defaultModel,"claude-sonnet");
+  assert(!readFileSync(join(data,"client-profiles.json"),"utf8").includes(key.token));
+  const profiled=await fetch(base+"/v1/chat/completions",{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${key.token}`},body:JSON.stringify({messages:[{role:"user",content:"offline profile check"}]})});assert.equal(profiled.status,200);await profiled.text();
+  const profileStatus=await(await fetch(base+"/v1/proxy/status")).json();assert(profileStatus.sources.recent.some(r=>r.model==="claude-sonnet"&&r.apiKeyId===key.id));
+  assert.equal(profileStatus.apiKeys.required,false);
+  assert.equal((await operator({action:"profile-remove",keyId:key.id})).status,200);
+  console.log("PASS: application profile default through the actual HTTP parser, attribution and optional keys");
+
   assert.equal((await operator({ action: "key-rename", id: key.id, label: "Renamed" })).status, 200);
   assert.equal((await operator({ action: "key-revoke", id: key.id })).status, 200);
   const service = await operator({ action: "status" }); assert.equal(service.status, 200);

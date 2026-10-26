@@ -1,3 +1,5 @@
+export { clientProfiles, ClientProfiles } from "./client-profiles.js";
+import { clientProfiles } from "./client-profiles.js";
 export { storageHistoryResponse } from "./storage-history-response.js";
 import { storageHistoryResponse } from "./storage-history-response.js";
 export { HistoryBackups, historyBackups } from "./history-backups.js";
@@ -159,7 +161,7 @@ export function createApp(sessionOptions: ModelSessionOptions = {}): FetchApp {
     if (method === "POST" && pathname === "/v1/chat/completions") {
       let body: ReturnType<typeof ChatCompletionRequest.parse>;
       try {
-        body = ChatCompletionRequest.parse(await readJsonBody(req.body, req.headers.get("content-length"), req.signal));
+        body = ChatCompletionRequest.parse(clientProfiles.apply(await readJsonBody(req.body, req.headers.get("content-length"), req.signal),req.headers));
       } catch (err: any) {
         return withCors(
           json(/size limit/.test(err.message) ? 413 : 400, { error: { message: err.message, type: "invalid_request_error" } }), req,

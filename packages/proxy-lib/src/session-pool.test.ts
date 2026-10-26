@@ -39,3 +39,11 @@ describe("conversation isolation", () => {
     await expect(pool.acquire()).rejects.toThrow("shutting down");
   });
 });
+
+
+it("round-robins queued caller identities only when opted in, preserving per-client order and cancellation",async()=>{
+ vi.stubEnv('M365_FAIR_QUEUE','1');const pool=new SessionPool(),order:string[]=[];const first=await pool.acquire(undefined,'active');
+ const a1=pool.acquire(undefined,'a').then(release=>{order.push('a1');release()}),a2=pool.acquire(undefined,'a').then(release=>{order.push('a2');release()});
+ const b=pool.acquire(undefined,'b').then(release=>{order.push('b');release()}),c=pool.acquire(undefined,'c').then(release=>{order.push('c');release()});
+ first();await Promise.all([a1,a2,b,c]);expect(order).toEqual(['a1','b','c','a2']);expect(pool.status.pending).toBe(0);pool.close();
+});

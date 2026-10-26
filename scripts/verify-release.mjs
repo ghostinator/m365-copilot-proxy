@@ -8,6 +8,7 @@ const supplied = process.argv[2];
 if (!supplied) throw new Error("Usage: node scripts/verify-release.mjs <release-directory>");
 const source = resolve(supplied);
 const manifest = JSON.parse(readFileSync(join(source, "manifest.json"), "utf8"));
+if (!readFileSync(join(source, "notification-delivery.md"), "utf8").includes("Model-scoped events")) throw new Error("Packaged notification guide lost feature documentation after its screenshots section");
 for (const file of manifest.files) {
   const hash = createHash("sha256").update(readFileSync(join(source, file.path))).digest("hex");
   if (hash !== file.sha256) throw new Error(`Hash mismatch: ${file.path}`);

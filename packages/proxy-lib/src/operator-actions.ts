@@ -1,3 +1,5 @@
+import { ClientProfiles } from "./client-profiles.js";
+import { dirname } from "node:path";
 import { backupScheduleSettings } from "./backup-scheduler.js";
 import { backupDownloads } from "./backup-downloads.js";
 import { administratorPassword } from "./operator-password.js";
@@ -15,6 +17,11 @@ import type { HttpActivity } from "./http-activity.js";
 
 const historyLog = createLogger("operator-history");
 const command = z.discriminatedUnion("action", [
+  z.object({action:z.literal("profile-list")}).strict(),
+  z.object({action:z.literal("profile-set"),keyId:z.uuid(),model:z.string().max(96)}).strict(),
+  z.object({action:z.literal("profile-remove"),keyId:z.uuid()}).strict(),
+  z.object({action:z.enum(["update-status","update-check","update-apply","update-rollback"])}).strict(),
+  z.object({action:z.literal("update-stage"),version:z.string().regex(/^v?\d+\.\d+\.\d+$/)}).strict(),
   z.object({ action: z.literal("unlock") }).strict(),
   z.object({ action: z.literal("admin-status") }).strict(),
   z.object({ action: z.literal("admin-login"), password: z.string().min(1).max(256) }).strict(),
@@ -60,6 +67,8 @@ export async function operatorAction(req: Request, activity: HttpActivity, acces
       return result ? Response.json(result, { headers }) : Response.json({ error: { message: "Administrator sign-in failed." } }, { status: 403, headers });
     }
     if (!access.allows(req)) return Response.json({ error: { message: "Management is locked. Sign in with the administrator password, or use a host grant for first-time setup/recovery." } }, { status: 403, headers });
+    if(value.action==='profile-list')return Response.json(new ClientProfiles(dirname(keys.path)).snapshot(keys),{headers});
+    if(value.action==='profile-set'||value.action==='profile-remove')return Response.json(new ClientProfiles(dirname(keys.path)).set(value.keyId,value.action==='profile-set'?value.model:null,keys),{headers});
     if (value.action === "admin-password") { await access.password.set(value.password); return Response.json({ updated: true, sessionsRevoked: true }, { headers }); }
     if (value.action === "admin-logout") { access.password.logout(req.headers.get("x-m365-operator") ?? ""); return Response.json({ locked: true }, { headers }); }
     if (value.action === "admin-revoke") { access.password.revokeAll(); return Response.json({ sessionsRevoked: true }, { headers }); }
@@ -83,8 +92,10 @@ export async function operatorAction(req: Request, activity: HttpActivity, acces
     if (value.action === "key-create") return Response.json(keys.create(value.label), { status: 201, headers });
     if (value.action === "key-rename") { keys.rename(value.id, value.label); return Response.json({ updated: true }, { headers }); }
     if (value.action === "key-revoke") { keys.revoke(value.id); return Response.json({ updated: true }, { headers }); }
-    return Response.json(await serviceCommand(value.action, activity), { status: value.action === "restart" ? 202 : 200, headers });
+    return Response.json(await serviceCommand(value.action, activity, "version" in value?value.version:undefined), { status: ["restart","update-apply","update-rollback","update-stage"].includes(value.action) ? 202 : 200, headers });
   } catch (error) {
+    if(value.action.startsWith("profile-"))return Response.json({error:{message:"Profile operation failed. Choose an active named key and registered model; check host profile storage."}},{status:409,headers});
+    if(value.action.startsWith("update-"))return Response.json({error:{message:"Update operation failed. Check the published platform assets, selected source, verified staged release, update lock and host storage. The current process was preserved unless a handoff was already accepted."}},{status:409,headers});
     if (value.action.startsWith("notifications-")) return Response.json({ error: { type: "notification_operation_failed", message: "Notification operation failed. Check the selected destination, complete configuration, enablement, one-minute test cooldown and host storage. Saving or previewing never sends a message." } }, { status: 409, headers });
     if (value.action.startsWith("backup-") || value.action === "export-create") {
       historyLog.error(diagnosticText(error instanceof Error ? error.message : "History operation failed"));

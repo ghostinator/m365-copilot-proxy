@@ -83,3 +83,6 @@ operator-password.json
 backup-schedule.sqlite*
 
 storage-history.sqlite*
+
+client-profiles.json*
+/updates/

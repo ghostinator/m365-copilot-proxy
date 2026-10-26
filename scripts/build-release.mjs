@@ -40,7 +40,7 @@ function walk(dir, prefix = "") {
   }
 }
 walk(destination);
-writeFileSync(join(destination, "manifest.json"), JSON.stringify({ version, revision, localChanges: !!execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim(), platform: process.platform, architecture: process.arch, nodeVersion: process.version, bundledNode: includeNode, files }, null, 2) + "\n");
+writeFileSync(join(destination, "manifest.json"), JSON.stringify({ version, revision, stateCompatibility: 1, localChanges: !!execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim(), platform: process.platform, architecture: process.arch, nodeVersion: process.version, bundledNode: includeNode, files }, null, 2) + "\n");
 const archive = destination + ".tar.gz";
 execFileSync(tar, ["-czf", archive, "-C", destination, "."], { windowsHide: true });
 writeFileSync(archive + ".sha256", createHash("sha256").update(readFileSync(archive)).digest("hex") + "  " + archive.split(/[\\/]/).pop() + "\n");

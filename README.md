@@ -4,7 +4,29 @@ Use Microsoft 365 Copilot as an LLM backend for OpenAI-compatible coding agents 
 
 > **Want the gory protocol details?** See [docs/m365-copilot-api.md](docs/m365-copilot-api.md) — a full write-up of M365 Copilot's undocumented WebSocket API: auth, SignalR frames, tones/models, throttling, the "Disengaged" filter, and the Copilot Studio agent trick that makes tool calling work.
 
-## Dashboard and operations (0.23.0)
+## Dashboard and operations (0.24.0)
+
+New in 0.24: **Settings → Managed updates & rollback** checks published GitHub
+releases only when requested. Windows users can download and verify a stable
+release, stage it, drain current chats, apply it, and return to the previous
+compatible release. Failed readiness triggers recovery; account and history files
+stay in place. See [update commands and compatibility limits](docs/operations.md#managed-updates-and-rollback-0240).
+
+**Linux user services** now support install/start/status/stop/disable/uninstall
+with the same CLI, private environment files and restart bounds. They start with
+your user session; running before login requires separately configured lingering.
+**Application profiles** assign a default model to a named key when its request
+omits `model`. Explicit models win. Per-key usage remains on Clients. Optional
+`M365_FAIR_QUEUE=1` rotates waiting applications while keeping upstream requests
+sequential; FIFO remains the default. See [profiles and queue settings](docs/operations.md#application-profiles-and-queue-fairness-0240).
+
+**Chat performance charts** now show a labeled time axis, units and numbered
+vertical scales. Hover, focus or select a bar for its exact interval, value,
+errors and cancellations; the data table remains available. **Notifications**
+show explicit enabled/disabled next steps, select newly saved destinations and
+place action feedback beside the controls. Saving sends nothing: enable, preview,
+acknowledge and queue a test. Teams webhooks use Adaptive Cards; HTTP acceptance
+alone does not confirm that a Teams workflow posted the message.
 
 New: export **all matching history** as streamed JSON/CSV, create verified online
 SQLite backups, and prepare an explicit offline restore with a safety snapshot.
@@ -36,6 +58,19 @@ archive explicitly built from this fork to get these features.
 | Model checks | Eight explicitly requested checks: identity, function tool, shell tool, tool-result round trip, streaming, JSON, instruction following and multi-turn recall. Results and evidence persist per model/check. |
 | Errors and logging | Saved HTTP/application failures (including HTTP-200 SSE errors), expandable diagnostics and separate operational/debug logs. |
 | Setup and startup | `setup`, `login`, `doctor`, `diagnostics`, guided pi/OpenClaw configuration, portable archives and supervised Windows startup at sign-in. |
+| Managed updates | Explicit GitHub checks, release notes, verified Windows ZIP staging, drain/readiness checks and compatible-release rollback. No scheduled checks or automatic installation. |
+| Linux startup | Private systemd user units, readiness-aware start, bounded failure restarts, graceful stop and uninstall preserving account state. |
+| Client profiles | Named-key default models, existing per-key usage and opt-in round-robin admission for waiting clients. |
+
+> **Screenshot to add — updates:** Settings → Managed updates & rollback with
+> release notes, staged version, readiness status and rollback availability. Use
+> synthetic state and clear credentials before capture.
+>
+> **Screenshot to add — profiles:** Settings → Application profiles with example
+> key labels and model defaults, plus Clients showing their usage. Never show tokens.
+>
+> **Screenshot to add — chart:** Overview → Chat performance with time/unit axes,
+> numbered ticks and a focused bar showing the exact interval/value. Use synthetic traffic.
 
 Start from source:
 
@@ -765,6 +800,9 @@ All stored in `~/.config/opencode-m365/`:
 |---|---|
 | `secrets.json` | Login credentials (email, password, mfaSecret) |
 | `msal-cache.json` | MSAL token cache (auto-managed) |
+| `client-profiles.json` | Named application-key IDs and default models; no raw keys |
+| `service.env` | Optional private environment settings for the Linux user service |
+| `updates/` | Explicit update status, staged/previous runtimes and retained download/install caches |
 | `agent-id.json` | Cached Copilot Studio agent ID |
 | `server.json` | Listener, optional API key/origins and source labels |
 | `activity.sqlite`, `activity.sqlite-wal`, `activity.sqlite-shm` | Persistent request/error history, rollups and explicit model-check reports |

@@ -8,6 +8,7 @@ const directory = () => { const dir = mkdtempSync(join(tmpdir(), "m365-footprint
 afterEach(() => { vi.restoreAllMocks(); for (const folder of folders.splice(0)) rmSync(folder, { recursive: true, force: true }); });
 
 it("counts file lengths by category without opening credentials or walking unrelated directories", () => {
+  vi.spyOn(performance,"now").mockReturnValue(0); // Keep inventory assertions independent of host load; the budget has its own test.
   const dir = directory(); mkdirSync(join(dir, "history-backups")); mkdirSync(join(dir, "frames"));
   for (const [name, bytes] of Object.entries({ "activity.sqlite": 10, "activity.sqlite-wal": 20, "alerts.sqlite": 30,
     "notifications.sqlite-shm": 40, "debug.log": 50, "debug.log.1": 60, "secrets.json": 900,

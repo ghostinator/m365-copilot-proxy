@@ -41,19 +41,19 @@ not completion of the entire feature group.
 
 ## 4. Update manager
 
-- [ ] Discover published versions and show release notes without installing.
-- [ ] Download and verify platform archives from an explicitly trusted source.
-- [ ] Stage, validate, drain, switch and check readiness.
-- [ ] Expose the existing rollback mechanism through the CLI.
-- [ ] Preserve account state; recover the previous version after failed updates.
+- [x] Explicit published-version checks and release notes without installing (0.24.0).
+- [x] Download and verify trusted Windows architecture ZIPs/checksums (0.24.0); Linux archive activation remains manual.
+- [x] Stage, validate, drain, switch and check Windows readiness (0.24.0).
+- [x] CLI/dashboard compatible-release rollback (0.24.0).
+- [x] Preserve account/history state and recover the previous Windows runtime after failed readiness (0.24.0).
 - [ ] Optional notifications; automatic installation remains opt-in.
 
 ## 5. Standard Linux service installer
 
-- [ ] Generate/install a systemd user unit for the portable runtime.
-- [ ] Start/stop/status/uninstall parity with Windows commands.
-- [ ] Document user-session startup versus explicitly enabled lingering.
-- [ ] Private environment/configuration and bounded journal/log behavior.
+- [x] Generate/install a private systemd user unit for the portable runtime (0.24.0).
+- [x] Linux start/stop/status/disable/uninstall commands and readiness checks (0.24.0).
+- [x] Document user-session startup versus explicitly enabled lingering (0.24.0).
+- [x] Private environment/configuration, restart bounds and journal rate limiting (0.24.0).
 - [ ] Verify restart, auth-required behavior and graceful shutdown on Linux.
 
 ## Validation
@@ -95,15 +95,15 @@ requested, serialized and quota-consuming. No automatic capability sweeps.
   optional keys; validate and preview changes with explicit apply/restart behavior.
 - [ ] Service controls and Windows tray: start/stop/restart, health and sign-in recovery
   (continues section 1).
-- [ ] Managed updates with release notes, staging, draining, readiness and rollback
+- [x] Managed Windows updates with release notes, staging, draining, readiness and rollback (0.24.0)
   (continues section 4).
 - [x] Consistent online SQLite backups, restore verification and CSV/JSON exports (0.11.0).
 - [x] Storage growth planning estimates and filesystem capacity; unlimited retention, no automatic deletion (0.14.0).
 - [x] Opt-in background in-dashboard alerts for sustained failures, auth, throttling and storage errors (0.13.0).
 - [x] Optional Prometheus metrics with fixed bounded labels; detailed client data stays in SQLite (0.14.0).
-- [ ] Client profiles: separate default models, usage summaries and fair queue
+- [x] Client profiles: named-key defaults for omitted models, existing per-key usage and opt-in sequential fair queue (0.24.0)
   priorities for production, development and agent clients.
-- [ ] Linux systemd installer parity (continues section 5).
+- [x] Linux systemd user installer commands (0.24.0); real user-manager validation remains in section 5.
 
 ## 8. Named application API keys (0.9.0)
 
@@ -113,7 +113,7 @@ requested, serialized and quota-consuming. No automatic capability sweeps.
 - [x] Apply key changes to subsequent requests without restarting.
 - [x] Persist application identity/label in normalized SQLite records; key/model/route usage.
 - [x] Filter the unified request list by application key across the entire saved history.
-- [x] Keep follow-on work on a separate branch; do not modify the existing draft PR.
+- [x] Keep follow-on work on a separate branch. The user authorized refreshing the existing draft PR on October 25, superseding the earlier hold.
 
 
 ## 9. Dashboard operations (0.10.0)
@@ -181,7 +181,7 @@ with rollback remain separate work. A stopped proxy is started from the host CLI
 ## 14. Notification delivery (0.17.0)
 
 See [provider scope and delivery design](notification-delivery.md). Current alerts
-support optional configured SMTP/Postal/SendGrid/ntfy/webhook delivery; only local fake receivers and mocked provider responses were used in validation. No production destination has been configured or sent to.
+support optional configured SMTP/Postal/SendGrid/ntfy/webhook delivery. Offline tests use fake receivers/provider responses. A user-authorized Teams test was accepted and its arrival confirmed on October 25; this is one endpoint sample, not a general provider reliability claim.
 
 - [x] Multiple named destinations, per-rule routing, preview and explicit send-test.
 - [x] SMTP and generic HTTP webhook transports.
@@ -192,7 +192,7 @@ support optional configured SMTP/Postal/SendGrid/ntfy/webhook delivery; only loc
 - [x] Durable queue, bounded retry/backoff, deduplication and delivery/error history.
 - [x] Private credential configuration with metadata-only views and no read-back.
 - [ ] Combined operational-state backups/encryption.
-- [ ] Alertmanager setup/examples and external whole-process outage detection.
+- [ ] Alertmanager setup/examples and external whole-process outage detection — deferred at the user’s request.
 
 
 ## 15. Remote administrator sign-in (0.18.0)
@@ -207,3 +207,12 @@ support optional configured SMTP/Postal/SendGrid/ntfy/webhook delivery; only loc
 
 - [x] Top-of-Settings shortcut, highlighted creation form and setup steps.
 - [x] Saved destinations and delivery results separated from creation.
+
+## 17. Release maintenance and clarity (0.24.0)
+
+- [x] Labeled chart axes, units, numbered ticks and keyboard/tap interval details.
+- [x] Destination enablement/next steps, saved-item selection and adjacent removal/busy feedback.
+- [x] README feature summaries, CLI command documentation and explicit screenshot placeholders.
+- [ ] Real Linux user-manager restart/auth/shutdown validation: local WSL execution currently times out.
+- [ ] Account login/reboot and long soak remain separate host checks.
+- [ ] External monitoring remains deferred; no new external collector or automatic release poll.
