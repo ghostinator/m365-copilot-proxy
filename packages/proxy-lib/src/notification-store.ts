@@ -38,7 +38,7 @@ export class NotificationStore {
     try { const result = run(db); db.exec("COMMIT"); return result; } catch (error) { db.exec("ROLLBACK"); throw error; }
   }
   cursor() { return this.exists() ? Number(this.open().prepare("SELECT cursor FROM metadata WHERE id=1").get()?.cursor ?? 0) : 0; }
-  save(value: NotificationDestination, max: number, now: number, id = randomUUID()) {
+  save(value: NotificationDestination, max: number, now: number, id: string = randomUUID()) {
     value = notificationDestination.parse(value);
     this.transaction(db => {
       const old = db.prepare("SELECT revision,deleted FROM destinations WHERE id=?").get(id);

@@ -587,6 +587,7 @@ arguments or accepting failed turns.
 pnpm test:clients
 pnpm exec vitest run tool-validation.test.ts handler-validation.test.ts client-auth.test.ts
 pnpm test:installed
+pnpm typecheck # after the build generates Nitro's types
 ```
 
 `test:clients` builds the workspace, runs real OpenAI/Anthropic SDK fixtures, then

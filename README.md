@@ -841,6 +841,7 @@ All stored in `~/.config/opencode-m365/`:
 ```sh
 pnpm install
 pnpm build            # Build all packages
+pnpm typecheck        # Strict workspace and generated Nitro type checks (build first)
 pnpm run dev          # Start standalone proxy on :4141
 pnpm run test:unit    # Run vitest unit tests (no auth/network)
 pnpm run test:live    # Live M365 tests: account/quota required; use the Nix dev shell

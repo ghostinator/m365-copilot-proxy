@@ -15,10 +15,13 @@ export function activityInsights(db: DatabaseSync, query: ActivityQuery, now: nu
   const summary = db.prepare(`SELECT COUNT(*) AS total,COALESCE(SUM(r.outcome=0),0) AS succeeded,
     COALESCE(SUM(r.outcome=1),0) AS failed,COALESCE(SUM(r.outcome=2),0) AS cancelled,
     AVG(t.first_byte_ms) AS firstByteMs,COUNT(t.first_byte_ms) AS firstByteSamples,
-    AVG(t.queue_ms) AS queueMs,COUNT(t.queue_ms) AS queueSamples,MIN(r.received_ms) AS firstAt ${from}`).get(...bindings)!;
+    AVG(t.queue_ms) AS queueMs,COUNT(t.queue_ms) AS queueSamples,MIN(r.received_ms) AS firstAt ${from}`).get(...bindings)! as {
+      total: number; succeeded: number; failed: number; cancelled: number;
+      firstByteMs: number | null; firstByteSamples: number; queueMs: number | null; queueSamples: number; firstAt: number | null;
+    };
   const quantiles = db.prepare(`WITH ranked AS(SELECT r.duration_ms,ROW_NUMBER() OVER(ORDER BY r.duration_ms) AS rank,COUNT(*) OVER() AS n ${from})
     SELECT MIN(CASE WHEN rank>=((n*50+99)/100) THEN duration_ms END) AS p50Ms,
-      MIN(CASE WHEN rank>=((n*95+99)/100) THEN duration_ms END) AS p95Ms FROM ranked`).get(...bindings)!;
+      MIN(CASE WHEN rank>=((n*95+99)/100) THEN duration_ms END) AS p95Ms FROM ranked`).get(...bindings)! as { p50Ms: number | null; p95Ms: number | null };
   const start = query.range === "all" ? Number(summary.firstAt ?? now - durations["24h"]) : now - durations[query.range];
   const bucketMs = Math.max(60000, Math.ceil((now - start + 1) / 48 / 60000) * 60000);
   const rows = db.prepare(`SELECT CAST((r.received_ms-?)/? AS INTEGER) AS bucket,COUNT(*) AS total,

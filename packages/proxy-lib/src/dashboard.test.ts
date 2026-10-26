@@ -209,7 +209,7 @@ it("loads history without probing models, then sends only the explicitly selecte
     if (url === "/v1/proxy/model-check") return { ok: true, status: 200, json: async () => ({ model: "claude-sonnet", servedModel: "claude-sonnet", identity: "Unknown version", status: 200 }) };
     throw new Error("Unexpected URL");
   };
-  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch, AbortController, AbortSignal, URLSearchParams, clearTimeout, setTimeout, setInterval: () => 0, setTimeout });
+  const context = createContext({ document: { getElementById: element, hidden: false, createElement: node }, fetch, AbortController, AbortSignal, URLSearchParams, clearTimeout, setTimeout, setInterval: () => 0 });
   runInContext(await dashboardResponse("/dashboard-script")!.text(), context);
   await new Promise(resolve => setImmediate(resolve));
   expect(calls.every(call => call.options.method !== "POST")).toBe(true);

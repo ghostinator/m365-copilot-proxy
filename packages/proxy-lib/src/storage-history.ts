@@ -7,6 +7,7 @@ const hour = 3600000;
 const windows = { "24h":24, "7d":168, "30d":720, "90d":2160, "365d":8760 };
 export const storageHistoryRange = z.enum(["24h","7d","30d","90d","365d","all"]);
 type Range = z.infer<typeof storageHistoryRange>;
+type StoragePoint = { hour: number; at: number; activityBytes: number; operationsBytes: number; backupsBytes: number; logsBytes: number; freeBytes: number | null; capacityBytes: number | null; totalBytes: number };
 type Reading = ReturnType<StorageFootprint["snapshot"]> & ReturnType<typeof filesystemCapacity>;
 const bytes = z.number().int().nonnegative();
 const readingSchema = z.object({ activity:bytes, operations:bytes, backups:bytes, logs:bytes, free:bytes.nullable(), capacity:bytes.nullable(), complete:z.boolean() });
@@ -75,7 +76,7 @@ export class StorageHistory {
         s.backups AS backupsBytes,s.logs AS logsBytes,s.free AS freeBytes,s.capacity AS capacityBytes,s.complete,
         s.activity+s.operations+s.backups+s.logs AS totalBytes FROM samples s WHERE s.hour IN
         (SELECT MAX(hour) FROM samples WHERE hour>=? AND hour<=? AND at_ms>=? AND at_ms<=? GROUP BY CAST((hour-?)/? AS INTEGER)) ORDER BY s.hour LIMIT 240`)
-        .all(first,toHour,cutoff,now,first,bucketHours).map(r=>({...r,complete:!!r.complete}));
+        .all(first,toHour,cutoff,now,first,bucketHours).map(r=>({...r as StoragePoint,complete:!!r.complete}));
       const counts=db.prepare("SELECT COUNT(*) AS total,COALESCE(SUM(complete),0) AS complete FROM samples WHERE hour>=? AND hour<=? AND at_ms>=? AND at_ms<=?").get(first,toHour,cutoff,now)!;
       const end=(order:"ASC"|"DESC")=>db.prepare(`SELECT at_ms AS at,activity+operations+backups+logs AS bytes FROM samples WHERE complete=1 AND hour>=? AND hour<=? AND at_ms>=? AND at_ms<=? ORDER BY hour ${order} LIMIT 1`).get(first,toHour,cutoff,now);
       const a=end("ASC"),b=end("DESC");

@@ -48,7 +48,7 @@ suite measures live model compliance or establishes complete CLI compatibility.
 
 ## Verification on October 26, 2026
 
-The Windows workspace build passed. The full unit run passed 698 tests with six
+The Windows workspace build passed. The full unit run passed 701 tests with six
 live tests skipped (`pnpm exec vitest run --maxWorkers=2 --testTimeout=15000`).
 This includes the actual SDK text/tool/history/stream/error cases and new saved
 activity, reliability and restart-drain regressions for both adapters. The native
@@ -59,12 +59,23 @@ Microsoft auth/WebSocket fixtures. The full standalone run passed: JSON/SSE,
 key-policy, malformed/oversized bodies, throttling, reconnect and SDK aborts.
 Both actual SDK aborts released admission, and the server stopped gracefully.
 Run it with `pnpm test:installed` alongside `pnpm test:clients`.
+The standalone harness now waits for actual authentication readiness within a
+30-second startup deadline; opening a listener alone is insufficient. One cold
+startup exceeded the old test window before any diagnostics; its retry passed.
+The missing-credentials case still requires configuration exit 78.
 
-The separate package-wide `tsc --noEmit` check still reports existing errors in
-unrelated dashboard, notification and test code; it reports none in the new
-adapter, validation or shared request-handler files. An independent review was
-requested but could not run because the reviewer hit its usage limit; local
-source review found and repaired the new-route monitoring/drain omissions.
+The follow-up repaired the SQLite response types, incomplete fixtures, notification
+ID type and CLI helper declarations. `pnpm typecheck` now passes for the workspace
+and generated Nitro server without relaxing compiler settings. An independent
+review was requested but could not run because the reviewer hit its usage limit;
+local source review found and repaired the new-route monitoring/drain omissions.
+
+Further streaming regressions confirmed and fixed stale model labels after quota
+fallback and dropped safe tool-validation details. Content and terminal Responses
+events now report the served model. Messages sends pings until the actual reply
+starts, so `message_start` can report the served model rather than the initial
+requested route. Cancellation before `message_start` remains supported. The new
+regressions failed before the fix; the targeted streaming/SDK run passed 107 tests.
 
 These findings apply to the local client-contracts branch. The deployed def9700
 service remains the baseline of the ongoing live model benchmark. Live acceptance

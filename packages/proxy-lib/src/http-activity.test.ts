@@ -28,7 +28,7 @@ it("counts authentication and origin rejection before reaching a route", async (
   vi.stubEnv("M365_API_KEY", "activity-secret");
   const app = createApp();
   try {
-    for (const headers of [{}, { origin: "https://evil.example" }]) {
+    for (const headers of [{} as Record<string, string>, { origin: "https://evil.example" }]) {
       const response = await app.fetch(new Request("http://localhost/v1/models", { headers }));
       expect(response.status).toBeGreaterThanOrEqual(400); await response.text();
     }

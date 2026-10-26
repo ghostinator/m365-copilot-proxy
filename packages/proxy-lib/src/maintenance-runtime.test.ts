@@ -5,7 +5,7 @@ import { Updates } from '../../proxy/bin/updates.mjs';
 const dirs:string[]=[];const dir=()=>{const p=mkdtempSync(join(tmpdir(),'m365-maintenance-'));dirs.push(p);return p};afterEach(()=>{for(const p of dirs.splice(0))rmSync(p,{recursive:true,force:true})});
 it('generates private per-data-directory systemd units with escaped arguments, bounded retries and auth-failure suppression',async()=>{
  const root=dir(),data=join(root,'data % dollar$'),launcher=join(root,'app','bin.mjs');mkdirSync(join(root,'app'));writeFileSync(launcher,'');
- const run=vi.fn(async()=>({stdout:'LoadState=loaded\nActiveState=inactive\nUnitFileState=enabled\nMainPID=0\nExecMainStatus=0'}));
+ const run=vi.fn(async(_file:string,_args:string[],_options:import('node:child_process').ExecFileOptions)=>({stdout:'LoadState=loaded\nActiveState=inactive\nUnitFileState=enabled\nMainPID=0\nExecMainStatus=0'}));
  const service=linuxService({dataDir:data,launcher,configHome:join(root,'config'),run}),render=await service.command('render');
  expect(render.text).toContain('data %% dollar$');expect(render.text).toContain('RestartPreventExitStatus=78');expect(render.text).toContain('UMask=0077');expect(render.text).toContain('TimeoutStopSec=120');
  const installed=await service.command('install');expect(installed.enabled).toBe(true);const env=readFileSync(join(data,'service.env'),'utf8');expect(env).not.toMatch(/password|m365_admin_/i);
@@ -27,7 +27,7 @@ it('checks releases only on request and refuses untrusted redirects, oversized r
  try {
   updates.status();expect(fetcher).not.toHaveBeenCalled();
   fetcher.mockResolvedValueOnce(Response.json({tag_name:'v0.24.1',body:'Release notes',draft:false,prerelease:false}));
-  expect((await updates.check()).latest.version).toBe('0.24.1');expect(updates.status().currentVersion).toBe('0.24.0');
+  expect((await updates.check()).latest?.version).toBe('0.24.1');expect(updates.status().currentVersion).toBe('0.24.0');
   await expect(updates.response('http://api.github.com/unsafe',100)).rejects.toThrow('Untrusted');
   fetcher.mockResolvedValueOnce(new Response(null,{status:302,headers:{location:'https://private.example/secret'}}));
   await expect(updates.response('https://github.com/example',100)).rejects.toThrow('Untrusted');
@@ -35,7 +35,7 @@ it('checks releases only on request and refuses untrusted redirects, oversized r
   await expect(updates.response('https://api.github.com/example',4)).rejects.toThrow();
   fetcher.mockResolvedValueOnce(Response.json({tag_name:'v0.24.2',draft:false,prerelease:true}));
   await expect(updates.check()).rejects.toThrow('published stable');
-  expect(updates.status().latest.version).toBe('0.24.1');
+  expect(updates.status().latest?.version).toBe('0.24.1');
   fetcher.mockResolvedValueOnce(new Response(null,{status:404}));
   await updates.command('update-stage','v0.24.2');await updates.work;
   expect(updates.status().phase).toBe('failed');

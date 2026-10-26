@@ -80,7 +80,7 @@ const ALL = [bash, readFile, writeFile, editFile];
 const specs = buildSpecMap(ALL);
 
 describe("schema-typed fenced arguments", () => {
-  function parse(properties: Record<string, unknown>, inner: string) {
+  function parse(properties: NonNullable<NonNullable<ToolDef['function']['parameters']>['properties']>, inner: string) {
     const tool: ToolDef = { type: "function", function: { name: "typed",
       parameters: { type: "object", properties, required: Object.keys(properties) } } };
     return parseFencedToolCalls(`\`\`\`typed\n${inner}\n\`\`\``, buildSpecMap([tool])).calls;
@@ -104,7 +104,7 @@ describe("schema-typed fenced arguments", () => {
     expect(JSON.parse(calls[0].function.arguments)).toEqual({ target: "main", options: { mode: "safe" } });
   });
 
-  it.each([
+  it.each<{ properties: NonNullable<NonNullable<ToolDef['function']['parameters']>['properties']>; body: string }>([
     { properties: { config: { type: "object" } }, body: '{"mode":' },
     { properties: { values: { type: "array" } }, body: '[{"name":' },
     { properties: { path: { type: "string" }, edits: { type: "array" } }, body: 'path: C:/probe.txt\nedits: [{"old_text":"a","new_text":' },

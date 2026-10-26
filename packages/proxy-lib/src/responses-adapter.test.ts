@@ -33,6 +33,17 @@ describe('client wire adapters', () => {
     expect(await result.json()).toMatchObject({object:'response',status:'completed',output:[{type:'message',content:[{type:'output_text',text:'hé'}]}],usage:{input_tokens:4,output_tokens:2,total_tokens:6}});
   });
   const sse=(frames:unknown[])=>new Response(frames.map(frame=>`data: ${typeof frame==='string'?frame:JSON.stringify(frame)}\n\n`).join(''),{headers:{'content-type':'text/event-stream'}});
+  it.each(['responses', 'messages'])('reports the served fallback model in %s streams', async protocol => {
+    const adapter = protocol === 'responses' ? parseResponsesRequest({ model: 'claude-opus', input: 'hi', stream: true })
+      : parseMessagesRequest({ model: 'claude-opus', messages: [{ role: 'user', content: 'hi' }], stream: true });
+    const response = await adapter.adapt(sse([
+      { model: 'claude-opus', choices: [{ delta: { role: 'assistant' } }] },
+      { model: 'claude-opus-4.5', choices: [{ delta: { content: 'Hello' }, finish_reason: 'stop' }] }, '[DONE]',
+    ]));
+    const frames = (await response.text()).split('\n').filter(line => line.startsWith('data:')).map(line => JSON.parse(line.slice(5)));
+    const model = protocol === 'responses' ? frames.at(-1).response.model : frames.find(frame => frame.type === 'message_start').message.model;
+    expect(model).toBe('claude-opus-4.5');
+  });
   it.each([['responses',parseResponsesRequest,{input:'hi',stream:true}],['messages',parseMessagesRequest,{messages:[{role:'user',content:'hi'}],stream:true}]])('streams %s text incrementally with native terminal events',async(protocol,parse,input)=>{
     const response=await parse(input).adapt(sse([{choices:[{index:0,delta:{content:'hé'}}]},{choices:[{index:0,delta:{content:'llo'},finish_reason:'stop'}]},{choices:[],usage:{prompt_tokens:8,completion_tokens:2}},'[DONE]']));
     const result=await response.text();

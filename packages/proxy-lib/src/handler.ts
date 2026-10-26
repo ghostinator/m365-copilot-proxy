@@ -895,7 +895,7 @@ async function handleLocked(
     async start(controller) {
       const enc = new TextEncoder();
       const send = (obj: unknown) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
-      const base = { id: completionId, object: "chat.completion.chunk", created, model };
+      const base = { id: completionId, object: "chat.completion.chunk", created, get model() { return model; } };
       send({ ...base, choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }] });
       // Keepalive: a REAL empty-delta chunk, not an SSE comment. Agents that track
       // stream liveness by data chunks (e.g. Hermes: comments don't reset its
@@ -941,6 +941,7 @@ async function handleLocked(
           let message = "upstream error";
           let type = "upstream_error";
           let code: string | undefined;
+          let details: unknown;
           // Carry the structured fields through, not just the prose: a streaming
           // client still has to tell a priority-access wall (back off until the
           // reset) from a transient upstream failure (retry now), and the status
@@ -950,11 +951,12 @@ async function handleLocked(
             if (parsed?.message) message = parsed.message;
             if (parsed?.type) type = parsed.type;
             if (parsed?.code) code = parsed.code;
+            details = parsed?.details;
           } catch {}
           opts.activity?.diagnostic(type, message, undefined, code);
           const retryAfter = p.resp.headers.get("Retry-After");
           // HTTP 200 is already committed, so surface the failure as an in-stream error chunk.
-          send({ ...base, error: { message, type, ...(code ? { code } : {}), ...(retryAfter ? { retry_after: Number(retryAfter) } : {}) } });
+          send({ ...base, error: { message, type, ...(code ? { code } : {}), ...(details !== undefined ? { details } : {}), ...(retryAfter ? { retry_after: Number(retryAfter) } : {}) } });
         } else if (p.kind === "tools") {
           p.toolCalls.forEach((tc, i) => {
             log.debug(`Tool call: ${tc.function.name} ${trunc(tc.function.arguments, 200)}`);

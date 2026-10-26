@@ -20,7 +20,8 @@ function fixture() {
 it("requires an expiring host grant and exact browser origin, independently of application credentials", async () => {
   vi.stubEnv("M365_API_KEY", "legacy-secret");
   const f = fixture();
-  for (const headers of [{ "x-m365-operator": "" }, { origin: "https://evil.invalid" }, { origin: "null" }, { "x-m365-operator": "m365_invalid" }]) {
+  const rejectedHeaders: Record<string, string>[] = [{ "x-m365-operator": "" }, { origin: "https://evil.invalid" }, { origin: "null" }, { "x-m365-operator": "m365_invalid" }];
+  for (const headers of rejectedHeaders) {
     expect((await operatorAction(f.request({ action: "key-create", label: "no" }, headers), f.activity, f.access, f.keys)).status).toBe(403);
   }
   expect(requestGate(f.request({ action: "unlock" }), f.keys)).toBeNull();

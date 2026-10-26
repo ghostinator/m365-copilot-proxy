@@ -104,7 +104,7 @@ it("treats corrupt storage and failed persistence as diagnostic errors rather th
 });
 
 function event(at: number, address = "100.64.0.2", model = "claude-sonnet") {
-  return { clientAddress: address, clientSoftware: "OpenAI Python", id: randomUUID(), method: "POST", endpoint: "/v1/chat/completions", source: "application" as const, receivedAt: new Date(at).toISOString(), status: 200, durationMs: 123, phase: "completed" as const, outcome: "success" as const, model, servedModel: model, streamed: false, applicationStatus: 200, responseBytes: 345, firstByteMs: 3, queueMs: 2, upstreamAttempts: 1, upstreamFailures: 0 };
+  return { diagnostic: null, clientAddress: address, clientSoftware: "OpenAI Python", id: randomUUID(), method: "POST", endpoint: "/v1/chat/completions", source: "application" as const, receivedAt: new Date(at).toISOString(), status: 200, durationMs: 123, phase: "completed" as const, outcome: "success" as const, model, servedModel: model, streamed: false, applicationStatus: 200, responseBytes: 345, firstByteMs: 3, queueMs: 2, upstreamAttempts: 1, upstreamFailures: 0 };
 }
 
 it("computes exact rolling boundaries using raw edge hours plus full hourly buckets", () => {

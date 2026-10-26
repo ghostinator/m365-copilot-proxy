@@ -95,6 +95,7 @@ export async function adaptProtocolResponse(source:Response,protocol:Protocol,mo
     if(!data){if(protocol==='messages')event('ping',{});else queue.push(encoder.encode(': keepalive\n\n'));return;}
     if(data==='[DONE]'){complete();return;}
     const chunk=JSON.parse(data);
+    if(typeof chunk.model==='string')model=chunk.model;
     if(chunk.error){upstreamError=chunk.error;throw new Error(chunk.error.message??'Upstream stream failed');}
     if(!Array.isArray(chunk.choices))throw new Error('Malformed upstream stream frame');
     if(chunk.usage)usage=chunk.usage;
@@ -102,6 +103,7 @@ export async function adaptProtocolResponse(source:Response,protocol:Protocol,mo
       if(choice.index!==undefined&&choice.index!==0)throw new Error('Multiple stream choices are not supported');
       if(choice.finish_reason)finish=choice.finish_reason;
       const delta=choice.delta??{};
+      if(delta.content||delta.tool_calls?.length||choice.finish_reason)start();
       if(delta.content){if(typeof delta.content!=='string')throw new Error('Malformed text delta');startText();text+=delta.content;
         if(protocol==='responses')event('response.output_text.delta',{item_id:textId,output_index:textIndex,content_index:0,delta:delta.content,logprobs:[]});
         else event('content_block_delta',{index:textIndex,delta:{type:'text_delta',text:delta.content}});
@@ -119,7 +121,8 @@ export async function adaptProtocolResponse(source:Response,protocol:Protocol,mo
     async pull(controller){
       if(cancelled)return;
       try {
-        start();
+        // Messages fixes its model at message_start; wait for a served-model delta.
+        if(protocol==='responses')start();
         while(!queue.length&&!closed){
           const boundary=buffer.indexOf('\n\n');
           if(boundary>=0){const raw=buffer.slice(0,boundary);buffer=buffer.slice(boundary+2);frame(raw);continue;}

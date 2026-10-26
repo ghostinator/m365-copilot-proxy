@@ -51,6 +51,8 @@ describe("handler tool output contract", () => {
     const { response, wire, acknowledge } = await respond(fence({ enabled: "secret-invalid-boolean", edits: [] }), stream);
     expect(response.status).toBe(stream ? 200 : 502);
     expect(wire).toContain("tool_validation_error");
+    expect(wire).toContain('"details"');
+    expect(wire).toContain('/tool_calls/0/function/arguments/enabled');
     expect(wire).not.toContain("secret-invalid-boolean");
     expect(wire).not.toContain('"tool_calls"');
     expect(wire).not.toContain('"finish_reason":"stop"');

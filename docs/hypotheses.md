@@ -6308,3 +6308,11 @@ not stochastic live-model evidence. See `packages/proxy-lib/src/client-api.test.
 The supported subset and validation contract graduate to
 [client-api-adapters.md](client-api-adapters.md); runnable checks are in
 [experiments.md](experiments.md). No new model defaults or live compliance claims.
+
+Follow-up regressions found two streaming gaps: the Chat Completions base captured
+the requested model before a quota fallback, and its error translation omitted
+safe validation details. Four assertions failed before repair; 107 targeted
+streaming/SDK tests then passed. Responses now follows the served model, and
+Messages waits for content before announcing it while forwarding keepalives.
+The full follow-up unit run passed 701 tests (six live tests skipped), and strict
+workspace/Nitro type checks are now clean. These remain offline contract results.

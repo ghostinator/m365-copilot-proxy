@@ -13,7 +13,7 @@ const hour = 3_600_000;
 const windows = { "24h": 24 * hour, "7d": 7 * 24 * hour, "30d": 30 * 24 * hour, "90d": 90 * 24 * hour, "365d": 365 * 24 * hour };
 const methods = entry.shape.method.options, endpoints = entry.shape.endpoint.options;
 const outcomes = ["success", "error", "cancelled"] as const;
-const counters = ["total", "applicationRequests", "selfChecks", "chats", "models", "health", "other", "failed", "cancelled", "responseBytes", "durationSum", "durationSamples"];
+const counters = ["total", "applicationRequests", "selfChecks", "chats", "models", "health", "other", "failed", "cancelled", "responseBytes", "durationSum", "durationSamples"] as const;
 const fields = [...counters, "firstSeen", "lastSeen"];
 const uuidBytes = (id: string) => Buffer.from(id.replaceAll("-", ""), "hex");
 const uuidText = (id: Uint8Array) => Buffer.from(id).toString("hex").replace(/^(\w{8})(\w{4})(\w{4})(\w{4})(\w{12})$/, "$1-$2-$3-$4-$5");
@@ -175,7 +175,7 @@ export class ActivityDatabase {
   }
   snapshot(query: ActivityQuery, now = Date.now()) {
     const aggregate = this.aggregate(query, now);
-    const summary = this.statement(`${aggregate.sql} SELECT ${counters.map(field => `COALESCE(SUM(${field}),0) AS ${field}`).join(",")},COUNT(*) AS systems,MIN(firstSeen) AS firstSeen,MAX(lastSeen) AS lastSeen FROM grouped`).get(...aggregate.bindings)!;
+    const summary = this.statement(`${aggregate.sql} SELECT ${counters.map(field => `COALESCE(SUM(${field}),0) AS ${field}`).join(",")},COUNT(*) AS systems,MIN(firstSeen) AS firstSeen,MAX(lastSeen) AS lastSeen FROM grouped`).get(...aggregate.bindings)! as Record<typeof counters[number] | 'systems', number> & { firstSeen: number | null; lastSeen: number | null };
     const systems = this.statement(`${aggregate.sql} SELECT systems.address,grouped.* FROM grouped JOIN systems ON systems.id=grouped.system_id ORDER BY applicationRequests DESC,lastSeen DESC LIMIT 50`).all(...aggregate.bindings).map(row => ({ ...row, firstSeen: new Date(Number(row.firstSeen)).toISOString(), lastSeen: new Date(Number(row.lastSeen)).toISOString(), label: this.labels.get(String(row.address)) ?? null, isThisDevice: this.local.has(String(row.address)) }));
     const modelAggregate = this.aggregate(query, now, true);
     const modelActivity = this.statement(`${modelAggregate.sql} SELECT s.address,g.model,g.servedModel,g.clientSoftware,g.total,g.applicationRequests,g.chats,g.failed,g.cancelled,g.responseBytes,g.lastSeen FROM grouped g JOIN systems s ON s.id=g.system_id WHERE g.model<>'' ORDER BY g.applicationRequests DESC,g.lastSeen DESC LIMIT 50`).all(...modelAggregate.bindings);

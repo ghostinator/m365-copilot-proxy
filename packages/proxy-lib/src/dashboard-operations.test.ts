@@ -223,7 +223,7 @@ it('labels chart axes and exposes exact interval values on focus and tap',async(
  const {el,context}=await dashboard();el('performance-metric').value='total';
  const data={total:3,succeeded:2,failed:1,cancelled:0,successRate:2/3,bucketMs:60000,buckets:[{at:100000,total:3,succeeded:2,failed:1,cancelled:0,durationMs:5000,firstByteMs:400,queueMs:100}]};
  runInContext('renderPerformance('+JSON.stringify(data)+')',context);
- expect(el('performance-y-label').textContent).toContain('Completed chat requests');expect(el('performance-y-ticks').children.map(n=>n.textContent)).toEqual(['4','3','2','1','0']);
+ expect(el('performance-y-label').textContent).toContain('Completed chat requests');expect(el('performance-y-ticks').children.map((n:{textContent:string})=>n.textContent)).toEqual(['4','3','2','1','0']);
  expect(el('performance-x-ticks').children).toHaveLength(3);const bar=el('performance-chart').children[0];bar.listeners.focus();expect(el('performance-point').textContent).toContain('3 requests');expect(bar.attributes['aria-label']).toContain('1 errors');
  el('performance-metric').value='durationMs';runInContext('renderPerformanceChart()',context);expect(el('performance-y-label').textContent).toContain('(ms)');el('performance-chart').children[0].listeners.click();expect(el('performance-point').textContent).toContain('5000 ms');
 });

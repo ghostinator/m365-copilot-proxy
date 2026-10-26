@@ -37,9 +37,10 @@ async function start(authenticated, extra = {}) {
   child.stdout.on("data", d => { logs += d; }); child.stderr.on("data", d => { logs += d; });
   const exit = new Promise(r => child.once("exit", r));
   try {
-    for (let i = 0; i < 100 && !logs.includes("Listening on") && child.exitCode === null; i++) await delay(100);
+    const startupDeadline = Date.now() + 30_000;
+    while (Date.now() < startupDeadline && !logs.includes("Listening on") && child.exitCode === null) await delay(100);
     if (!authenticated) {
-      const code = await Promise.race([exit, delay(5000).then(() => "timeout")]);
+      const code = await Promise.race([exit, delay(Math.max(1, startupDeadline - Date.now())).then(() => "timeout")]);
       assert.equal(code, 78, logs || "No startup diagnostics were emitted before the timeout");
       assert.match(logs, /Authentication failed/);
       console.log("PASS: missing credentials fail startup with configuration exit 78");
@@ -47,6 +48,17 @@ async function start(authenticated, extra = {}) {
     }
     assert.match(logs, new RegExp(`Listening on http://127\\.0\\.0\\.1:${port}`), logs);
     const base = `http://127.0.0.1:${port}`;
+    // Listening can precede async authentication; wait for actual readiness.
+    let ready = false;
+    while (Date.now() < startupDeadline && child.exitCode === null) {
+      try {
+        const response = await request(base + '/health/ready', { headers: { 'X-M365-Check': '1' }, signal: AbortSignal.timeout(500) });
+        ready = response.status === 200; await response.text();
+        if (ready) break;
+      } catch { /* The local listener may still be starting. */ }
+      await delay(100);
+    }
+    assert(ready, 'Fixture server did not become ready within the startup deadline');
     const dashboard = await request(base + "/dashboard");
     assert.equal(dashboard.status, 200);
     assert.match(await dashboard.text(), /M365 Copilot Proxy/);
@@ -123,7 +135,13 @@ async function start(authenticated, extra = {}) {
       ];
       for (const startStream of streams) {
         const stream = await startStream();
-        for await (const event of stream) { assert(event.type); stream.controller.abort(); break; }
+        // Anthropic's SDK consumes pings internally before message_start.
+        const abort = setTimeout(() => stream.controller.abort(), 100);
+        try {
+          for await (const event of stream) { assert(event.type); stream.controller.abort(); break; }
+        } catch (error) { assert(stream.controller.signal.aborted, error.message); }
+        finally { clearTimeout(abort); }
+        assert(stream.controller.signal.aborted);
         await delay(150);
         const state = await statusJson(await request(base + '/v1/proxy/status', { headers }));
         assert.equal(state.activity.chats.active, 0, 'SDK abort must release admission');

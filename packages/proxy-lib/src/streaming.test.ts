@@ -1004,6 +1004,15 @@ describe("Priority access (Opus 5.5, Sonnet 5.5): OutOfCredits, remembering it, 
     expect(scripted.texts[1]).toContain("list files"); // the whole request, not a delta
   });
 
+  it('labels successful streamed chunks with the served fallback model', async () => {
+    process.env.M365_OPUS_FALLBACK_MODEL = 'claude-opus-4.8';
+    scripted.queue = [REFUSAL, { fullText: '```bash\nls\n```' }];
+    const response = await send('claude-opus', 'list files', true);
+    const frames = (await response.text()).split('\n').filter(line => line.startsWith('data: {')).map(line => JSON.parse(line.slice(6)));
+    expect(frames.filter(frame => frame.choices?.[0]?.delta?.tool_calls).map(frame => frame.model)).toEqual(['claude-opus-4.8']);
+    expect(frames.at(-1).model).toBe('claude-opus-4.8');
+  });
+
   it("…and routes the next requests straight to the fallback until the reset", async () => {
     process.env.M365_OPUS_FALLBACK_MODEL = "claude-opus-4.8";
     scripted.queue = [REFUSAL, { fullText: "```bash\nls\n```" }];
