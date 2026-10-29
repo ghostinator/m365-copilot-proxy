@@ -39,6 +39,7 @@ import {
   fabricatedToolResponseAt,
   textAfterFirstToolCall,
   longHeredocAsWrite,
+  findShellTool,
   formatToolResponse,
   isProseDocument,
   getMessageContent,
@@ -86,6 +87,11 @@ async function renderImagesMarkdown(images: CapturedImage[], signal?: AbortSigna
 // inability to act instead of calling a tool. See the confab-retry loop below.
 const CONFAB_FORCE_PROMPT =
   "The working directory and the files named in the task ARE present on a real filesystem right now. Do NOT ask me to paste anything, and do NOT say commands return no output — you have not run any command yet. Emit ONE ```bash block this turn: run `ls -la` and `cat` the relevant files. Output only the ```bash block, nothing else.";
+
+// The forcing prompts above all ask for a ```bash block. With no shell tool in the request that
+// sends the model off to write a bash block the proxy rightly refuses to run, so name the real tools.
+const noShellForcePrompt = (tools: { function: { name: string } }[]) =>
+  `No shell is available here, so do not write a bash block. Call a tool instead: reply with ONE fenced block whose info string is exactly one of ${tools.map((t) => t.function.name).join(", ")}, then its arguments as "key: value" lines (a long value may continue on the lines below it). Pick the tool the request names.`;
 
 // The same give-up AFTER the model has already run tools. CONFAB_FORCE_PROMPT
 // says "you have not run any command yet" — false at that point, and the model
@@ -750,7 +756,9 @@ async function handleLocked(
       if (!confab && !remoteArtifact && !halluc) break;
       const retryKind = remoteArtifact ? "Remote artifact completion" : confab ? "Confabulation" : "Hallucinated completion";
       log.info(`${retryKind} detected (no tool call) — forcing retry ${attempt + 1}/${maxConfabRetries}`);
+      const noShell = !remoteArtifact && !!body.tools?.length && !findShellTool(body.tools);
       text = remoteArtifact ? REMOTE_ARTIFACT_FORCE_PROMPT
+        : noShell ? noShellForcePrompt(body.tools!)
         : confab ? (everActed ? MIDTASK_FORCE_PROMPT : CONFAB_FORCE_PROMPT)
         : HALLUCINATION_FORCE_PROMPT;
       const retry = await runBuffered();
