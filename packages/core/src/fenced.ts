@@ -174,7 +174,7 @@ export interface FencedToolSpec {
   /** The free-form param carried as the fence body (mutually exclusive with editPair). */
   bodyParam?: string;
   /** An (old → new) pair rendered as a SEARCH/REPLACE diff. */
-  editPair?: { search: string; replace: string };
+  editPair?: { search: string; replace: string; /** Neither half is required, so a call may be plain headers (stage_skill create). */ optional?: boolean };
 }
 
 /** Derive how a single OpenAI tool maps onto the fenced shape. */
@@ -194,11 +194,14 @@ export function deriveFencedSpec(tool: ToolDef): FencedToolSpec {
   const search = props.find((p) => SEARCH_KEYS.includes(p));
   const replace = props.find((p) => REPLACE_KEYS.includes(p));
   if (search && replace) {
+    // Only a schema that declares `required` and leaves both halves out of it counts as optional.
+    const required: string[] | undefined = tool.function.parameters?.required;
+    const optional = Array.isArray(required) && !required.includes(search) && !required.includes(replace);
     return {
       name,
       description,
       parameterTypes,
-      editPair: { search, replace },
+      editPair: { search, replace, ...(optional ? { optional } : {}) },
       headerParams: props.filter((p) => p !== search && p !== replace),
     };
   }
@@ -1325,18 +1328,22 @@ function parseFencedInner(spec: FencedToolSpec, inner: string): Record<string, u
   // indentation, and reading one line per value cut `oldString` to its first
   // line and lost `newString` below it. Header-only fences without such lines
   // read as before (47 of 47 pi `read` fences in the dumps).
-  const headerOnly = !spec.editPair && spec.bodyParam === undefined;
+  // An optional edit pair with no SEARCH/REPLACE markers in this fence is just two more header
+  // params, so a headers-only call (stage_skill create) parses instead of being refused.
+  const plainHeaders = !!spec.editPair?.optional && !SEARCH_REPLACE_REGEX.test(inner);
+  const headerParams = plainHeaders ? [...spec.headerParams, spec.editPair!.search, spec.editPair!.replace] : spec.headerParams;
+  const headerOnly = (!spec.editPair || plainHeaders) && spec.bodyParam === undefined;
   let open: { key: string; inline: string; more: string[] } | null = null;
   const closeOpen = () => {
     if (open?.more.length) args[open.key] = headerTextValue(open.inline, open.more);
     open = null;
   };
   let i = 0;
-  if (spec.headerParams.length) {
+  if (headerParams.length) {
     for (; i < lines.length; i++) {
       const line = lines[i];
       const m = line.match(/^([A-Za-z0-9_]+):[ \t]?(.*)$/);
-      if (m && spec.headerParams.includes(m[1])) {
+      if (m && headerParams.includes(m[1])) {
         closeOpen();
         const key = m[1];
         const type = spec.parameterTypes[key];
@@ -1367,7 +1374,7 @@ function parseFencedInner(spec: FencedToolSpec, inner: string): Record<string, u
 
   const rest = lines.slice(i).join("\n");
 
-  if (spec.editPair) {
+  if (spec.editPair && !plainHeaders) {
     const sr = rest.match(SEARCH_REPLACE_REGEX);
     if (!sr) {
       log.error(`edit tool "${spec.name}" missing SEARCH/REPLACE markers`);
