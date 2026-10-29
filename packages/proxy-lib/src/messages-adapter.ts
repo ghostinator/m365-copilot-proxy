@@ -2,6 +2,15 @@ import { ChatCompletionRequest } from './schemas.js';
 import { adaptProtocolResponse } from './protocol-stream.js';
 import { ignoredControls, invalid, list, object, rejectFields, string, validateHistory, type ClientAdapterRequest, type Wire } from './client-adapter-types.js';
 
+// Copilot cannot compile "$schema" (Claude Code puts it on every tool schema); drop it at any depth.
+// Keys of property maps are names, not keywords, so a property literally called "$schema" survives.
+const SCHEMA_MAPS=new Set(['properties','patternProperties','$defs','definitions']);
+export function stripSchemaKeyword(node:any, isMap=false):any {
+  if(Array.isArray(node)) return node.map(item=>stripSchemaKeyword(item));
+  if(!node||typeof node!=='object') return node;
+  return Object.fromEntries(Object.entries(node).filter(([key])=>isMap||key!=='$schema').map(([key,child])=>[key,stripSchemaKeyword(child,!isMap&&SCHEMA_MAPS.has(key))]));
+}
+
 export function parseMessagesRequest(value: unknown): ClientAdapterRequest {
   const input=object(value,'request');
   // Claude Code (2026) can send {role:"system"} turns inside messages; fold them into the top-level system.
@@ -55,7 +64,7 @@ export function parseMessagesRequest(value: unknown): ClientAdapterRequest {
     flush();
   }
   validateHistory(messages);
-  const tools=input.tools===undefined?undefined:list(input.tools,'tools').map(raw=>{const t=object(raw,'tool');if(t.type&&t.type!=='custom') invalid('Native vendor tools are not supported');return {type:'function',function:{name:string(t.name,'tool name'),description:t.description,parameters:t.input_schema}};});
+  const tools=input.tools===undefined?undefined:list(input.tools,'tools').map(raw=>{const t=object(raw,'tool');if(t.type&&t.type!=='custom') invalid('Native vendor tools are not supported');return {type:'function',function:{name:string(t.name,'tool name'),description:t.description,parameters:stripSchemaKeyword(t.input_schema)}};});
   let choice:unknown;
   if(input.tool_choice!==undefined) {
     const c=object(input.tool_choice,'tool_choice');

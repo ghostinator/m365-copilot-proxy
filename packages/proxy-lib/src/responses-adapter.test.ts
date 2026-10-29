@@ -112,6 +112,18 @@ describe('client wire adapters', () => {
       expect(result).not.toContain('event: response.completed');expect(result).not.toContain('event: message_stop');
     }
   });
+  it('strips $schema from tool schemas at any depth but keeps a property named $schema', () => {
+    const request = parseMessagesRequest({ model:'m', messages:[{role:'user',content:'hi'}], tools:[{ name:'Glob', description:'d', input_schema:{
+      $schema:'https://json-schema.org/draft/2020-12/schema', type:'object', required:['pattern'],
+      properties:{ pattern:{type:'string'}, $schema:{type:'string'}, list:{type:'array',items:{$schema:'x',type:'string'}}, either:{anyOf:[{$schema:'x',type:'string'},{type:'null'}]} },
+      $defs:{ d:{$schema:'x',type:'integer'} },
+    } }]});
+    expect(request.body.tools?.[0].function.parameters).toEqual({
+      type:'object', required:['pattern'],
+      properties:{ pattern:{type:'string'}, $schema:{type:'string'}, list:{type:'array',items:{type:'string'}}, either:{anyOf:[{type:'string'},{type:'null'}]} },
+      $defs:{ d:{type:'integer'} },
+    });
+  });
   it('folds system turns into system and ignores context_management and thinking blocks', () => {
     const request = parseMessagesRequest({ model:'m', system:'base', context_management:{edits:[]}, messages:[
       {role:'user',content:'hi'}, {role:'system',content:[{type:'text',text:'extra'}]},
