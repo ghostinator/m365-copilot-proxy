@@ -112,4 +112,12 @@ describe('client wire adapters', () => {
       expect(result).not.toContain('event: response.completed');expect(result).not.toContain('event: message_stop');
     }
   });
+  it('folds system turns into system and ignores context_management and thinking blocks', () => {
+    const request = parseMessagesRequest({ model:'m', system:'base', context_management:{edits:[]}, messages:[
+      {role:'user',content:'hi'}, {role:'system',content:[{type:'text',text:'extra'}]},
+      {role:'assistant',content:[{type:'thinking',thinking:'x',signature:'s'},{type:'text',text:'ok'}]},
+    ]});
+    expect(request.body.messages.map((m:any)=>m.role)).toEqual(['system','user','assistant']);
+    expect(request.body.messages[0].content).toEqual([{type:'text',text:'base'},{type:'text',text:'extra'}]);
+  });
 });

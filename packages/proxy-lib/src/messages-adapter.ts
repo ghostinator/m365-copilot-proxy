@@ -4,7 +4,19 @@ import { ignoredControls, invalid, list, object, rejectFields, string, validateH
 
 export function parseMessagesRequest(value: unknown): ClientAdapterRequest {
   const input=object(value,'request');
-  rejectFields(input,['container','context_management','mcp_servers','betas']);
+  // Claude Code (2026) can send {role:"system"} turns inside messages; fold them into the top-level system.
+  if(Array.isArray(input.messages)&&input.messages.some((m:any)=>m?.role==='system')) {
+    const extra:string[]=[];
+    input.messages=input.messages.filter((m:any)=>{
+      if(m?.role!=='system') return true;
+      extra.push(typeof m.content==='string'?m.content:(Array.isArray(m.content)?m.content:[]).map((b:any)=>b?.text??'').join('\n'));
+      return false;
+    });
+    const sys=typeof input.system==='string'?[{type:'text',text:input.system}]:Array.isArray(input.system)?input.system:[];
+    input.system=[...sys,...extra.map(text=>({type:'text',text}))];
+  }
+  // context_management is Anthropic-only: ignored rather than refused.
+  rejectFields(input,['container','mcp_servers','betas']);
   if(input.output_config?.format) invalid('Structured output formats are not supported');
   const messages: Wire[]=[];
   const part=(raw:unknown):Wire=>{
@@ -30,6 +42,8 @@ export function parseMessagesRequest(value: unknown): ClientAdapterRequest {
       if(block.type==='tool_use') {
         if(message.role!=='assistant') invalid('tool_use requires assistant role');
         calls.push({id:string(block.id,'tool ID'),type:'function',function:{name:string(block.name,'tool name'),arguments:JSON.stringify(object(block.input,'tool input'))}});
+      } else if(block.type==='thinking'||block.type==='redacted_thinking') {
+        continue;
       } else if(block.type==='tool_result') {
         if(message.role!=='user'||sawContent) invalid('tool_result must precede user content');
         flush();
