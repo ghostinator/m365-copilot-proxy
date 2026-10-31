@@ -753,8 +753,13 @@ async function handleLocked(
       const confab = looksLikeConfabulation(judged);
       const remoteArtifact = looksLikeRemoteArtifactCompletion(parsed.textContent);
       const halluc = !everActed && looksLikeHallucinatedCompletion(judged);
-      if (!confab && !remoteArtifact && !halluc) break;
-      const retryKind = remoteArtifact ? "Remote artifact completion" : confab ? "Confabulation" : "Hallucinated completion";
+      // The user's last turn names a tool (snake_case, so "Read"/"Glob" in prose don't count)
+      // and the reply made no call: whatever it said instead ("called successfully", a refusal) is wrong.
+      const last = body.messages?.[body.messages.length - 1];
+      const lastText = typeof last?.content === "string" ? last.content : JSON.stringify(last?.content ?? "");
+      const namedTool = last?.role === "user" && !!body.tools?.some((t) => t.function.name.includes("_") && lastText.includes(t.function.name));
+      if (!confab && !remoteArtifact && !halluc && !namedTool) break;
+      const retryKind = remoteArtifact ? "Remote artifact completion" : confab ? "Confabulation" : halluc ? "Hallucinated completion" : "Named tool not called";
       log.info(`${retryKind} detected (no tool call) — forcing retry ${attempt + 1}/${maxConfabRetries}`);
       const noShell = !remoteArtifact && !!body.tools?.length && !findShellTool(body.tools);
       text = remoteArtifact ? REMOTE_ARTIFACT_FORCE_PROMPT
