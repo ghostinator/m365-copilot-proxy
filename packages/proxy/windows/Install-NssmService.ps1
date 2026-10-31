@@ -28,7 +28,7 @@ $args = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$win\Runner.
 & $nssm set $Service DisplayName 'M365 Copilot Proxy'
 & $nssm set $Service Start SERVICE_DELAYED_AUTO_START
 & $nssm set $Service DependOnService Tailscale          # proxy binds the Tailscale address
-& $nssm set $Service AppEnvironmentExtra "M365_DATA_DIR=$DataDir"
+& $nssm set $Service AppEnvironmentExtra "M365_DATA_DIR=$DataDir" "M365_CONFAB_RETRIES=2"   # 2 forcing retries when a named tool is not called
 & $nssm set $Service AppStdout (Join-Path $DataDir 'service-logs\nssm-stdout.log')
 & $nssm set $Service AppStderr (Join-Path $DataDir 'service-logs\nssm-stderr.log')
 & $nssm set $Service AppRotateFiles 1
