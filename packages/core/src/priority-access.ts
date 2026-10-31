@@ -23,6 +23,9 @@
 // Resets happen at midnight UTC: the daily budget at the next UTC midnight, the
 // weekly one at the next UTC Monday ("wait until Monday").
 
+import { readFileSync } from "node:fs";
+import { atomicWritePrivate } from "./storage.js";
+
 /** Which budget ran out. */
 export type PriorityAccessWindow = "day" | "week";
 
@@ -192,10 +195,33 @@ export function priorityAccessExhaustionOf(
 // `OutOfCredits` anyway is remembered under its model ID.
 const exhaustions = new Map<string, PriorityAccessExhaustion>();
 
+// A restart must not forget a wall that lasts until Monday. Opt-in (the server
+// enables it at startup) so tests and embedders never write to the data dir.
+// shortcut: not scoped per account, switching accounts before the reset keeps the old wall, delete the file to clear it.
+let storeFile: string | null = null;
+
+function saveExhaustions(now: Date): void {
+  if (!storeFile) return;
+  const live = [...exhaustions].filter(([, e]) => e.resetsAt > now).map(([key, e]) => [key, { window: e.window, model: e.model, resetsAt: e.resetsAt.toISOString(), message: e.message }]);
+  try { atomicWritePrivate(storeFile, JSON.stringify(Object.fromEntries(live)) + "\n"); } catch { /* losing the memo only costs a re-detection */ }
+}
+
+/** Load walls saved by an earlier run (skipping expired or malformed ones) and keep saving new ones to `file`. */
+export function enablePriorityAccessPersistence(file: string, now: Date = new Date()): void {
+  storeFile = file;
+  try {
+    for (const [key, v] of Object.entries(JSON.parse(readFileSync(file, "utf8")) as Record<string, any>)) {
+      const resetsAt = new Date(v?.resetsAt);
+      if (!(resetsAt > now) || (v.window !== "day" && v.window !== "week") || typeof v.message !== "string") continue;
+      notePriorityAccessExhausted(key, { window: v.window, ...(typeof v.model === "string" ? { model: v.model } : {}), resetsAt, message: v.message.slice(0, 500) }, now);
+    }
+  } catch { /* no file yet, or unreadable: start empty */ }
+}
+
 /** Record that the budget under `key` (a MeteredBudget, or a model ID) ran out. */
 export function notePriorityAccessExhausted(key: string, e: PriorityAccessExhaustion, now: Date = new Date()): void {
   const known = exhaustions.get(key);
-  if (!known || e.resetsAt > known.resetsAt || known.resetsAt <= now) exhaustions.set(key, e);
+  if (!known || e.resetsAt > known.resetsAt || known.resetsAt <= now) { exhaustions.set(key, e); saveExhaustions(now); }
 }
 
 /** The recorded exhaustion under `key`, while it lasts; null once its reset has passed. */

@@ -7,7 +7,13 @@ const observation = z.object({ at: z.number().finite(), daily: z.number().finite
 const route = z.object({ at: z.number().finite(), requested: z.string().max(100), served: z.string().max(100) });
 const schema = z.object({ version: z.literal(1), budgets: z.object({ opus: observation.optional(), "sonnet-5.5": observation.optional() }), route: route.optional() });
 type State = z.infer<typeof schema>;
-const fresh = (at: number, now: number) => at <= now + 30_000 && at > now - 6 * 60 * 60_000 && new Date(at).toISOString().slice(0, 10) === new Date(now).toISOString().slice(0, 10);
+// A count stays true until its budget resets: the daily one at UTC midnight, the weekly one on Monday 00:00 UTC.
+// The route is only a "last seen" record, so it ages out after a week.
+const notFuture = (at: number, now: number) => at <= now + 30_000;
+const sameDay = (at: number, now: number) => new Date(at).toISOString().slice(0, 10) === new Date(now).toISOString().slice(0, 10);
+const weekStart = (ms: number) => { const d = new Date(ms); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - (d.getUTCDay() + 6) % 7); };
+const sameWeek = (at: number, now: number) => weekStart(at) === weekStart(now);
+const freshRoute = (at: number, now: number) => notFuture(at, now) && at > now - 7 * 24 * 60 * 60_000;
 const log = createLogger("observations");
 
 /** No tokens, prompts, tool data or raw upstream messages are accepted here. */
@@ -32,11 +38,14 @@ export class UsageObservations {
     const budgets: Partial<Record<MeteredBudget, z.infer<typeof observation>>> = {};
     for (const key of Object.keys(METERED_BUDGETS) as MeteredBudget[]) {
       const value = this.state.budgets[key];
-      if (value && fresh(value.at, now)) budgets[key] = { ...value };
+      if (!value || !notFuture(value.at, now)) continue;
+      const daily = sameDay(value.at, now) ? value.daily : undefined;
+      const weekly = sameWeek(value.at, now) ? value.weekly : undefined;
+      if (daily !== undefined || weekly !== undefined) budgets[key] = { at: value.at, ...(daily !== undefined ? { daily } : {}), ...(weekly !== undefined ? { weekly } : {}) };
     }
     const known = getAvailableModels();
     const route = this.state.route;
-    return { budgets, route: route && fresh(route.at, now) && known.includes(route.requested) && known.includes(route.served) ? { ...route, fallbackUsed: route.requested !== route.served } : null };
+    return { budgets, route: route && freshRoute(route.at, now) && known.includes(route.requested) && known.includes(route.served) ? { ...route, fallbackUsed: route.requested !== route.served } : null };
   }
   record(account: string | null, requested: string, served: string, metering?: Record<string, number> | null, now = Date.now()) {
     this.select(account);

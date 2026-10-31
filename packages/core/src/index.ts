@@ -83,6 +83,7 @@ export {
   notePriorityAccessExhausted,
   activePriorityAccessExhaustion,
   resetPriorityAccessState,
+  enablePriorityAccessPersistence,
   type MeteredBudget,
   type PriorityAccessExhaustion,
   type PriorityAccessWindow,

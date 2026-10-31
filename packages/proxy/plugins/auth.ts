@@ -1,4 +1,5 @@
-import { getToken, createLogger, startAuthenticationMaintenance } from "@m365-copilot/core";
+import { join } from "node:path";
+import { getToken, createLogger, startAuthenticationMaintenance, enablePriorityAccessPersistence, CONFIG_DIR } from "@m365-copilot/core";
 import { pool } from "../server-pool";
 import { validateBind, httpActivity } from "@m365-copilot/proxy-lib";
 
@@ -11,6 +12,7 @@ export default defineNitroPlugin((app) => {
   process.env.HOST ??= "127.0.0.1";
   process.env.NITRO_HOST ??= process.env.HOST;
   validateBind(process.env.NITRO_HOST);
+  enablePriorityAccessPersistence(join(CONFIG_DIR, "priority-access.json"));
   httpActivity.sources.alerts.start();
   // Nitro 2 does not await async plugins. Own the rejection and fail the process;
   // readiness remains 503 until getToken has completed successfully.

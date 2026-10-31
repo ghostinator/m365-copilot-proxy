@@ -27,10 +27,15 @@ it("does not present expired/future observations as balances and drops unsupport
   store.record(accountA, "secret-in-model-id", "unknown", metering, at);
   expect(store.snapshot(accountA, at).route).toBeNull();
   expect(readFileSync(join(dir, `quota-observations-${accountA}.json`), "utf8")).not.toContain("secret-in-model-id");
-  expect(store.snapshot(accountA, at + 6 * 60 * 60_000)).toEqual({ budgets: {}, route: null });
+  expect(store.snapshot(accountA, at + 6 * 60 * 60_000)).toEqual({ budgets: { opus: { at, daily: 39, weekly: 74 } }, route: null });
   expect(store.snapshot(accountA, at - 60_000)).toEqual({ budgets: {}, route: null });
   store.record(accountA, "claude-opus", "claude-opus", metering, Date.parse("2026-10-24T23:59:00Z"));
-  expect(store.snapshot(accountA, Date.parse("2026-10-25T00:00:00Z"))).toEqual({ budgets: {}, route: null });
+  // Sat 23:59 -> Sun 00:00: the daily count is gone, the weekly one lasts until Monday 00:00 UTC.
+  const sat = Date.parse("2026-10-24T23:59:00Z"), route = { at: sat, requested: "claude-opus", served: "claude-opus", fallbackUsed: false };
+  expect(store.snapshot(accountA, Date.parse("2026-10-25T00:00:00Z"))).toEqual({ budgets: { opus: { at: sat, weekly: 74 } }, route });
+  expect(store.snapshot(accountA, Date.parse("2026-10-25T23:59:59Z")).budgets.opus?.weekly).toBe(74);
+  expect(store.snapshot(accountA, Date.parse("2026-10-26T00:00:00Z"))).toEqual({ budgets: {}, route });
+  expect(store.snapshot(accountA, sat + 8 * 24 * 60 * 60_000).route).toBeNull();
 });
 
 it("treats malformed files as unknown and never carries counts over from a different window", () => {

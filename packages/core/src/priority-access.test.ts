@@ -198,3 +198,28 @@ describe("remembering an exhaustion until its reset", () => {
     expect(activePriorityAccessExhaustion("gpt-6-sol", WED)).toBe(e);
   });
 });
+
+describe("persistence across restart", () => {
+  afterEach(() => resetPriorityAccessState());
+  it("reloads an unexpired wall from disk, skips expired and malformed ones", async () => {
+    const { mkdtempSync, readFileSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { enablePriorityAccessPersistence } = await import("./priority-access.js");
+    const file = join(mkdtempSync(join(tmpdir(), "m365-pa-")), "priority-access.json");
+    const now = new Date("2026-10-31T12:00:00Z");
+    enablePriorityAccessPersistence(file, now);
+    const week = parsePriorityAccessExhaustion("You've used your available priority access to the Sonnet model for the week.", now)!;
+    notePriorityAccessExhausted("sonnet-5.5", week, now);
+    expect(JSON.parse(readFileSync(file, "utf8"))["sonnet-5.5"].resetsAt).toBe("2026-11-02T00:00:00.000Z");
+    resetPriorityAccessState(); // what a restart does to the in-memory map
+    expect(activePriorityAccessExhaustion("sonnet-5.5", now)).toBeNull();
+    enablePriorityAccessPersistence(file, new Date("2026-11-01T08:00:00Z"));
+    expect(activePriorityAccessExhaustion("sonnet-5.5", new Date("2026-11-01T08:00:00Z"))?.resetsAt.toISOString()).toBe("2026-11-02T00:00:00.000Z");
+    resetPriorityAccessState();
+    enablePriorityAccessPersistence(file, new Date("2026-11-02T00:00:01Z")); // reset already passed
+    expect(activePriorityAccessExhaustion("sonnet-5.5", new Date("2026-11-02T00:00:01Z"))).toBeNull();
+    writeFileSync(file, "{broken");
+    expect(() => enablePriorityAccessPersistence(file, now)).not.toThrow();
+  });
+});
