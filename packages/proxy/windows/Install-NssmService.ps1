@@ -38,6 +38,14 @@ $args = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$win\Runner.
 sc.exe failure $Service reset= 86400 actions= restart/10000/restart/10000/restart/10000 | Out-Null
 sc.exe failureflag $Service 1 | Out-Null
 
+# Recovery rules ignore a requested stop, and the Tailscale dependency makes Windows stop us whenever Tailscale
+# updates or restarts. This SYSTEM task starts the service again within a minute (and at boot).
+$taskName = "$Service-Watchdog"
+$action = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$win\Watchdog.ps1`" -Service $Service -DataDir `"$DataDir`""
+$triggers = @((New-ScheduledTaskTrigger -AtStartup), (New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)))
+$settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -StartWhenAvailable
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $triggers -Settings $settings -User 'SYSTEM' -RunLevel Highest -Force | Out-Null
+
 Start-Service $Service
 Start-Sleep 20
 Get-Service $Service | Format-Table Name, Status, StartType
